@@ -7,6 +7,7 @@ package controller
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -178,6 +179,9 @@ func renderDriverDaemonSet(pol *npuv1alpha1.DriverInstallPolicy) *appsv1.DaemonS
 								{Name: "DRIVER_VERSION", Value: pol.Spec.Driver.Version},
 								{Name: "REBOOT_STRATEGY", Value: pol.Spec.RebootStrategy},
 								{Name: "VENDOR", Value: pol.Spec.Vendor},
+								{Name: "ALLOW_DOWNGRADE", Value: strconv.FormatBool(pol.Spec.Driver.AllowDowngrade)},
+								{Name: "VERSION_SOURCE", Value: versionSourceOrDefault(pol.Spec.Driver.VersionSource)},
+								{Name: "SKIP_ON_PASSTHROUGH", Value: strconv.FormatBool(pol.Spec.Driver.SkipOnPassthrough)},
 							},
 							SecurityContext: &corev1.SecurityContext{
 								Privileged: boolPtr(true),
@@ -210,6 +214,9 @@ func renderDriverDaemonSet(pol *npuv1alpha1.DriverInstallPolicy) *appsv1.DaemonS
 							Env: []corev1.EnvVar{
 								{Name: "DRIVER_VERSION", Value: pol.Spec.Driver.Version},
 								{Name: "VENDOR", Value: pol.Spec.Vendor},
+								{Name: "ALLOW_DOWNGRADE", Value: strconv.FormatBool(pol.Spec.Driver.AllowDowngrade)},
+								{Name: "VERSION_SOURCE", Value: versionSourceOrDefault(pol.Spec.Driver.VersionSource)},
+								{Name: "SKIP_ON_PASSTHROUGH", Value: strconv.FormatBool(pol.Spec.Driver.SkipOnPassthrough)},
 							},
 							SecurityContext: &corev1.SecurityContext{
 								Privileged: boolPtr(true),
@@ -351,6 +358,15 @@ func vendorRmmodCommand(vendor, model string) string {
 	default:
 		return "true"
 	}
+}
+
+// versionSourceOrDefault 는 (c) VersionSource 가 빈 값이면 기존 동작인 "Policy" 를 반환합니다.
+// CRD default 가 적용되기 전(구 CR)에도 회귀 없이 Policy 로 동작하도록 보장합니다.
+func versionSourceOrDefault(vs string) string {
+	if vs == "" {
+		return "Policy"
+	}
+	return vs
 }
 
 // SetupWithManager는 DriverDaemonSetReconciler를 Manager에 등록합니다.

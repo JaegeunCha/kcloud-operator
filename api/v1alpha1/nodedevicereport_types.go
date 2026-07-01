@@ -42,6 +42,9 @@ type DeviceEntry struct {
 	DriverVersion       string `json:"driverVersion,omitempty"`
 	DriverVersionDetail string `json:"driverVersionDetail,omitempty"` // 상세 버전 정보 (한 줄 요약)
 	NeedsReboot         bool   `json:"needsReboot,omitempty"`
+	// DriverBinding 은 해당 장치의 PCI 커널 드라이버 바인딩 상태입니다.
+	// "nvidia"=드라이버 바인딩, "vfio-pci"=passthrough 바인딩, "none"=미바인딩(free). (a) passthrough 감지용.
+	DriverBinding string `json:"driverBinding,omitempty"`
 }
 
 type Condition struct {
@@ -54,6 +57,9 @@ type Condition struct {
 type NodeDeviceReportStatus struct {
 	Devices    []DeviceEntry `json:"devices,omitempty"`
 	Conditions []Condition   `json:"conditions,omitempty"`
+	// PassthroughReserved 는 노드에 GPU 가 존재하며 전량 vfio-pci(passthrough)에 바인딩된 경우 true 입니다.
+	// (a) 관리자가 passthrough 예약 노드를 식별하고 드라이버 설치 보류 판단을 보조합니다.
+	PassthroughReserved bool `json:"passthroughReserved,omitempty"`
 }
 
 // +kubebuilder:object:root=true

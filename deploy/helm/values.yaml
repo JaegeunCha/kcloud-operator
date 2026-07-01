@@ -15,7 +15,7 @@ global:
 # operator 이미지: registry 는 global.registry 로 조립됨 (repository 는 registry-relative path).
 image:
   repository: npu-operator
-  tag: v0.5.24
+  tag: v0.5.25
   pullPolicy: IfNotPresent
 
 serviceAccount:
@@ -38,7 +38,7 @@ clusterPolicy:
 detector:
   # registry 는 global.registry 로 조립됨 (repository 는 registry-relative path).
   repository: "npu-detector"
-  tag: "0.4.3"
+  tag: "0.4.5"
   namespace: "kube-system"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -136,8 +136,14 @@ driverInstallPolicies:
       version: "1.9.8-3"
       # registry 는 global.registry 로 조립됨 (repository 는 registry-relative path).
       repository: "furiosa-driver-ds"
-      tag: "1.9.8-3-v2"
+      tag: "1.9.8-3-v4"
       installer: apt
+      # 다운그레이드 허용 여부 (false=버전 낮추기 금지, 안전장치)
+      allowDowngrade: false
+      # 버전 출처: Policy(CR 명세 사용) | Node(노드 자동 감지)
+      versionSource: "Policy"
+      # Passthrough 모드 노드에서 드라이버 설치 건너뜀
+      skipOnPassthrough: true
     upgradePolicy:
       autoUpgrade: true
       drainEnabled: true
@@ -179,8 +185,14 @@ driverInstallPolicies:
       version: "580.159.03"
       # registry 는 global.registry 로 조립됨 (repository 는 registry-relative path).
       repository: "nvidia-driver-ds"
-      tag: "580.159.03-v173"
+      tag: "580.159.03-v174"
       installer: apt
+      # 다운그레이드 허용 여부 (false=버전 낮추기 금지, 안전장치)
+      allowDowngrade: false
+      # 버전 출처: Policy(CR 명세 사용) | Node(노드 자동 감지)
+      versionSource: "Policy"
+      # Passthrough 모드 노드에서 드라이버 설치 건너뜀
+      skipOnPassthrough: true
       env:
         - name: NVIDIA_DRIVER_CHOICE
           value: "recommended"
@@ -221,6 +233,12 @@ driverInstallPolicies:
       repository: "furiosa-rngd-driver-installer"
       tag: "2026.1.0"
       installer: apt
+      # 다운그레이드 허용 여부 (false=버전 낮추기 금지, 안전장치)
+      allowDowngrade: false
+      # 버전 출처: Policy(CR 명세 사용) | Node(노드 자동 감지)
+      versionSource: "Policy"
+      # Passthrough 모드 노드에서 드라이버 설치 건너뜀
+      skipOnPassthrough: true
     upgradePolicy:
       autoUpgrade: true
       drainEnabled: true

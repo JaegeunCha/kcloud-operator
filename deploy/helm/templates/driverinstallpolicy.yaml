@@ -29,6 +29,9 @@ spec:
     {{- with .Values.driverInstallPolicies.furiosa.driver.installer }}
     installer: {{ . }}
     {{- end }}
+    allowDowngrade: {{ .Values.driverInstallPolicies.furiosa.driver.allowDowngrade }}
+    versionSource: {{ .Values.driverInstallPolicies.furiosa.driver.versionSource | quote }}
+    skipOnPassthrough: {{ .Values.driverInstallPolicies.furiosa.driver.skipOnPassthrough }}
     {{- with .Values.driverInstallPolicies.furiosa.driver.env }}
     env:
       {{- toYaml . | nindent 6 }}
@@ -72,6 +75,9 @@ spec:
     {{- with .Values.driverInstallPolicies.nvidia.driver.installer }}
     installer: {{ . }}
     {{- end }}
+    allowDowngrade: {{ .Values.driverInstallPolicies.nvidia.driver.allowDowngrade }}
+    versionSource: {{ .Values.driverInstallPolicies.nvidia.driver.versionSource | quote }}
+    skipOnPassthrough: {{ .Values.driverInstallPolicies.nvidia.driver.skipOnPassthrough }}
     {{- with .Values.driverInstallPolicies.nvidia.driver.env }}
     env:
       {{- toYaml . | nindent 6 }}
@@ -119,6 +125,9 @@ spec:
     {{- with .Values.driverInstallPolicies.rngd.driver.installer }}
     installer: {{ . }}
     {{- end }}
+    allowDowngrade: {{ .Values.driverInstallPolicies.rngd.driver.allowDowngrade }}
+    versionSource: {{ .Values.driverInstallPolicies.rngd.driver.versionSource | quote }}
+    skipOnPassthrough: {{ .Values.driverInstallPolicies.rngd.driver.skipOnPassthrough }}
     {{- with .Values.driverInstallPolicies.rngd.driver.env }}
     env:
       {{- toYaml . | nindent 6 }}

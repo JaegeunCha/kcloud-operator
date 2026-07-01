@@ -143,6 +143,25 @@ type DriverSpec struct {
 
 	// (선택) 추가 호스트 마운트(기본 /lib/modules, /usr/src, /etc, /var/lib/npu-operator 외)
 	ExtraHostMounts []HostPathMount `json:"extraHostMounts,omitempty"`
+
+	// AllowDowngrade (b) 는 호스트에 이미 설치된 드라이버가 desired 보다 상위 버전일 때
+	// 하위 버전으로의 다운그레이드 설치를 허용할지 결정합니다.
+	// 기본 false = 다운그레이드 금지(기존 상위 버전 유지, 설치 보류). true 여야 하위 버전 설치 허용.
+	// +kubebuilder:default=false
+	AllowDowngrade bool `json:"allowDowngrade,omitempty"`
+
+	// VersionSource (c) 는 effective desired 버전을 어디서 채택할지 결정합니다.
+	// Policy : 기존 동작 — spec.driver.version 을 desired 로 사용.
+	// Host   : 호스트에 설치된 버전을 desired 로 채택(기존 존중). 호스트 무드라이버면 Policy 버전으로 fallback.
+	// +kubebuilder:validation:Enum=Policy;Host
+	// +kubebuilder:default=Policy
+	VersionSource string `json:"versionSource,omitempty"`
+
+	// SkipOnPassthrough (a) 는 노드의 GPU 가 전량 vfio-pci(passthrough)에 바인딩된 경우
+	// 드라이버 설치를 보류(skip)할지 결정합니다.
+	// 기본 true = 전량 vfio 노드에서 설치 보류(passthrough 보호). false 면 기존 동작(설치 진행).
+	// +kubebuilder:default=true
+	SkipOnPassthrough bool `json:"skipOnPassthrough,omitempty"`
 }
 
 // ToolkitSpec 은 NVIDIA Container Toolkit 등 런타임 툴킷 설치를 정의합니다.
