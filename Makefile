@@ -279,7 +279,11 @@ CONTROLLER_TOOLS_VERSION ?= v0.18.0
 #ENVTEST_VERSION is the version of controller-runtime release branch to fetch the envtest setup script (i.e. release-0.20)
 ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller-runtime | awk -F'[v.]' '{printf "release-%d.%d", $$2, $$3}')
 #ENVTEST_K8S_VERSION is the version of Kubernetes to use for setting up ENVTEST binaries (i.e. 1.31)
-ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -F'[v.]' '{printf "1.%d", $$3}')
+# 이 라인(kubeVersion >=1.26.0-0 <1.31.0-0)은 클라이언트 라이브러리(k8s.io/api v0.33)와 지원 서버
+# 범위가 다르다. 라이브러리 버전에서 유도하면 1.33 서버로 시험해 지원 범위 안 서버는 한 번도
+# 보지 않는다 — 상한 1.30 으로 고정한다. chart_version_sync_test.go 의
+# TestEnvtestServerVersionWithinChartRange 가 이 값을 kubeVersion 범위와 대조한다.
+ENVTEST_K8S_VERSION ?= 1.30
 GOLANGCI_LINT_VERSION ?= v2.1.0
 
 .PHONY: kustomize

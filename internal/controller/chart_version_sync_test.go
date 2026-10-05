@@ -381,3 +381,37 @@ func TestChartCarriesNoOutOfRangePreset(t *testing.T) {
 		t.Fatal("deploy/helm 에 values-k8s*.yaml 프리셋이 없어 한 번도 대조하지 않았다")
 	}
 }
+
+// envtestK8sVersion 은 Makefile 의 `ENVTEST_K8S_VERSION ?= <major.minor>` 를 읽는다. 값이
+// $(shell …) 같은 식이면 실패한다 — 그 식은 클라이언트 라이브러리 버전(k8s.io/api v0.33)을
+// 따라가 이 라인의 지원 범위(kubeVersion 선언) 밖 API 서버로 시험을 돌린다.
+func envtestK8sVersion(t *testing.T) string {
+	t.Helper()
+	raw, err := os.ReadFile("../../Makefile")
+	if err != nil {
+		t.Fatalf("Makefile 읽기 실패: %v", err)
+	}
+	m := regexp.MustCompile(`(?m)^ENVTEST_K8S_VERSION \?= (.+)$`).FindStringSubmatch(string(raw))
+	if m == nil {
+		t.Fatal("Makefile 에 ENVTEST_K8S_VERSION ?= 선언이 없다")
+	}
+	v := strings.TrimSpace(m[1])
+	if !regexp.MustCompile(`^\d+\.\d+$`).MatchString(v) {
+		t.Fatalf("ENVTEST_K8S_VERSION=%q — 숫자 버전을 명시해야 한다(식으로 두면 지원 범위 밖 서버로 시험한다)", v)
+	}
+	return v
+}
+
+// 증명: envtest 가 띄우는 API 서버 버전이 차트 kubeVersion 범위 안이다.
+// 깨는 뮤테이션: ENVTEST_K8S_VERSION 을 1.33 으로 바꾸거나 식으로 되돌리면 실패한다.
+func TestEnvtestServerVersionWithinChartRange(t *testing.T) {
+	decl, floor, ceil := chartKubeVersionBounds(t)
+	v := envtestK8sVersion(t)
+	got, err := minorOf(v)
+	if err != nil {
+		t.Fatalf("ENVTEST_K8S_VERSION %q 해석 실패: %v", v, err)
+	}
+	if got < floor || got >= ceil {
+		t.Fatalf("envtest API 서버 %s 가 차트 kubeVersion %q 범위 밖이다 — 지원 범위 안 서버로 시험해야 한다", v, decl)
+	}
+}
