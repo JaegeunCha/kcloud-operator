@@ -91,3 +91,14 @@ func TestWorkflowRunsMakeMatchesExactTarget(t *testing.T) {
 		})
 	}
 }
+
+// 증명: test 워크플로가 기본 라인 프리셋과의 교차 대조를 부른다. 1.34 라인은
+// hack/release-prepare.sh 가 이 대조를 release/k8s-1.28 blob 으로 돌리지만, 이 라인에서
+// 프리셋을 바꾼 push 는 그 게이트를 지나지 않으므로 여기 CI 가 한 번 더 본다.
+func TestTestWorkflowRunsOtherLinePresetCheck(t *testing.T) {
+	const wfPath = "../../.github/workflows/test.yml"
+	if !workflowRunsMake(t, wfPath, "other-line-preset-check") {
+		t.Errorf("%s 에 `make other-line-preset-check` 단계가 없다 — 두 라인 프리셋 대조가 "+
+			"로컬에서 손으로 돌릴 때만 돈다", wfPath)
+	}
+}

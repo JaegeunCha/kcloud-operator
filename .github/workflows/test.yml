@@ -1,7 +1,7 @@
 # test.yml: push·PR 시 make test(단위·envtest·차트 렌더)를 돈다.
 # 상세: helm 을 설치해야 차트 렌더 시험 넷이 t.Skip 으로 빠지지 않는다 — kubeVersion
 #       선언만 두고 helm 이 그것을 보는지 확인하지 않으면 경계 시험이 늘 초록이 된다.
-# 생성일: 2025-07-04 | 수정일: 2026-10-05 (Setup Helm 단계 추가)
+# 생성일: 2025-07-04 | 수정일: 2026-10-05 (Setup Helm 단계, 기본 라인 프리셋 교차 대조 단계 추가)
 name: Tests
 
 on:
@@ -31,3 +31,11 @@ jobs:
         run: |
           go mod tidy
           make test
+
+      # 두 릴리스 라인의 프리셋이 operator 외 이미지에서 갈리지 않는지 대조한다. 기본 라인의
+      # 프리셋은 origin/main 의 blob 으로 읽는다 — checkout 은 이 브랜치 한 커밋만 받아 오므로
+      # 먼저 fetch 한다. ref 가 없으면 타깃이 실패로 센다(건너뛰면 늘 초록이 된다).
+      - name: Cross-line preset check
+        run: |
+          git fetch --no-tags --depth=1 origin main
+          make other-line-preset-check OTHER_LINE_REF=origin/main
