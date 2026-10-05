@@ -4,7 +4,7 @@
 //       Idle → UpgradeRequired → PreFlight → Cordoning → Draining →
 //       Upgrading → Validating → Uncordoning → Idle (실패 시 Rollback)
 //       Rollback 도 maxRollbackAttempts 초과 시 터미널 Failed 로 전이 (자동 복구 중단).
-// 생성일: 2026-04-13 | 수정일: 2026-08-07
+// 생성일: 2026-04-13 | 수정일: 2026-10-05 (drain 장치 점유 판정 통일)
 // ============================================================
 
 package upgrade
@@ -1370,26 +1370,21 @@ func (m *UpgradeStateMachine) clearUpgradingLabel(ctx context.Context, nodeName 
 	return nil
 }
 
-// hasDeviceWorkloads는 노드에 GPU/NPU 리소스를 사용하는 Running Pod가 있는지 확인합니다.
+// hasDeviceWorkloads는 노드에 GPU/NPU 장치를 쥔 Pod가 남아 있는지 확인합니다.
+// 판정은 podUsesDevice 하나에 모아 둔다 — eviction 대상 선정(evictDevicePods)과 같은
+// 집합을 봐야 하기 때문이다. 양쪽이 갈리면 drain 이 끝나지 않는다.
 func (m *UpgradeStateMachine) hasDeviceWorkloads(ctx context.Context, nodeName string) (bool, error) {
 	var podList corev1.PodList
 	if err := m.List(ctx, &podList); err != nil {
 		return false, err
 	}
-	for _, pod := range podList.Items {
-		if pod.Spec.NodeName != nodeName {
+	for i := range podList.Items {
+		pod := &podList.Items[i]
+		if pod.Spec.NodeName != nodeName || !podPhaseDrainable(pod) {
 			continue
 		}
-		if pod.Status.Phase != corev1.PodRunning {
-			continue
-		}
-		for _, c := range pod.Spec.Containers {
-			for resName := range c.Resources.Limits {
-				rn := string(resName)
-				if strings.Contains(rn, "nvidia.com/gpu") || strings.Contains(rn, "furiosa.ai/") || strings.Contains(rn, "tenstorrent.com/") {
-					return true, nil
-				}
-			}
+		if podUsesDevice(pod) {
+			return true, nil
 		}
 	}
 	return false, nil
@@ -1411,7 +1406,7 @@ func (m *UpgradeStateMachine) evictDevicePods(ctx context.Context, state *v1alph
 	}
 	for i := range podList.Items {
 		pod := &podList.Items[i]
-		if pod.Spec.NodeName != state.Spec.NodeName || pod.Status.Phase != corev1.PodRunning {
+		if pod.Spec.NodeName != state.Spec.NodeName || !podPhaseDrainable(pod) {
 			continue
 		}
 		if !podUsesDevice(pod) {
@@ -1451,13 +1446,43 @@ func (m *UpgradeStateMachine) evictDevicePods(ctx context.Context, state *v1alph
 	return nil
 }
 
-// podUsesDevice는 Pod가 GPU/NPU 리소스를 요청하는지 반환합니다.
+// hasAcceleratorResourceName 은 리소스명이 등록된 벤더의 가속기 extended resource
+// 도메인 밑에 있는지를 본다. intent.AcceleratorResourceDomains 를 그대로 써서 uninstall
+// 게이트(internal/uninstall/gate.go)와 같은 fail-closed 판정을 공유한다 — 전에는
+// hasDeviceWorkloads·podUsesDevice 가 이 판정을 각자 세 문자열로 따로 적어 두고 있었고,
+// 그 목록에 rebellions.ai/ 가 빠져 있어 rebellions ATOM 파드가 드라이버 업그레이드
+// drain 에서 PDB 를 존중하는 eviction 대상으로 인식되지 못했다.
+func hasAcceleratorResourceName(rn string) bool {
+	for _, domain := range intent.AcceleratorResourceDomains() {
+		if strings.Contains(rn, domain) {
+			return true
+		}
+	}
+	return false
+}
+
+// podPhaseDrainable 은 drain 판정이 세는 단계인지다 — 종료 단계(Succeeded/Failed)만 제외한다.
+// Pending 을 빼면 스케줄만 된 장치 요청 Pod 가 커널 모듈 교체 도중에 시작된다.
+// hasDeviceWorkloads 와 evictDevicePods 가 이 함수를 함께 써서 같은 집합을 본다.
+func podPhaseDrainable(pod *corev1.Pod) bool {
+	return pod.Status.Phase != corev1.PodSucceeded && pod.Status.Phase != corev1.PodFailed
+}
+
+// podUsesDevice는 Pod가 GPU/NPU 장치를 쥐고 있는지 반환합니다 — extended resource limits 를
+// containers 와 initContainers 양쪽에서 봅니다.
+//
+// initContainer 가 장치를 쥐는 동안에도 커널 모듈은 사용 중이다. containers 만 보면
+// 장치를 init 단계에서만 쓰는 Pod 가 "아무것도 안 쥔 Pod" 으로 보여 drain 대상에서 빠지고,
+// 그 위에서 커널 모듈이 교체된다.
+//
+// 이 라인에는 resource.k8s.io 가 없으므로 DRA 축(pod.spec.resourceClaims)은 보지 않는다.
 func podUsesDevice(pod *corev1.Pod) bool {
-	for _, c := range pod.Spec.Containers {
-		for resName := range c.Resources.Limits {
-			rn := string(resName)
-			if strings.Contains(rn, "nvidia.com/gpu") || strings.Contains(rn, "furiosa.ai/") || strings.Contains(rn, "tenstorrent.com/") {
-				return true
+	for _, ctrs := range [][]corev1.Container{pod.Spec.Containers, pod.Spec.InitContainers} {
+		for _, c := range ctrs {
+			for resName := range c.Resources.Limits {
+				if hasAcceleratorResourceName(string(resName)) {
+					return true
+				}
 			}
 		}
 	}

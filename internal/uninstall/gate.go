@@ -6,7 +6,7 @@
 //	operator 가 동적으로 만든 DaemonSet 을 정리한다. 호스트의 드라이버 패키지와
 //	커널 모듈은 건드리지 않는다 — 이 게이트는 Kubernetes 오브젝트만 다룬다.
 //
-// 생성일: 2026-09-10 | 수정일: 2026-09-10
+// 생성일: 2026-09-10 | 수정일: 2026-10-05 (도메인 목록을 intent 로 통일)
 // ============================================================
 package uninstall
 
@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	npuv1alpha1 "kcloud-operator/api/v1alpha1"
+	"kcloud-operator/internal/intent"
 	"kcloud-operator/internal/naming"
 )
 
@@ -40,13 +41,11 @@ import (
 // 목록(intent.VendorForResource)이 아니라 도메인으로 보는 이유는 게이트의 판정이
 // fail-closed 여야 하기 때문이다. 카탈로그에 아직 없는 제품명이나 device-plugin 이
 // 붙이는 변형 이름(nvidia.com/mig-1g.5gb, nvidia.com/gpu.shared)도 사용으로 센다.
-var acceleratorDomains = []string{
-	"nvidia.com/",
-	"furiosa.ai/",
-	"beta.furiosa.ai/",
-	"tenstorrent.com/",
-	"rebellions.ai/",
-}
+//
+// intent.AcceleratorResourceDomains 가 정본이다 — 드라이버 업그레이드 drain
+// (internal/upgrade/state_machine.go)이 같은 집합을 봐야 하고, 전에는 양쪽이 목록을
+// 손으로 적어 drain 쪽만 rebellions.ai/ 를 빠뜨리고 있었다.
+var acceleratorDomains = intent.AcceleratorResourceDomains()
 
 // waitKinds 는 삭제 후 실제로 사라질 때까지 기다리는 종류다. operator 가 finalizer 로
 // DaemonSet 을 정리하므로, 기다리지 않고 다음 단계로 넘어가면 아직 지워지는 중인
