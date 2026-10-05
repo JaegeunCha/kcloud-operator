@@ -12,7 +12,7 @@
 //
 //	몫이다(여기서 네트워크를 타지 않는다).
 //
-// 생성일: 2026-09-09 | 수정일: 2026-09-10 (1.28 라인: DRA 드라이버 이미지 제외)
+// 생성일: 2026-09-09 | 수정일: 2026-10-05 (렌더에 라인 K8s 버전 고정)
 // ============================================================
 package controller
 
@@ -22,14 +22,21 @@ import (
 	"testing"
 )
 
-// helmTemplate 는 deploy/helm 을 렌더한다. helm 이 없는 환경에서는 건너뛴다.
+// chartLineKubeVersion 은 이 라인 차트를 렌더할 때 쓰는 K8s 버전이다. Chart.yaml 의
+// kubeVersion 이 1.31+ 를 거절하므로 핀 없이 렌더하면 helm 이 자기 기본 버전(1.34)으로
+// 능력치를 잡아 kubeVersion 에서 먼저 걸린다 — 렌더 결과를 보려면 범위 안에 있어야 한다.
+const chartLineKubeVersion = "1.28.15"
+
+// helmTemplate 는 deploy/helm 을 이 라인의 K8s 버전으로 렌더한다. helm 이 없는 환경에서는
+// 건너뛴다.
 func helmTemplate(t *testing.T, args ...string) string {
 	t.Helper()
 	bin, err := exec.LookPath("helm")
 	if err != nil {
 		t.Skip("helm 이 PATH 에 없다 — 렌더 시험 건너뜀")
 	}
-	out, err := exec.Command(bin, append([]string{"template", "t", "../../deploy/helm"}, args...)...).CombinedOutput()
+	base := []string{"template", "t", "../../deploy/helm", "--kube-version", chartLineKubeVersion}
+	out, err := exec.Command(bin, append(base, args...)...).CombinedOutput()
 	if err != nil {
 		t.Fatalf("helm template 실패: %v\n%s", err, out)
 	}

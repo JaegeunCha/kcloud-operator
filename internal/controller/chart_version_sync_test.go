@@ -10,12 +10,13 @@
 //
 //	떠 있는지는 라이브 검증의 몫이다(여기서 클러스터를 조회하지 않는다).
 //
-// 생성일: 2026-08-06
+// 생성일: 2026-08-06 | 수정일: 2026-10-05 (kubeVersion 선언 시험 추가)
 // ============================================================
 package controller
 
 import (
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 	"testing"
@@ -178,5 +179,80 @@ func TestReleaseLinePresetsShareNonOperatorImages(t *testing.T) {
 			t.Errorf("%s: %s 가 이미지를 재정의한다 — 라인별로 갈리는 것은 operator 뿐이어야 한다",
 				path, p)
 		}
+	}
+}
+
+// chartKubeVersion 은 Chart.yaml 의 kubeVersion 선언을 읽는다. 선언이 없으면 치명
+// 실패다 — 범위 밖 K8s 에 설치되는 것을 막는 유일한 수단이 사라진 것이다.
+func chartKubeVersion(t *testing.T) string {
+	t.Helper()
+	raw, err := os.ReadFile("../../deploy/helm/Chart.yaml")
+	if err != nil {
+		t.Fatalf("Chart.yaml 읽기 실패: %v", err)
+	}
+	// 값 안에 공백이 있다(">=1.26.0-0 <1.31.0-0") — \S+ 로 잡으면 하한만 읽힌다.
+	m := regexp.MustCompile(`(?m)^kubeVersion:\s*(.+?)\s*$`).FindSubmatch(raw)
+	if m == nil {
+		t.Fatal("Chart.yaml 에 kubeVersion 이 없다 — 범위 밖 K8s 설치를 막을 수단이 없다")
+	}
+	return strings.Trim(string(m[1]), `"'`)
+}
+
+// TestChartKubeVersionMatchesLineRange 는 kubeVersion 선언의 경계가 이 라인의 범위와
+// 같은지 본다. description·README·release.yaml 이 1.26~1.30 으로 적어 둔 라인이므로
+// 선언도 그 경계여야 한다 — 어긋나면 문서가 된다는 범위와 helm 이 강제하는 범위가 갈린다.
+func TestChartKubeVersionMatchesLineRange(t *testing.T) {
+	if got, want := chartKubeVersion(t), ">=1.26.0-0 <1.31.0-0"; got != want {
+		t.Errorf("kubeVersion=%q, want %q (1.26~1.30 라인)", got, want)
+	}
+}
+
+// TestChartKubeVersionRejectsOtherLine 은 kubeVersion 선언이 라인 경계를 실제로 막는지
+// helm 으로 확인한다. 선언을 적어 두고 helm 이 그것을 보는지 확인하지 않으면, 범위 밖
+// 클러스터에 그대로 설치되고 선언은 주석만 한 값이 된다.
+//
+// 주의: os/exec 로 helm 을 부르므로 손으로 돌릴 때는 -count=1 을 붙일 것(캐시가 차트
+// 변경을 보지 못한다). make test 는 -coverprofile 이 캐시를 끈다.
+func TestChartKubeVersionRejectsOtherLine(t *testing.T) {
+	bin, err := exec.LookPath("helm")
+	if err != nil {
+		t.Skip("helm 이 PATH 에 없다 — 범위 시험 건너뜀")
+	}
+	for _, c := range []struct {
+		kube   string
+		reject bool
+	}{
+		{"1.26.0", false},  // 선언 하한
+		{"1.28.15", false}, // 실측한 버전
+		{"1.30.5", false},  // 선언 상한 직전
+		{"1.31.0", true},   // 기본 라인 하한 — 이 차트가 거절해야 한다
+		{"1.34.1", true},   // 기본 라인 최신 — 이 차트가 거절해야 한다
+	} {
+		out, err := exec.Command(bin, "template", "t", "../../deploy/helm",
+			"--kube-version", c.kube).CombinedOutput()
+		switch {
+		case c.reject && err == nil:
+			t.Errorf("--kube-version %s 가 통과했다 — kubeVersion 선언이 경계를 막지 못한다",
+				c.kube)
+		case c.reject && !strings.Contains(string(out), "kubeVersion"):
+			t.Errorf("--kube-version %s 가 거절된 사유가 kubeVersion 이 아니다:\n%s", c.kube, out)
+		case !c.reject && err != nil:
+			t.Errorf("--kube-version %s 가 거절됐다 — 범위 안인데 설치가 막힌다: %v\n%s",
+				c.kube, err, out)
+		}
+	}
+}
+
+// TestChartLintPasses 는 kubeVersion 을 선언한 차트가 helm lint 를 통과하는지 본다.
+// lint 는 kubeVersion 을 강제하지 않으므로 선언 형식이 깨져도 render 에서만 드러난다 —
+// 두 경로를 함께 고정한다.
+func TestChartLintPasses(t *testing.T) {
+	bin, err := exec.LookPath("helm")
+	if err != nil {
+		t.Skip("helm 이 PATH 에 없다 — lint 시험 건너뜀")
+	}
+	if out, err := exec.Command(bin, "lint", "../../deploy/helm",
+		"--kube-version", chartLineKubeVersion).CombinedOutput(); err != nil {
+		t.Errorf("helm lint 실패: %v\n%s", err, out)
 	}
 }
