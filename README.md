@@ -17,9 +17,9 @@ operator 는 그 결과인 `NodeDeviceReport` 와 `kcloud.ai/*` 노드 라벨을
 Kubernetes 버전에 맞는 명령 하나를 고릅니다.
 
 ```bash
-# Kubernetes 1.31~1.34
+# Kubernetes 1.31+
 helm upgrade --install kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-operator \
-  --version 0.7.30 -n kcloud --create-namespace \
+  --version 0.8.0 -n kcloud --create-namespace \
   -f https://raw.githubusercontent.com/openkcloud/kcloud-operator/main/deploy/helm/values-k8s1.34.yaml
 
 # Kubernetes 1.26~1.30
@@ -61,7 +61,7 @@ NFD 설치 여부와도 무관합니다.
 
 ## 📋 Prerequisites
 
-- **Kubernetes**: `main` 브랜치 릴리스는 1.31~1.34, `release/k8s-1.28` 브랜치 릴리스는 1.26~1.30.
+- **Kubernetes**: `main` 브랜치 릴리스는 1.31+(1.34 까지 실측), `release/k8s-1.28` 브랜치 릴리스는 1.26~1.30(1.28 에서 실측).
 - **Helm**: 3.8+
 - **Container runtime**: containerd. 사설 HTTP 레지스트리를 쓰면 노드에 insecure-registry 설정 필요
 - **Go**: 1.24.5+ (소스 빌드 시, `go.mod`)
@@ -102,8 +102,8 @@ cd cmd/kubectl-npu && go build -o kubectl-npu .
 
 ```bash
 helm upgrade --install kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-operator \
-  --version 0.7.30 -n kcloud --create-namespace \
-  -f deploy/helm/values-k8s1.34.yaml
+  --version 0.6.2 -n kcloud --create-namespace \
+  -f deploy/helm/values-k8s1.28.yaml
 ```
 
 차트 버전과 프리셋의 대응은 [빠른 설치](#-빠른-설치) 와 같습니다. 프리셋은 저장소 브랜치의 raw URL 로도  
@@ -113,8 +113,11 @@ helm upgrade --install kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-op
 벤더의 공개 레지스트리(`nvcr.io`, `docker.io/furiosaai` 등)에서 받습니다. 소스 체크아웃에서 설치할  
 때는 차트 경로 `deploy/helm` 을 대신 지정합니다.
 
-K8s 1.26~1.30 클러스터에는 `values-k8s1.28.yaml` 프리셋을 지정합니다. 프리셋은 그 릴리스 라인의  
-operator 이미지 태그와 기능 토글을 담으므로, 프리셋 없이 설치하면 라이브와 다른 구성이 배포됩니다.
+위 명령은 이 브랜치(`release/k8s-1.28`)의 체크아웃에서 쓰는 형태입니다. K8s 1.31+ 클러스터에는  
+차트 0.8.x 와 `values-k8s1.34.yaml` 프리셋을 씁니다. 그 프리셋은 차트 0.8.x 를 담은 `main` 브랜치에  
+있고 이 차트(0.6.x)에는 없습니다 — 0.6.x 는 `kubeVersion` 으로 1.31 이상을 거절하므로 1.31+  
+클러스터에 설치되지 않습니다. 프리셋은 그 릴리스 라인의 operator 이미지 태그와 기능 토글을  
+담으므로, 프리셋 없이 설치하면 라이브와 다른 구성이 배포됩니다.
 
 ### 옵션 B: 래퍼 스크립트
 
