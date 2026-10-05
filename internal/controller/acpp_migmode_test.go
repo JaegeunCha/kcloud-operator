@@ -4,7 +4,7 @@
 //
 //	실패 시 노드 schedulable 복원, 관측 불가 시 fail-closed, 크래시 저널 재진입 회귀까지 고정한다.
 //
-// 생성일: 2026-07-29 | 수정일: 2026-07-30
+// 생성일: 2026-07-29 | 수정일: 2026-10-05
 // ============================================================
 package controller
 
@@ -857,7 +857,7 @@ var _ = Describe("review-i1 M-1/M-3: reboot branch cordons before requesting a r
 
 		acpp := mkNvidiaACPP("reboot-cordon-acpp", sel)
 		Expect(k8sClient.Create(ctx, acpp)).To(Succeed())
-		DeferCleanup(func() { _ = k8sClient.Delete(ctx, acpp) })
+		DeferCleanup(func() { deleteACPPAndWait(acpp.Name) })
 
 		r := &AcceleratorPartitionPolicyReconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 		// devs 는 NeedsReboot(devs)==true 를 만드는 pending=Enabled, current=Disabled 조합.

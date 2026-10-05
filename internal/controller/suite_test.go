@@ -86,10 +86,16 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	By("tearing down the test environment")
-	cancel()
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() {
+		By("tearing down the test environment")
+		cancel()
+		err := testEnv.Stop()
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	By("맨 Delete 로 남은 Terminating AcceleratorPartitionPolicy 검사")
+	Expect(terminatingACPPs()).To(BeEmpty(),
+		"Reconcile 을 부른 스펙은 cleanup 에서 deleteACPPAndWait 을 써야 한다")
 })
 
 // getFirstFoundEnvTestBinaryDir locates the first binary in the specified path.

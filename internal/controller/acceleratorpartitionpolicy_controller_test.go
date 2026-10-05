@@ -1,7 +1,7 @@
 // ============================================================
 // acceleratorpartitionpolicy_controller_test.go: ACPP reconciler envtest
 // 상세: happy-path(no-diff→Ready) — unified DS(dual-core)+NDR+RNGD 노드 시드.
-// 생성일: 2026-07-23 | 수정일: 2026-07-31
+// 생성일: 2026-07-23 | 수정일: 2026-10-05
 // ============================================================
 package controller
 
@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	npuv1alpha1 "kcloud-operator/api/v1alpha1"
 	"kcloud-operator/internal/partition"
@@ -667,8 +668,10 @@ var _ = Describe("ACPP NVIDIA bypasses RNGD conflict guard", func() {
 		}
 		Expect(k8sClient.Create(ctx, acpp)).To(Succeed())
 		// 자기 정리 — 실패해도 seeded 노드/NDR/ACPP 가 타 spec(랜덤 순서)으로 새지 않게 한다.
+		// 아래 Eventually 가 Reconcile 을 돌려 finalizer 를 붙이므로, ACPP 는 맨 Delete 만으로는
+		// Terminating 으로 남는다 — deleteACPPAndWait 로 finalizer 까지 걷어야 실제로 사라진다.
 		DeferCleanup(func() {
-			_ = k8sClient.Delete(ctx, acpp)
+			deleteACPPAndWait(acpp.Name)
 			_ = k8sClient.Delete(ctx, ndr)
 			_ = k8sClient.Delete(ctx, nvNode)
 			_ = k8sClient.Delete(ctx, fuNode)
@@ -2614,4 +2617,40 @@ func cleanupNvidia(name string) {
 	if err := k8sClient.Get(ctx, types.NamespacedName{Name: name}, &ndr); err == nil {
 		_ = k8sClient.Delete(ctx, &ndr)
 	}
+}
+
+// deleteACPPAndWait 는 ACPP 하나를 finalizer 까지 제거하고 NotFound 가 될 때까지 기다린다.
+// 이 스위트는 매니저를 띄우지 않아 Reconcile 이 붙인 finalizer 를 아무도 지우지 않는다 —
+// 맨 Delete 는 객체를 Terminating 으로 영영 남기고, nodeHasOwningPolicy 는 Terminating 을
+// 가리지 않아 뒤에 도는 스펙의 라벨 정리가 조용히 건너뛰어진다.
+func deleteACPPAndWait(name string) {
+	_ = k8sClient.Delete(ctx, &npuv1alpha1.AcceleratorPartitionPolicy{ObjectMeta: metav1.ObjectMeta{Name: name}})
+	Eventually(func() bool {
+		var got npuv1alpha1.AcceleratorPartitionPolicy
+		err := k8sClient.Get(ctx, types.NamespacedName{Name: name}, &got)
+		if apierrors.IsNotFound(err) {
+			return true
+		}
+		if err != nil {
+			return false
+		}
+		if controllerutil.RemoveFinalizer(&got, acppFinalizer) {
+			_ = k8sClient.Update(ctx, &got)
+		}
+		return false
+	}, "5s", "200ms").Should(BeTrue(), fmt.Sprintf("ACPP %s 가 finalizer 정리 후에도 삭제되지 않았다", name))
+}
+
+// terminatingACPPs 는 DeletionTimestamp 가 찍힌 채 남은 AcceleratorPartitionPolicy 이름 목록이다.
+// AfterSuite 가 이것으로 맨 Delete 누수를 스펙 이름 대신 객체 이름으로 드러낸다.
+func terminatingACPPs() []string {
+	var list npuv1alpha1.AcceleratorPartitionPolicyList
+	Expect(k8sClient.List(ctx, &list)).To(Succeed())
+	var out []string
+	for i := range list.Items {
+		if !list.Items[i].DeletionTimestamp.IsZero() {
+			out = append(out, list.Items[i].Name)
+		}
+	}
+	return out
 }
