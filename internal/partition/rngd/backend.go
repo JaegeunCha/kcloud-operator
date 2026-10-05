@@ -1,7 +1,7 @@
 // ============================================================
 // backend.go: RNGD 파티션 backend — DS env(RNGD_PARTITION_POLICY) 기반 apply (spec §2.3, §4.1)
 // 상세: discover/validate/diff/apply/rollback/verify. 적용 범위 = DaemonSet 전역(DaemonSetGlobal).
-// 생성일: 2026-07-23 | 수정일: 2026-08-05
+// 생성일: 2026-07-23 | 수정일: 2026-10-05 (없는 문서를 가리키는 인용 제거)
 // ============================================================
 package rngd
 
@@ -180,8 +180,7 @@ func capabilityProfiles() []v1alpha1.ProfileSupport {
 //
 // IsolationCapability 는 세 축 전부 빈 문자열, 즉 미실측이다. compute 축은 한때
 // subdevice 로 단정했으나 근거가 없었고, 벤더 코드가 오히려 그 단정을 반증한다
-// (reference/libfuriosa-kubernetes 코드 검토, 2026-08-05. 상세는
-// docs/impl/k8s134-verification-20260805.md 부록 F):
+// (reference/libfuriosa-kubernetes 코드 검토, 2026-08-05):
 //   - pkg/cdi_spec/partitioned_device_renderer.go:57-94 filterPartitionedDeviceNodes 는
 //     PE 노드만 코어 범위로 거르고, PE 정규식에 안 걸리는 노드는 else 로 떨어져 무조건
 //     통과시킨다. 그래서 모든 파티션이 카드의 npu{N}mgmt·bar0/2/4·dmar·ch* 를 함께 받는다 —

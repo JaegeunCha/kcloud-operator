@@ -701,7 +701,7 @@ func (m *UpgradeStateMachine) handleUncordoning(
 // 여기서 하는 일은 단 하나, **이 사이클이 걸어 둔 cordon 을 조건이 맞으면 푸는 것**이다.
 // 상태는 Failed 로 남고 사람의 수동 조치는 여전히 필요하다.
 //
-// 왜 푸는가 — 라이브 실측(2026-08-05, docs/impl/k8s134-verification-20260805.md 부록 H.3):
+// 왜 푸는가 — 라이브 실측(2026-08-05):
 // worker1 의 Furiosa 드라이버가 사라지자 DUS 가 Draining("노드 cordon 완료") → Failed("롤백할
 // 이전 버전 없음(job)") 로 착지했고, cordon 이 남은 채 방치됐다. cordon 된 노드는 BuildSnapshot
 // 이 후보에서 통째로 뺀다. 그래서 같은 노드에서 멀쩡히 돌던 NVIDIA GPU 2장까지 배치 불가가
@@ -1446,18 +1446,18 @@ func (m *UpgradeStateMachine) evictDevicePods(ctx context.Context, state *v1alph
 	return nil
 }
 
-// hasAcceleratorResourceName 은 리소스명이 등록된 벤더의 가속기 extended resource
-// 도메인 밑에 있는지를 본다. intent.AcceleratorResourceDomains 를 그대로 써서 uninstall
-// 게이트(internal/uninstall/gate.go)와 같은 fail-closed 판정을 공유한다 — 전에는
-// hasDeviceWorkloads·podUsesDevice 가 이 판정을 각자 세 문자열로 따로 적어 두고 있었고,
-// 그 목록에 rebellions.ai/ 가 빠져 있어 rebellions ATOM 파드가 드라이버 업그레이드
-// drain 에서 PDB 를 존중하는 eviction 대상으로 인식되지 못했다.
 // acceleratorDomains 는 유도된 도메인 접두 집합을 한 번만 받아 둔다. 호출마다 유도하면
 // map 생성·slice 증가·sort 를 리소스명마다 다시 돈다 — hasDeviceWorkloads·evictDevicePods
 // 가 클러스터 전체 Pod 를 받아 Go 에서 걸러내므로 재조정 한 번이 (Pod × 컨테이너 × limits)
 // 만큼 이 함수를 돈다. internal/uninstall/gate.go 가 같은 모양이다.
 var acceleratorDomains = intent.AcceleratorResourceDomains()
 
+// hasAcceleratorResourceName 은 리소스명이 등록된 벤더의 가속기 extended resource
+// 도메인 밑에 있는지를 본다. intent.AcceleratorResourceDomains 를 그대로 써서 uninstall
+// 게이트(internal/uninstall/gate.go)와 같은 fail-closed 판정을 공유한다 — 전에는
+// hasDeviceWorkloads·podUsesDevice 가 이 판정을 각자 세 문자열로 따로 적어 두고 있었고,
+// 그 목록에 rebellions.ai/ 가 빠져 있어 rebellions ATOM 파드가 드라이버 업그레이드
+// drain 에서 PDB 를 존중하는 eviction 대상으로 인식되지 못했다.
 func hasAcceleratorResourceName(rn string) bool {
 	for _, domain := range acceleratorDomains {
 		if strings.Contains(rn, domain) {
