@@ -1452,8 +1452,14 @@ func (m *UpgradeStateMachine) evictDevicePods(ctx context.Context, state *v1alph
 // hasDeviceWorkloads·podUsesDevice 가 이 판정을 각자 세 문자열로 따로 적어 두고 있었고,
 // 그 목록에 rebellions.ai/ 가 빠져 있어 rebellions ATOM 파드가 드라이버 업그레이드
 // drain 에서 PDB 를 존중하는 eviction 대상으로 인식되지 못했다.
+// acceleratorDomains 는 유도된 도메인 접두 집합을 한 번만 받아 둔다. 호출마다 유도하면
+// map 생성·slice 증가·sort 를 리소스명마다 다시 돈다 — hasDeviceWorkloads·evictDevicePods
+// 가 클러스터 전체 Pod 를 받아 Go 에서 걸러내므로 재조정 한 번이 (Pod × 컨테이너 × limits)
+// 만큼 이 함수를 돈다. internal/uninstall/gate.go 가 같은 모양이다.
+var acceleratorDomains = intent.AcceleratorResourceDomains()
+
 func hasAcceleratorResourceName(rn string) bool {
-	for _, domain := range intent.AcceleratorResourceDomains() {
+	for _, domain := range acceleratorDomains {
 		if strings.Contains(rn, domain) {
 			return true
 		}

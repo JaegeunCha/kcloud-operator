@@ -116,21 +116,37 @@ func TestVendorForResource(t *testing.T) {
 // drain 쪽 목록에 없어 실제로 그랬다.
 func TestAcceleratorResourceDomainsCoversEveryVendor(t *testing.T) {
 	domains := AcceleratorResourceDomains()
+	inSet := make(map[string]bool, len(domains))
+	for _, d := range domains {
+		inSet[d] = true
+	}
 	checked := 0
+	want := make(map[string]bool)
 	for vendor, products := range productResource {
 		for product, res := range products {
 			checked++
-			covered := false
-			for _, d := range domains {
-				if strings.Contains(res, d) {
-					covered = true
-					break
-				}
+			i := strings.Index(res, "/")
+			if i < 0 {
+				t.Errorf("%s/%s 의 자원명 %q 에 도메인 구분자 \"/\" 가 없다", vendor, product, res)
+				continue
 			}
-			if !covered {
-				t.Errorf("%s/%s 의 자원명 %q 가 도메인 집합 %v 의 어느 항목과도 겹치지 않는다",
-					vendor, product, res, domains)
+			// 부분 일치로 보면 beta.furiosa.ai/npu 가 furiosa.ai/ 에도 걸려, 유도가
+			// beta.furiosa.ai/ 를 잃어도 "덮였다" 로 읽힌다. 그 자원명의 도메인이
+			// 집합의 **원소** 인지를 본다.
+			d := res[:i+1]
+			want[d] = true
+			if !inSet[d] {
+				t.Errorf("%s/%s 의 도메인 %q 가 집합 %v 에 원소로 없다", vendor, product, d, domains)
 			}
+		}
+	}
+	// 집합이 카탈로그보다 넓으면 판정이 과하게 잡는다 — 양방향으로 고정한다.
+	if len(domains) != len(want) {
+		t.Errorf("도메인 집합 크기 %d, 카탈로그에서 유도되는 수 %d: %v", len(domains), len(want), domains)
+	}
+	for _, d := range domains {
+		if !want[d] {
+			t.Errorf("도메인 %q 는 카탈로그의 어느 자원명에서도 나오지 않는다", d)
 		}
 	}
 	// 카탈로그 순회가 0회면 위 단언은 한 번도 실행되지 않고 통과한다.
