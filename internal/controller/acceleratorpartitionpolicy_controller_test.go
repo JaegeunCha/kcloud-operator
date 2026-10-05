@@ -1,7 +1,7 @@
 // ============================================================
 // acceleratorpartitionpolicy_controller_test.go: ACPP reconciler envtest
 // 상세: happy-path(no-diff→Ready) — unified DS(dual-core)+NDR+RNGD 노드 시드.
-// 생성일: 2026-07-23 | 수정일: 2026-10-05
+// 생성일: 2026-07-23 | 수정일: 2026-10-06
 // ============================================================
 package controller
 
@@ -109,18 +109,14 @@ var _ = Describe("ACPP reconciler happy path", func() {
 	})
 })
 
-// wipeACPPs 는 남은 ACPP 를 finalizer 제거 후 완전히 삭제한다(충돌 테스트 간 contender 목록 격리).
+// wipeACPPs 는 남아 있는 ACPP 를 전부 finalizer 까지 제거하고 NotFound 를 기다린다 —
+// 맨 Delete 와 Finalizers=nil 은 Get 이 한 번 실패하면 Terminating 으로 누수시키고,
+// 다른 finalizer 가 붙어도 조용히 지워 실제 컨트롤러 결함을 가린다.
 func wipeACPPs() {
 	var list npuv1alpha1.AcceleratorPartitionPolicyList
 	Expect(k8sClient.List(ctx, &list)).To(Succeed())
 	for i := range list.Items {
-		name := list.Items[i].Name
-		_ = k8sClient.Delete(ctx, &list.Items[i])
-		var fresh npuv1alpha1.AcceleratorPartitionPolicy
-		if err := k8sClient.Get(ctx, types.NamespacedName{Name: name}, &fresh); err == nil {
-			fresh.Finalizers = nil
-			_ = k8sClient.Update(ctx, &fresh)
-		}
+		deleteACPPAndWait(list.Items[i].Name)
 	}
 }
 
