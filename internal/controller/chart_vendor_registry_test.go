@@ -27,14 +27,11 @@ import (
 // 능력치를 잡아 kubeVersion 에서 먼저 걸린다 — 렌더 결과를 보려면 범위 안에 있어야 한다.
 const chartLineKubeVersion = "1.28.15"
 
-// helmTemplate 는 deploy/helm 을 이 라인의 K8s 버전으로 렌더한다. helm 이 없는 환경에서는
-// 건너뛴다.
+// helmTemplate 는 deploy/helm 을 이 라인의 K8s 버전으로 렌더한다. helm 부재 판정은
+// helmBinary 하나가 한다(CI 면 하드 실패, 로컬이면 건너뜀).
 func helmTemplate(t *testing.T, args ...string) string {
 	t.Helper()
-	bin, err := exec.LookPath("helm")
-	if err != nil {
-		t.Skip("helm 이 PATH 에 없다 — 렌더 시험 건너뜀")
-	}
+	bin := helmBinary(t)
 	base := []string{"template", "t", "../../deploy/helm", "--kube-version", chartLineKubeVersion}
 	out, err := exec.Command(bin, append(base, args...)...).CombinedOutput()
 	if err != nil {

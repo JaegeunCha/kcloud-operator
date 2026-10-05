@@ -214,10 +214,7 @@ func TestChartKubeVersionMatchesLineRange(t *testing.T) {
 // 주의: os/exec 로 helm 을 부르므로 손으로 돌릴 때는 -count=1 을 붙일 것(캐시가 차트
 // 변경을 보지 못한다). make test 는 -coverprofile 이 캐시를 끈다.
 func TestChartKubeVersionRejectsOtherLine(t *testing.T) {
-	bin, err := exec.LookPath("helm")
-	if err != nil {
-		t.Skip("helm 이 PATH 에 없다 — 범위 시험 건너뜀")
-	}
+	bin := helmBinary(t)
 	for _, c := range []struct {
 		kube   string
 		reject bool
@@ -247,10 +244,7 @@ func TestChartKubeVersionRejectsOtherLine(t *testing.T) {
 // lint 는 kubeVersion 을 강제하지 않으므로 선언 형식이 깨져도 render 에서만 드러난다 —
 // 두 경로를 함께 고정한다.
 func TestChartLintPasses(t *testing.T) {
-	bin, err := exec.LookPath("helm")
-	if err != nil {
-		t.Skip("helm 이 PATH 에 없다 — lint 시험 건너뜀")
-	}
+	bin := helmBinary(t)
 	if out, err := exec.Command(bin, "lint", "../../deploy/helm",
 		"--kube-version", chartLineKubeVersion).CombinedOutput(); err != nil {
 		t.Errorf("helm lint 실패: %v\n%s", err, out)
