@@ -231,8 +231,8 @@ var _ = Describe("MigObservation controller", func() {
 		// 재발 시 오염원을 이름으로 바로 지목한다(2026-10-05 시드 1791188615 FAIL 재발 방지).
 		var seeded corev1.Node
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: node}, &seeded)).To(Succeed())
-		Eventually(func() []string { return owningACPPNames(&seeded) }, "5s", "200ms").Should(BeEmpty(),
-			"이 노드를 소유하는 ACPP 가 남아 있다 — 위 이름의 스펙이 cleanup 에서 finalizer 를 제거하지 않았다")
+		Expect(owningACPPNames(&seeded)).To(BeEmpty(),
+			"이 노드를 소유하는 ACPP 가 남아 있다 — 아래 이름의 ACPP 를 만든 스펙이 cleanup 에서 finalizer 를 제거하지 않았다")
 
 		obs := &fakeObserver{obs: []nvidia.Observation{{
 			PCI: "0000:18:00.0", ModeCurrent: migModeDisabled, ModePending: migModeDisabled, Geometry: "disabled",

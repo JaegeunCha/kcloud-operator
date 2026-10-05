@@ -671,10 +671,10 @@ var _ = Describe("ACPP NVIDIA bypasses RNGD conflict guard", func() {
 		// 아래 Eventually 가 Reconcile 을 돌려 finalizer 를 붙이므로, ACPP 는 맨 Delete 만으로는
 		// Terminating 으로 남는다 — deleteACPPAndWait 로 finalizer 까지 걷어야 실제로 사라진다.
 		DeferCleanup(func() {
-			deleteACPPAndWait(acpp.Name)
 			_ = k8sClient.Delete(ctx, ndr)
 			_ = k8sClient.Delete(ctx, nvNode)
 			_ = k8sClient.Delete(ctx, fuNode)
+			deleteACPPAndWait(acpp.Name)
 		})
 		r := &AcceleratorPartitionPolicyReconciler{Client: k8sClient, Scheme: k8sClient.Scheme(), Verifier: fakeVerifier{},
 			NvidiaObserverFactory: func(c client.Client) nvidia.Observer { return fakeNvidiaObserver{c: c} }}
