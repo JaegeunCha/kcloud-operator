@@ -135,6 +135,17 @@ test: manifests generate fmt vet setup-envtest ## Run tests.
 # 따로 부르지 않으면 그 안의 시험은 있는데 한 번도 돌지 않는다.
 	cd cmd/kubectl-npu && go test ./...
 
+# OTHER_LINE_REF 는 기본 라인(1.31+) 트리를 가리키는 git ref 다. 그 라인의 프리셋은 이
+# 차트에 없으므로(kubeVersion 선언과 실재를 맞추려고 뺐다) blob 으로 꺼내 대조한다.
+OTHER_LINE_REF ?= claude-bot
+OTHER_LINE_PRESET ?= deploy/helm/values-k8s1.34.yaml
+
+.PHONY: other-line-preset-check
+other-line-preset-check: setup-envtest ## Compare this line's values preset against the default line's preset blob.
+# ref 가 없으면 건너뛰지 않고 실패로 센다 — 건너뛰면 이 대조가 한 번도 돌지 않은 채
+# 늘 초록이 된다. make test 는 이 대조를 하지 않는다(CI 체크아웃에 그 ref 가 없다).
+	@blob=$$(mktemp) && 	if ! git show "$(OTHER_LINE_REF):$(OTHER_LINE_PRESET)" >"$$blob" 2>/dev/null; then 		rm -f "$$blob"; 		echo "Error: $(OTHER_LINE_REF):$(OTHER_LINE_PRESET) 를 읽지 못했다 — 두 라인 프리셋 대조를 할 수 없다."; 		echo "       OTHER_LINE_REF 로 기본 라인 ref 를 지정하거나 그 ref 를 fetch 할 것."; 		exit 1; 	elif [ ! -s "$$blob" ]; then 		rm -f "$$blob"; 		echo "Error: $(OTHER_LINE_REF):$(OTHER_LINE_PRESET) 가 비었다 — 대조할 내용이 없다."; 		exit 1; 	else 		KCLOUD_OTHER_LINE_PRESET="$$blob" 		KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" 		go test ./internal/controller/ -count=1 -run TestReleaseLinePresetsShareNonOperatorImages; 		rc=$$?; rm -f "$$blob"; exit $$rc; 	fi
+
 .PHONY: fault-test
 fault-test: manifests generate setup-envtest ## Run the fault-injection harness only (test/fault).
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./test/fault/ -v
