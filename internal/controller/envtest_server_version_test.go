@@ -1,14 +1,9 @@
 // ============================================================
-// envtest_server_version_test.go: envtest 가 실제로 띄운 API 서버의 버전을 차트
-//
-//	kubeVersion 범위와 대조한다.
-//
-// 상세: TestEnvtestServerVersionWithinChartRange(chart_version_sync_test.go)는 Makefile
-//
-//	의 ENVTEST_K8S_VERSION 문자열만 본다 — TEST_ASSET_KUBE_APISERVER 등으로 그 선언과
-//	다른 바이너리를 띄우면 그 어긋남을 잡지 못한다. 이 스펙은 BeforeSuite 가 이미 띄운
-//	API 서버에 discovery 로 직접 물어 실제 버전을 대조한다.
-//
+// envtest_server_version_test.go: envtest 가 실제로 띄운 API 서버의 버전이 차트 kubeVersion 범위 안인지 Ginkgo 스펙으로 확인한다.
+// 상세: 이 스펙이 보는 것은 띄운 서버가 차트 kubeVersion 범위 안인지뿐이다. 선언값
+// (ENVTEST_K8S_VERSION)과 실제 바이너리가 같은지는 어느 게이트도 보지 않는다 —
+// 범위 안에 있으면 선언과 실제가 어긋나도 통과한다. 범위 밖 바이너리(예: 1.33)로
+// 띄우면 실패한다.
 // 생성일: 2026-10-06
 // ============================================================
 package controller
