@@ -10,7 +10,10 @@
 //
 //	떠 있는지는 라이브 검증의 몫이다(여기서 클러스터를 조회하지 않는다).
 //
-// 생성일: 2026-08-06 | 수정일: 2026-10-05 (kubeVersion 선언 시험, 반대 라인 프리셋 분리)
+// 생성일: 2026-08-06 | 수정일: 2026-10-06 (readChartKubeVersion·kubeVersionBounds 를
+//
+//	testing.T 없는 순수 함수로 분리 — envtest_server_version_test.go 의 Ginkgo 스펙이 쓴다)
+//
 // ============================================================
 package controller
 
@@ -99,26 +102,35 @@ func minorOf(v string) (int, error) {
 	return major*100 + minor, nil
 }
 
-// chartKubeVersionBounds 는 kubeVersion 선언과 그 두 경계를 돌려준다. 이 라인은 위에
-// 기본 라인이 있어 상한이 있다 — 하한만 읽으면 범위 밖 프리셋 판정이 한 방향밖에 못 본다.
-func chartKubeVersionBounds(t *testing.T) (decl string, floor, ceil int) {
-	t.Helper()
-	decl = chartKubeVersion(t)
+// kubeVersionBounds 는 kubeVersion 선언 문자열에서 [floor, ceil) 경계를 뽑는다. 이 라인은
+// 위에 기본 라인이 있어 상한이 있다 — 하한만 읽으면 범위 밖 프리셋 판정이 한 방향밖에 못 본다.
+// testing.T 가 없는 Ginkgo 스펙(envtest_server_version_test.go)도 쓸 수 있도록 순수 함수로 둔다.
+func kubeVersionBounds(decl string) (floor, ceil int, err error) {
 	f := regexp.MustCompile(`>=\s*(\d+\.\d+)`).FindStringSubmatch(decl)
 	if f == nil {
-		t.Fatalf("kubeVersion %q 에서 >= 하한을 읽지 못했다", decl)
+		return 0, 0, fmt.Errorf("kubeVersion %q 에서 >= 하한을 읽지 못했다", decl)
 	}
 	c := regexp.MustCompile(`<\s*(\d+\.\d+)`).FindStringSubmatch(decl)
 	if c == nil {
-		t.Fatalf("kubeVersion %q 에서 < 상한을 읽지 못했다 — 상한이 없으면 기본 라인 "+
-			"클러스터가 이 차트를 설치한다", decl)
+		return 0, 0, fmt.Errorf("kubeVersion %q 에서 < 상한을 읽지 못했다 — 상한이 없으면 "+
+			"기본 라인 클러스터가 이 차트를 설치한다", decl)
 	}
-	var err error
 	if floor, err = minorOf(f[1]); err != nil {
-		t.Fatalf("kubeVersion 하한 %q 해석 실패: %v", f[1], err)
+		return 0, 0, fmt.Errorf("kubeVersion 하한 %q 해석 실패: %w", f[1], err)
 	}
 	if ceil, err = minorOf(c[1]); err != nil {
-		t.Fatalf("kubeVersion 상한 %q 해석 실패: %v", c[1], err)
+		return 0, 0, fmt.Errorf("kubeVersion 상한 %q 해석 실패: %w", c[1], err)
+	}
+	return floor, ceil, nil
+}
+
+// chartKubeVersionBounds 는 kubeVersionBounds 의 testing.T 래퍼다.
+func chartKubeVersionBounds(t *testing.T) (decl string, floor, ceil int) {
+	t.Helper()
+	decl = chartKubeVersion(t)
+	var err error
+	if floor, ceil, err = kubeVersionBounds(decl); err != nil {
+		t.Fatal(err)
 	}
 	return decl, floor, ceil
 }
@@ -275,20 +287,30 @@ func TestReleaseLinePresetsShareNonOperatorImages(t *testing.T) {
 	}
 }
 
-// chartKubeVersion 은 Chart.yaml 의 kubeVersion 선언을 읽는다. 선언이 없으면 치명
-// 실패다 — 범위 밖 K8s 에 설치되는 것을 막는 유일한 수단이 사라진 것이다.
-func chartKubeVersion(t *testing.T) string {
-	t.Helper()
+// readChartKubeVersion 은 deploy/helm/Chart.yaml 의 kubeVersion 선언을 읽는다. testing.T 가
+// 없는 Ginkgo 스펙(envtest_server_version_test.go)도 쓸 수 있도록 순수 함수로 둔다.
+func readChartKubeVersion() (string, error) {
 	raw, err := os.ReadFile("../../deploy/helm/Chart.yaml")
 	if err != nil {
-		t.Fatalf("Chart.yaml 읽기 실패: %v", err)
+		return "", fmt.Errorf("Chart.yaml 읽기 실패: %w", err)
 	}
 	// 값 안에 공백이 있다(">=1.26.0-0 <1.31.0-0") — \S+ 로 잡으면 하한만 읽힌다.
 	m := regexp.MustCompile(`(?m)^kubeVersion:\s*(.+?)\s*$`).FindSubmatch(raw)
 	if m == nil {
-		t.Fatal("Chart.yaml 에 kubeVersion 이 없다 — 범위 밖 K8s 설치를 막을 수단이 없다")
+		return "", fmt.Errorf("Chart.yaml 에 kubeVersion 이 없다 — 범위 밖 K8s 설치를 막을 수단이 없다")
 	}
-	return strings.Trim(string(m[1]), `"'`)
+	return strings.Trim(string(m[1]), `"'`), nil
+}
+
+// chartKubeVersion 은 readChartKubeVersion 의 testing.T 래퍼다. 선언이 없으면 치명
+// 실패다 — 범위 밖 K8s 에 설치되는 것을 막는 유일한 수단이 사라진 것이다.
+func chartKubeVersion(t *testing.T) string {
+	t.Helper()
+	v, err := readChartKubeVersion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v
 }
 
 // TestChartKubeVersionMatchesLineRange 는 kubeVersion 선언의 경계가 이 라인의 범위와
