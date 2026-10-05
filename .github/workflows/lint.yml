@@ -1,3 +1,6 @@
+# lint.yml: push·PR 시 golangci-lint 와 docs 경로 인용 실재 게이트를 돈다.
+# 상세: CRD embed 번들을 먼저 만들어야 golangci-lint 타입체크가 fresh clone 에서도 통과한다.
+# 생성일: 2025-07-04 | 수정일: 2026-10-05 (docs 경로 인용 실재 게이트 추가)
 name: Lint
 
 on:
@@ -22,6 +25,11 @@ jobs:
       # has matching files; otherwise golangci-lint typecheck fails on a fresh clone.
       - name: Generate CRD embed bundle
         run: make embed-crds
+
+      # 주석·values·워크플로가 가리키는 docs/*.md 가 이 트리에 없으면 실패한다. 이 라인은
+      # 기본 라인의 docs 를 들고 있지 않아, 기본 라인 문서를 가리키는 주석이 쉽게 생긴다.
+      - name: Doc citation existence gate
+        run: make doc-cite-check
 
       - name: Run linter
         uses: golangci/golangci-lint-action@v8

@@ -179,6 +179,11 @@ test-e2e: setup-test-e2e manifests generate fmt vet ## Run the e2e tests. Expect
 cleanup-test-e2e: ## Tear down the Kind cluster used for e2e tests
 	@$(KIND) delete cluster --name $(KIND_CLUSTER)
 
+.PHONY: doc-cite-check
+doc-cite-check: ## 주석·values·워크플로가 가리키는 docs/*.md 경로의 실재 검사(스크립트 자가시험 먼저)
+	bash hack/doc-cite-check.sh --self-test
+	bash hack/doc-cite-check.sh
+
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
 	$(GOLANGCI_LINT) run
