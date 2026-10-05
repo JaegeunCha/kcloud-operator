@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// operation phase — docs/design/operation-model.md §3 상태머신과 1:1.
+// operation phase — operation 상태머신과 1:1.
 const (
 	OpPhasePending                = "Pending"
 	OpPhasePlanning               = "Planning"

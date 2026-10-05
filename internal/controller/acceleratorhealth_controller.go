@@ -397,7 +397,7 @@ func (r *AcceleratorHealthReconciler) ensureRecovery(ctx context.Context, node *
 	// 참가자 쪽에도 같은 가드가 있지만(recoverdevice_participant.go) 애초에 만들지 않는 편이 낫다 —
 	// 작업이 생기면 조정자·저널·검증이 모두 돌고, 쿨다운 버킷에 남은 작업이 업그레이드가 끝난 뒤
 	// 뒤늦게 실행될 여지도 생긴다. 2026-08-10 라이브에서 이 경로가 설치 Job pod 을 지워 노드의
-	// apt 를 죽였다(docs/impl/furiosa-version-swap-20260812.md §3.4).
+	// apt 를 죽였다.
 	if plan.Type == operation.RecoverDevice {
 		if _, upgrading := node.Labels[upgrade.DriverUpgradingLabelKey]; upgrading {
 			logf.FromContext(ctx).Info("드라이버 업그레이드 중 — 복구 작업 생략",

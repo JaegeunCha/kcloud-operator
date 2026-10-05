@@ -77,7 +77,7 @@ var _ = Describe("ACPP advertisement drift", func() {
 		wipeACPPs()
 		DeferCleanup(wipeACPPs)
 		// MigActiveNodeLabel 을 심는다 — DevicePluginRolling 이 이 라벨로 담당 DaemonSet(mixed/flat)
-		// 을 고르므로(docs/ops/mig-mps-node-roles.md), 라벨이 없으면 존재하지 않는 flat DS 를 찾아
+		// 을 고르므로(MIG·MPS 노드 역할 규약), 라벨이 없으면 존재하지 않는 flat DS 를 찾아
 		// 조용히 "안 돈다" 로 읽는다. 이 노드는 MIG 를 쓰므로 실제로도 mixed 가 맞다.
 		labels := map[string]string{"kcloud.ai/nv-drift": "true", nvidia.MigActiveNodeLabel: "true"}
 		geom := nvidia.GeometrySummary("1g.6gb", 4)

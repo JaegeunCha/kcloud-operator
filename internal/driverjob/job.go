@@ -6,7 +6,7 @@
 //       (완료 시 방금 설치한 모듈 언로드 참사 방지) (3) RUN_MODE=job env 주입
 //       (entrypoint 가 설치 후 exit 0) 로 변형한다. node-agent(S5-4) 가 그대로
 //       흡수할 수 있도록 controller 에 의존하지 않는 독립 패키지로 둔다.
-// 생성일: 2026-07-16 | 수정일: 2026-09-09
+// 생성일: 2026-07-16 | 수정일: 2026-10-05
 // ============================================================
 
 // Package driverjob renders the one-shot driver install Job used by
@@ -58,8 +58,7 @@ func RenderInstallJob(pol *npuv1alpha1.DriverInstallPolicy, nodeName, image, ver
 // 정책의 `driver.allowDowngrade` 는 *정책 변경으로 버전을 낮추는 것*을 막는 장치다. 롤백은
 // 그것과 다른 일이다 — 방금 실패한 업그레이드를 원래 자리로 되돌리는 것이고, 정의상 내려간다.
 // 둘을 한 값으로 묶으면 installer 자신의 다운그레이드 가드가 롤백을 거부해 되돌릴 수 없는
-// 업그레이드가 만들어지고, 노드는 실패한 버전에 갇힌다(2026-08-10 라이브,
-// docs/impl/furiosa-version-swap-20260812.md §3.4).
+// 업그레이드가 만들어지고, 노드는 실패한 버전에 갇힌다(2026-08-10 라이브).
 //
 // VERSION_SOURCE 도 Policy 로 고정한다. Host 로 두면 installer 가 호스트에 남은 *실패한* 버전을
 // desired 로 채택해 롤백이 그대로 무동작이 된다.
