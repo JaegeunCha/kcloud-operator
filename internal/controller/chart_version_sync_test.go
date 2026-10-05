@@ -391,10 +391,12 @@ func envtestK8sVersion(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("Makefile 읽기 실패: %v", err)
 	}
-	m := regexp.MustCompile(`(?m)^ENVTEST_K8S_VERSION \?= (.+)$`).FindStringSubmatch(string(raw))
-	if m == nil {
-		t.Fatal("Makefile 에 ENVTEST_K8S_VERSION ?= 선언이 없다")
+	// 선언이 둘 이상이면 make 는 마지막 즉시 대입을 쓰므로 하나만 허용한다.
+	decls := regexp.MustCompile(`(?m)^ENVTEST_K8S_VERSION\s*[:?+]?=\s*(.+)$`).FindAllStringSubmatch(string(raw), -1)
+	if len(decls) != 1 {
+		t.Fatalf("Makefile 의 ENVTEST_K8S_VERSION 선언이 %d개다 — 하나여야 뒤의 선언이 앞의 고정을 가리지 않는다", len(decls))
 	}
+	m := decls[0]
 	v := strings.TrimSpace(m[1])
 	if !regexp.MustCompile(`^\d+\.\d+$`).MatchString(v) {
 		t.Fatalf("ENVTEST_K8S_VERSION=%q — 숫자 버전을 명시해야 한다(식으로 두면 지원 범위 밖 서버로 시험한다)", v)
