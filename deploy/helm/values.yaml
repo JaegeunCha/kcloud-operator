@@ -401,7 +401,7 @@ driverInstallPolicies:
       # 가 적용된 -v173 (v17.3) 사용 권장. -v16 (legacy host install) 는 deprecated.
       # default 는 worker1 host 가 보유한 580.159.03 + -v173 (first-try Idle 도달).
       # 2026-06-01: worker1 실설치=580.159.03 고정. 580.142-v173 → 580.159.03-v173 교정
-      #             (라이브 무중단 복구, idempotent skip 경로). 상세: docs/05 §4.2.7 알려진 이슈
+      #             (라이브 무중단 복구, idempotent skip 경로).
       version: "580.159.03"
       # registry 는 global.registry 로 조립됨 (repository 는 registry-relative path).
       repository: "nvidia-driver-ds"
