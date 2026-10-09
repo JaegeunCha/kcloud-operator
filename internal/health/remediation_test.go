@@ -1,6 +1,6 @@
 // ============================================================
 // remediation_test.go: 원인→작업 매핑과 중복 억제 시험
-// 생성일: 2026-08-04
+// 생성일: 2026-08-04 | 수정일: 2026-10-09
 // ============================================================
 package health
 
@@ -54,7 +54,7 @@ func TestPlanSeparatesNodesAndReasons(t *testing.T) {
 	}
 }
 
-// TestNoOperationForObservationStale 는 관측이 끊긴 것만으로 복구를 만들지 않는지 본다(§10.3).
+// TestNoOperationForObservationStale 는 관측이 끊긴 것만으로 복구를 만들지 않는지 본다(계약 §10.3).
 func TestNoOperationForObservationStale(t *testing.T) {
 	got := PlanRecovery("worker1", ReasonObservationStale, nil, time.Now(), DefaultPolicy())
 	if got.Create {

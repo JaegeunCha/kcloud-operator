@@ -3,7 +3,7 @@
 // 상세: 근거가 없으면 만족으로 치지 않는다(fail closed). 공유 계열 모드는 장치가 아무리
 // 강한 격리를 해도 replica 사이에는 격리가 없으므로 none 으로 강등해서 비교한다 —
 // ACPP 의 sharingReady() 가 status 에 하는 강등과 같은 규율이다.
-// 생성일: 2026-07-29 | 수정일: 2026-07-30
+// 생성일: 2026-07-29 | 수정일: 2026-10-09
 // ============================================================
 package intent
 
@@ -112,7 +112,7 @@ func checkIsolation(nc NodeCapability, req v1alpha1.AcceleratorRequirements, acc
 	for _, dev := range nc.Devices {
 		iso := dev.IsolationCapability
 		// Fault 는 일부러 뺀다 — 이 축이 재는 것은 장애 격리(고장전파 반경)지
-		// minimumIsolation(§19.1, 테넌트 간 compute/memory 분리)이 묻는 것이 아니다.
+		// minimumIsolation(R&D v1.0 §19.1, 테넌트 간 compute/memory 분리)이 묻는 것이 아니다.
 		// map 이 아니라 슬라이스로 돈다 — map 순회는 무작위라 두 축이 모두 실패하면 거절 메시지가
 		// 조정마다 바뀌고, 2분 주기 재조정이 그때마다 status condition 을 다시 쓴다.
 		for _, axis := range []struct{ name, level string }{{"compute", iso.Compute}, {"memory", iso.Memory}} {
