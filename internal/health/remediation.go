@@ -4,7 +4,7 @@
 //
 //	같은 원인이 이어지는 동안 중복 생성되지 않게 트랜잭션 ID 를 쿨다운 버킷으로 고정한다.
 //
-// 생성일: 2026-08-04 | 수정일: 2026-10-09
+// 생성일: 2026-08-04 | 수정일: 2026-10-09 (§ 인용 문서명 보강)
 // ============================================================
 package health
 
@@ -47,7 +47,7 @@ func PlanRecovery(node, reason string, devicePCIs []string, now time.Time, p Eff
 	}
 }
 
-// operationForReason 은 §9.7 표다. 표에 없는 원인은 작업을 만들지 않는다 —
+// operationForReason 은 계약 §9.7 표다. 표에 없는 원인은 작업을 만들지 않는다 —
 // 모르는 원인에 아무 복구나 붙이는 것이 가장 위험한 자동화다.
 func operationForReason(reason string) (operation.Type, bool) {
 	switch reason {

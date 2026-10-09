@@ -5,7 +5,7 @@
 //	mode/geometry/lgip 를 per-PCI 관측한다. 관측 결과는 Backend.WithObservations 로 in-memory
 //	주입(NDR 미patch). parse 규칙은 detector 와 동일 fail-closed(spec §15.3).
 //
-// 생성일: 2026-07-27 | 수정일: 2026-10-09
+// 생성일: 2026-07-27 | 수정일: 2026-10-09 (§ 인용 문서명 보강)
 // ============================================================
 package nvidia
 
@@ -314,7 +314,7 @@ func failClosed(pcis []string, reason string) []Observation {
 }
 
 // parseDelimitedMessage 는 Job 이 termination-log 에 쓴 구분자 포맷을 pci 별 Observation 으로 파싱한다.
-// pci 마다 하나씩 반환하며, section 이 없으면 Err 를 채운다(조용히 드롭 금지, §16.3 fail-closed).
+// pci 마다 하나씩 반환하며, section 이 없으면 Err 를 채운다(조용히 드롭 금지, spec §16.3 fail-closed).
 func parseDelimitedMessage(msg string, pcis []string) []Observation {
 	sections := map[string]string{}
 	var curPCI string

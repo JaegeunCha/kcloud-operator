@@ -1,7 +1,7 @@
 // ============================================================
 // acceleratorpartitionpolicy_controller.go: ACPP reconciler — 상태머신·phase 집계 (spec §3)
 // 상세: 벤더 backend 위임(RNGD full / NVIDIA discovery-only). RNGD apply = DS env 전역.
-// 생성일: 2026-07-23 | 수정일: 2026-10-09
+// 생성일: 2026-07-23 | 수정일: 2026-10-09 (§ 인용 문서명 보강)
 // ============================================================
 package controller
 
@@ -1511,7 +1511,7 @@ func (r *AcceleratorPartitionPolicyReconciler) handleDeletion(ctx context.Contex
 	return ctrl.Result{}, nil
 }
 
-// handleNvidiaDeletion 은 저장된 ApplyRecords(snapshot only — nodeSelector 재평가 금지, §14.3) 만 보고
+// handleNvidiaDeletion 은 저장된 ApplyRecords(snapshot only — nodeSelector 재평가 금지, spec §14.3) 만 보고
 // 노드별 MIG 복원을 수행한다. 하드웨어를 바꾼(phase≥Applying) 노드는 소유권을 잃었으면 CleanupBlocked
 // (finalizer 유지, 운영자 개입). 소유 중이면 quiesce→snapshot PCI rollback→DP 재시작→fresh NDR 로
 // MIG Disabled + baseline gpu 복원 확인→lock 해제. 어느 단계든 err 면 finalizer 유지(requeue).
@@ -1678,7 +1678,7 @@ func (r *AcceleratorPartitionPolicyReconciler) releaseDeletionLeases(ctx context
 }
 
 // releaseOrphanOwnerLocks 는 이 ACPP UID 로 잠긴 노드 중 ApplyRecord 로 정리되지 않은 lock 을 스캔·해제한다
-// (finding #2). nodeSelector 재평가가 아니라 UID annotation 매칭이므로 §14.3(snapshot only)을 위반하지 않고,
+// (finding #2). nodeSelector 재평가가 아니라 UID annotation 매칭이므로 spec §14.3(snapshot only)을 위반하지 않고,
 // releaseNodeOwnerLockUID 가 값 일치 시에만 지우므로 타 소유자 노드는 건드리지 않는다. 이미 해제된 노드는 no-op.
 func (r *AcceleratorPartitionPolicyReconciler) releaseOrphanOwnerLocks(ctx context.Context, uid string) error {
 	var nodes corev1.NodeList

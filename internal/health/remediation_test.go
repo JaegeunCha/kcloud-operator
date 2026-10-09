@@ -1,6 +1,6 @@
 // ============================================================
 // remediation_test.go: 원인→작업 매핑과 중복 억제 시험
-// 생성일: 2026-08-04 | 수정일: 2026-10-09
+// 생성일: 2026-08-04 | 수정일: 2026-10-09 (§ 인용 문서명 보강)
 // ============================================================
 package health
 
@@ -11,7 +11,7 @@ import (
 	"kcloud-operator/internal/operation"
 )
 
-// TestPlanMapsReasonToOperation 는 §9.7 표대로 원인이 작업 타입으로 옮겨지는지 본다.
+// TestPlanMapsReasonToOperation 는 계약 §9.7 표대로 원인이 작업 타입으로 옮겨지는지 본다.
 func TestPlanMapsReasonToOperation(t *testing.T) {
 	now := time.Now()
 	cases := map[string]operation.Type{
