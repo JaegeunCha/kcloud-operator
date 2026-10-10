@@ -7,7 +7,7 @@
 //	internal/partition 을 필요로 하는데, internal/health 는 그 패키지를 import 할 수 없기
 //	때문이다(직접 mutation 금지 계약을 컴파일 그래프로 강제한다).
 //
-// 생성일: 2026-08-04 | 수정일: 2026-10-09
+// 생성일: 2026-08-04 | 수정일: 2026-10-10 (furiosa-family 라벨 리터럴을 상수 참조로 교체)
 // ============================================================
 package controller
 
@@ -145,7 +145,7 @@ func isAcceleratorNode(node *corev1.Node) bool {
 	for k := range node.Labels {
 		switch k {
 		case "kcloud.ai/gpu.present", "kcloud.ai/nvidia.present", "kcloud.ai/rngd.present",
-			"kcloud.ai/warboy.present", "kcloud.ai/tenstorrent.present", "kcloud.ai/furiosa-family.present":
+			"kcloud.ai/warboy.present", "kcloud.ai/tenstorrent.present", npuv1alpha1.FuriosaFamilyPresentLabel:
 			return true
 		}
 	}
