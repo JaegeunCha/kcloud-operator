@@ -1,7 +1,7 @@
 // ============================================================
 // timeslicing_test.go: NVIDIA device-plugin sharing config 렌더 테스트
 // 상세: 스키마 정본은 operator 작업트리의 reference/nvidia-k8s-device-plugin/api/config/v1/{sharing,replicas}.go.
-// 생성일: 2026-07-29 | 수정일: 2026-07-31
+// 생성일: 2026-07-29 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
 // ============================================================
 package nvidia
 

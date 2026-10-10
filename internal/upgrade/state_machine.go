@@ -4,7 +4,7 @@
 //       Idle → UpgradeRequired → PreFlight → Cordoning → Draining →
 //       Upgrading → Validating → Uncordoning → Idle (실패 시 Rollback)
 //       Rollback 도 maxRollbackAttempts 초과 시 터미널 Failed 로 전이 (자동 복구 중단).
-// 생성일: 2026-04-13 | 수정일: 2026-10-09 (§ 인용 문서명 보강)
+// 생성일: 2026-04-13 | 수정일: 2026-10-10 (§ 인용 문서명 보강; 계획서 항목 토큰 제거)
 // ============================================================
 
 package upgrade

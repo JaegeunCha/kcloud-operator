@@ -3,7 +3,7 @@
 // 상세: driver_daemonset_controller(생성)와 upgrade/state_machine(조회)이
 //       동일한 DS 이름을 사용하도록 단일 헬퍼로 통일한다. 불일치 시
 //       업그레이드 상태머신이 드라이버 DS를 찾지 못한다.
-// 생성일: 2026-06-02 | 수정일: 2026-06-02
+// 생성일: 2026-06-02 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
 // ============================================================
 
 // Package naming centralizes Kubernetes resource naming rules shared across

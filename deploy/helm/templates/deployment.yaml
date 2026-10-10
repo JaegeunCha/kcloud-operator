@@ -1,5 +1,5 @@
 # deployment.yaml: NPU Operator Controller Manager Deployment
-# 생성일: 2026-03-25 | 수정일: 2026-09-09 (벤더 이미지를 global.vendorRegistry 로 분리)
+# 생성일: 2026-03-25 | 수정일: 2026-10-10 (벤더 이미지를 global.vendorRegistry 로 분리; 계획서 항목 토큰 제거)
 apiVersion: apps/v1
 kind: Deployment
 metadata:

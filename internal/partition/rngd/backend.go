@@ -1,7 +1,7 @@
 // ============================================================
 // backend.go: RNGD 파티션 backend — DS env(RNGD_PARTITION_POLICY) 기반 apply (spec §2.3, §4.1)
 // 상세: discover/validate/diff/apply/rollback/verify. 적용 범위 = DaemonSet 전역(DaemonSetGlobal).
-// 생성일: 2026-07-23 | 수정일: 2026-10-09
+// 생성일: 2026-07-23 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
 // ============================================================
 package rngd
 

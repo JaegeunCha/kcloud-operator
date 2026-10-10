@@ -4,7 +4,7 @@
 //
 //	seam 으로 typed CommandStep 실행, Verify 는 verifier seam 으로 위임(stateless).
 //
-// 생성일: 2026-07-23 | 수정일: 2026-10-09 (MIG 정규식 판정을 partition 으로 이관)
+// 생성일: 2026-07-23 | 수정일: 2026-10-10 (MIG 정규식 판정을 partition 으로 이관; 계획서 항목 토큰 제거)
 // ============================================================
 package nvidia
 

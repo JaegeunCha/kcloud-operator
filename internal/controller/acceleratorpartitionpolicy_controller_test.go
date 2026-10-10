@@ -1,7 +1,7 @@
 // ============================================================
 // acceleratorpartitionpolicy_controller_test.go: ACPP reconciler envtest
 // 상세: happy-path(no-diff→Ready) — unified DS(dual-core)+NDR+RNGD 노드 시드.
-// 생성일: 2026-07-23 | 수정일: 2026-10-06
+// 생성일: 2026-07-23 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
 // ============================================================
 package controller
 

@@ -1,5 +1,5 @@
 # rbac.yaml: NPU Operator RBAC 리소스
-# 생성일: 2026-03-25 | 수정일: 2026-09-10 (1.28 라인: resource.k8s.io 권한 제외)
+# 생성일: 2026-03-25 | 수정일: 2026-10-10 (1.28 라인: resource.k8s.io 권한 제외; 계획서 항목 토큰 제거)
 apiVersion: v1
 kind: ServiceAccount
 metadata:

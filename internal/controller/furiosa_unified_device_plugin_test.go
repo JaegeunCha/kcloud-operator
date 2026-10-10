@@ -3,7 +3,7 @@
 // 상세: ensureFuriosaUnifiedDevicePlugin() 의 단일 DS 렌더(공통 PCI nodeSelector·기본 이미지·
 //       RNGD_PARTITION_POLICY env·config 마운트)와 Unified 토글 전환/롤백 시 반대편 DS 정리를
 //       fake client 로 검증 (envtest 불필요)
-// 생성일: 2026-07-20 | 수정일: 2026-09-09
+// 생성일: 2026-07-20 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
 // ============================================================
 
 package controller
