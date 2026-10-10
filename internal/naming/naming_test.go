@@ -143,7 +143,7 @@ func TestDriverDSName_AlwaysHasDriverSuffix(t *testing.T) {
 	}
 }
 
-// TestInstallJobName 는 WP-C-1 install Job 이름 규약을 검증한다.
+// TestInstallJobName 는 install Job 이름 규약을 검증한다.
 //   - "kcloud-<vendor>[-<model>]-install-<8hex>" 형태
 //   - 동일 입력에 대해 결정론적(같은 값)
 //   - 노드가 다르면 접미사가 달라짐(노드별 분리)

@@ -301,7 +301,7 @@ func TestApplySharingCreatesConfigMapAndPatchesDS(t *testing.T) {
 }
 
 // TestApplySharingRejectsInvalidLayout: 렌더러(RenderSharingConfig)는 replicas 를 검증하지 않으므로
-// backend 가 fail-closed 로 막아야 한다 — 아니면 DP 가 기동 실패하는 config 가 실려나간다(Task 3 리뷰 지적).
+// backend 가 fail-closed 로 막아야 한다 — 아니면 DP 가 기동 실패하는 config 가 실려나간다(리뷰 지적).
 func TestApplySharingRejectsInvalidLayout(t *testing.T) {
 	ctx := context.Background()
 	c := fake.NewClientBuilder().WithScheme(scheme()).WithObjects(dpDaemonSet(), worker1Node()).Build()

@@ -36,7 +36,7 @@ type Target struct {
 	// DaemonSet 식별(RNGD apply/충돌 판정 기준).
 	DaemonSetName      string
 	DaemonSetNamespace string
-	// Owner 는 이 target 을 요청한 ACPP 의 .metadata.name — owner-lock annotation 값(Task 9 두 writer 조정).
+	// Owner 는 이 target 을 요청한 ACPP 의 .metadata.name — owner-lock annotation 값(두 writer 조정).
 	Owner string
 	// Generation 은 요청 ACPP 의 .metadata.generation — Job operation-ID 재료(nvidia MIG).
 	Generation int64

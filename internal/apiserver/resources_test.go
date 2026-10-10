@@ -221,7 +221,7 @@ func TestClassesPoliciesWorkloads_Endpoints(t *testing.T) {
 }
 
 // TestClassesPoliciesWorkloads_ForbiddenWithoutAuthz 는 각 라우트가 자기 리소스의 list 권한을
-// 실제로 요구하는지 본다(Task 4 I-2 선례: authz 를 빼먹으면 무권한 요청도 200 이 나간다).
+// 실제로 요구하는지 본다(I-2 선례: authz 를 빼먹으면 무권한 요청도 200 이 나간다).
 func TestClassesPoliciesWorkloads_ForbiddenWithoutAuthz(t *testing.T) {
 	for _, tc := range []struct {
 		path     string

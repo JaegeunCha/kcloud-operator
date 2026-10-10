@@ -191,7 +191,7 @@ func timeSlicedACPP(name string, sel map[string]string, replicas int32) *npuv1al
 	}
 }
 
-// Task 7 후속 — runSharingOnly(layout 없는 순수 공유 정책)는 이전까지 근거 게이트가 완전히
+// runSharingOnly(layout 없는 순수 공유 정책)는 이전까지 근거 게이트가 완전히
 // 비켜가는 구멍이었다(ec.Verified 가 세워지지 않았다). 이 두 스펙은 그 구멍이 닫혔음을 앙방향으로
 // 고정한다.
 var _ = Describe("ACPP sharing-only evidence gate", func() {

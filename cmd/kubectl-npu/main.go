@@ -2,7 +2,7 @@
 // 상세: kubectl npu status[--json]/driver-version/upgrade/toggle/describe 명령을 제공.
 //
 //	조회·제어 로직은 pkg/npuctl(kcloud-operator 모듈, replace로 로컬 참조)에 위임하고,
-//	이 파일은 CLI 파싱 + 사람용/JSON 출력 포맷팅만 담당한다(S5-3-① 관리 API 1단계).
+//	이 파일은 CLI 파싱 + 사람용/JSON 출력 포맷팅만 담당한다.
 //
 // 생성일: 2026-03-25 | 수정일: 2026-08-24
 package main

@@ -167,7 +167,7 @@ func TestTranslateUnknownVendorNamesTheClass(t *testing.T) {
 }
 
 // 같은 벤더가 두 번 매핑되면 선택이 비결정적이 된다 — webhook 이 이미 이걸 막지만
-// failurePolicy=Ignore 라 webhook 이 죽어도 Translate 스스로 걸러야 한다(D1).
+// failurePolicy=Ignore 라 webhook 이 죽어도 Translate 스스로 걸러야 한다.
 func TestTranslateRejectsDuplicateVendor(t *testing.T) {
 	req := Request{ClassName: "c", Mappings: []v1alpha1.AcceleratorMapping{{Vendor: vendorNvidia}, {Vendor: "NVIDIA"}},
 		Access: v1alpha1.AccessSpec{Mode: v1alpha1.AccessModeExclusive}, AllocationAPI: v1alpha1.AllocationAPIAuto}

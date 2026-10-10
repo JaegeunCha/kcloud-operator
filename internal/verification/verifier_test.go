@@ -302,7 +302,7 @@ func TestLoadReturnsNilWhenAbsent(t *testing.T) {
 	}
 }
 
-// TestVerifyThenFreshnessSeam 은 Task 2·3·5·6 의 이음매다 — 각 단계가 따로 통과해도 이어
+// TestVerifyThenFreshnessSeam 은 검증→지문→신선도 판정을 잇는 이음매다 — 각 단계가 따로 통과해도 이어
 // 붙였을 때 재부팅 후 근거가 계속 신선하다고 나오면 아무 소용이 없다.
 func TestVerifyThenFreshnessSeam(t *testing.T) {
 	geom := nvidia.GeometrySummary("1g.6gb", 4)

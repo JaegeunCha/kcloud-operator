@@ -104,7 +104,7 @@ func TestCapabilities_DeniedWithoutNDRAuthz(t *testing.T) {
 	}
 }
 
-// TestBuildNodeCapabilities_FailedSiblingDoesNotHideReadyPolicy — 라이브 결함 D-4(Task 5 §5.2):
+// TestBuildNodeCapabilities_FailedSiblingDoesNotHideReadyPolicy — 라이브 결함 D-4(§5.2):
 // 사전순 앞의 Failed 정책("worker1-a2-timeslice")이 같은 노드의 Ready 정책(readySiblingPolicyName)을
 // /capabilities 에서 통째로 가리고 노드 전체를 candidate:false 로 만들면 안 된다.
 func TestBuildNodeCapabilities_FailedSiblingDoesNotHideReadyPolicy(t *testing.T) {

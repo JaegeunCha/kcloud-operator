@@ -75,7 +75,7 @@ func Translate(req Request, snap []NodeCapability) (*Result, error) {
 			Message: fmt.Sprintf("AcceleratorClass %s declares no vendor mapping", req.ClassName)}
 	}
 	// admission webhook 이 이미 벤더 중복을 막지만 failurePolicy=Ignore 라 웹훅이 죽으면
-	// 통과할 수 있다(D1) — 여기서도 걸러야 "선택이 비결정적" 인 클래스가 조용히 첫 매핑으로
+	// 통과할 수 있다 — 여기서도 걸러야 "선택이 비결정적" 인 클래스가 조용히 첫 매핑으로
 	// 정해지는 일이 없다.
 	if dup := duplicateVendor(mappings); dup != "" {
 		return nil, &Reject{Axis: AxisCandidates, Reason: v1alpha1.AWReasonNoVendorMapping,

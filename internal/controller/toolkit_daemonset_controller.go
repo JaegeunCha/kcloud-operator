@@ -1,5 +1,5 @@
 // ============================================================
-// toolkit_daemonset_controller.go: Container Toolkit DaemonSet 컨트롤러 (S2-2)
+// toolkit_daemonset_controller.go: Container Toolkit DaemonSet 컨트롤러
 // 상세: DriverInstallPolicy.spec.toolkit.enabled=true 인 정책에 대해 vendor 별
 //       container-toolkit DaemonSet 을 생성/업데이트합니다. NVIDIA 는
 //       nvidia-container-toolkit 이미지를 통해 containerd 에 nvidia runtime 을

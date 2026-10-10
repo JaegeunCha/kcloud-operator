@@ -91,7 +91,7 @@ func BuildSnapshot(nodes []corev1.Node, acpps []v1alpha1.AcceleratorPartitionPol
 }
 
 // applyACPPStatus 는 이 노드를 타깃하는 ACPP **전체**의 상태를 스냅샷에 반영한다.
-// 이름 사전순 첫-매치 단락은 라이브 결함 D-4(Task 5 §5.2)의 원인이었다: 사전순 앞의 Failed 정책이
+// 이름 사전순 첫-매치 단락은 라이브 결함 D-4(§5.2)의 원인이었다: 사전순 앞의 Failed 정책이
 // 같은 노드의 Ready 정책 관측을 통째로 가리고 노드 전체를 후보에서 빼 버렸다(Translate 의
 // firstReject/nodeHasVendor 와 같은 "첫 매치가 나머지를 폐기" 계열).
 // 채택 규칙: 수렴(observedGeneration==generation) + Ready 인 정책이 있으면 그 관측을 쓴다 —

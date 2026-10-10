@@ -143,7 +143,7 @@ func (r *AcceleratorPartitionPolicyReconciler) ensureMigModeEnabled(
 		return false, ts, err // 영속 실패 시 cordon 하지 않는다(우리가 잠갔다는 사실이 durable 해야 복원 가능).
 	}
 	q := partition.NvidiaQuiescer(r.Client)
-	// remaining 은 정보성이다 — 완료 판정은 오직 AssertQuiesced 로 한다(Task 5 I-2).
+	// remaining 은 정보성이다 — 완료 판정은 오직 AssertQuiesced 로 한다(I-2).
 	if _, err := q.EvictDeviceWorkloads(t.Ctx, t.NodeName); err != nil {
 		return false, ts, err
 	}

@@ -112,7 +112,7 @@ func TestFuriosaUnified_OverrideImage(t *testing.T) {
 
 // TestFuriosaUnified_PreservesPartitionEnvWhenACPPOwns는 live DS 가 ACPP owner 어노테이션을
 // 가질 때 NPUClusterPolicy 가 RNGD_PARTITION_POLICY 를 덮어쓰지 않고 live 값을 보존하는지 검증한다
-// (두 writer 조정, Task 9).
+// (두 writer 조정).
 func TestFuriosaUnified_PreservesPartitionEnvWhenACPPOwns(t *testing.T) {
 	t.Setenv("OPERATOR_NAMESPACE", "kcloud")
 

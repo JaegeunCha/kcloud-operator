@@ -1,5 +1,5 @@
 // ============================================================
-// rebootjob.go: cross-major 드라이버 교체용 노드 재부팅 Job 렌더러 (S2-5)
+// rebootjob.go: cross-major 드라이버 교체용 노드 재부팅 Job 렌더러
 // 상세: install Job 의 축소판 — privileged/hostPID 로 host PID1 네임스페이스에서
 //
 //	systemctl reboot 를 실행한다. 노드가 재부팅되면 pod 은 자연 소멸하므로,

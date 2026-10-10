@@ -1,5 +1,5 @@
 // ============================================================
-// job_test.go: WP-C-1 install Job 빌더 단위 테스트
+// job_test.go: install Job 빌더 단위 테스트
 // 상세: privileged/hostPID/OnFailure/ttl/backoff/RUN_MODE env/nodeName 고정,
 //       PreStop·probe 제거(완료 시 rmmod 참사 방지), Furiosa secret,
 //       imagePullSecrets, JobOverrides override, ownerReference(DIP) 검증.

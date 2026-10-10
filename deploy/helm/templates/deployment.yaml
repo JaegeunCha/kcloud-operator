@@ -106,7 +106,7 @@ spec:
         - name: KCLOUD_OPERATION_COORDINATOR
           value: "delegate"
         {{- end }}
-        # P6(S4-5) Pod Security: pod-level runAsNonRoot+seccompRuntimeDefault 와 결합해 restricted 준수.
+        # Pod Security: pod-level runAsNonRoot+seccompRuntimeDefault 와 결합해 restricted 준수.
         # cert(webhook/api)는 read-only secret 마운트, manager 는 rootfs 에 쓰지 않으므로 RO rootfs 안전.
         securityContext:
           allowPrivilegeEscalation: false

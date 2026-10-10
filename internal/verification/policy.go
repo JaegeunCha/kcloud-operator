@@ -43,7 +43,7 @@ func DefaultPolicy() EffectivePolicy {
 			v1alpha1.EvidenceCheckAllocationProbe:   false,
 		},
 		TTL: defaultTTL,
-		// FirmwareVersion 은 기본 감시축에서 뺀다 — 의도된 선택이다(설계 근거는 Task 6 문서).
+		// FirmwareVersion 은 기본 감시축에서 뺀다 — 의도된 선택이다(설계 근거는 별도 문서).
 		InvalidateOn:     []string{FieldBootID, FieldDriverVersion, FieldKernelVersion, FieldGeneration},
 		DriftGracePeriod: defaultDriftGracePeriod,
 	}

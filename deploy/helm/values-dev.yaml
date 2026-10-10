@@ -37,10 +37,10 @@ furiosa:
   unified:
     enabled: true
 
-# Admission webhook (S4-1): DIP/NCP validating + opt-in Pod mutating. 라이브 검증 상시 on.
+# Admission webhook: DIP/NCP validating + opt-in Pod mutating. 라이브 검증 상시 on.
 webhook:
   enabled: true
 
-# 관리 REST API (S5-3-②): operator pod 내 HTTPS listener(:9444). 라이브 검증 상시 on.
+# 관리 REST API: operator pod 내 HTTPS listener(:9444). 라이브 검증 상시 on.
 api:
   enabled: true

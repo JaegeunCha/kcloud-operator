@@ -71,7 +71,7 @@ func DriverDSName(vendor, model string) string {
 
 // InstallJobName returns the driver install Job name for a given vendor/model/node.
 //
-// WP-C-1(Mode=job): 순간 install Job 의 이름 규약. DriverDSName 과 대칭이되 노드별로
+// 순간 install Job 의 이름 규약. DriverDSName 과 대칭이되 노드별로
 // 분리되며(노드 고정 Job), 결정적 이름이 곧 동시성 lease 역할을 한다 — 동일
 // (vendor,model,node) 에는 항상 같은 이름이 나오므로 중복 Job 생성이 구조적으로 불가능하다
 // (Get-before-Create + AlreadyExists 방어).
@@ -106,7 +106,7 @@ func InstallJobName(vendor, model, nodeName string) string {
 	return prefix + "-install-" + short
 }
 
-// RebootJobName 은 노드 재부팅 Job 의 결정론적 이름이다(S2-5). node 해시로 중복 생성을
+// RebootJobName 은 노드 재부팅 Job 의 결정론적 이름이다. node 해시로 중복 생성을
 // 방지(de-facto lease) — 벤더 무관(재부팅은 host 커널 문제라 노드 단위).
 func RebootJobName(nodeName string) string {
 	sum := sha256.Sum256([]byte(nodeName))

@@ -8,7 +8,7 @@ metadata:
   namespace: {{ .Values.clusterPolicy.namespace | default .Release.Namespace }}
 spec:
   {{- with .Values.imagePullSecrets }}
-  # 컨트롤러가 detector/device-plugin 자식 DS + 생성 SA 에 전파한다 (G2).
+  # 컨트롤러가 detector/device-plugin 자식 DS + 생성 SA 에 전파한다.
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
   {{- end }}

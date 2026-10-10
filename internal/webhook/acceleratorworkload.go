@@ -52,7 +52,7 @@ func (v *AWValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admis
 // 클래스 참조·모드·요구사항이 지금 클러스터에서 성립하는지 본다. 스냅샷 조회(Load)가 실패하면
 // (API 서버 일시 오류 등) 여기서 거절하지 않고 에러를 그대로 올려 admission 이 지연·에러로
 // 끝나게 둔다 — failurePolicy=Ignore 라 웹훅이 타임아웃/에러 나면 API 서버가 알아서 통과시키고,
-// 권위 판정은 어차피 컨트롤러가 다시 한다(D1). 여기서 fail-open 을 흉내 내려고 소리 없이
+// 권위 판정은 어차피 컨트롤러가 다시 한다. 여기서 fail-open 을 흉내 내려고 소리 없이
 // 통과시키면 실패를 감추게 되므로 하지 않는다.
 func validateAcceleratorWorkload(ctx context.Context, c client.Client, obj runtime.Object) (admission.Warnings, error) {
 	aw, ok := obj.(*npuv1alpha1.AcceleratorWorkload)

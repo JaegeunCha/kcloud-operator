@@ -1,6 +1,6 @@
 {{- if .Values.webhook.enabled }}
 # ============================================================
-# webhook.yaml: Admission webhook Service + cert Secret + Validating/Mutating 설정 (S4-1)
+# webhook.yaml: Admission webhook Service + cert Secret + Validating/Mutating 설정
 # 상세: cert 는 lookup 으로 최초 1회 발급·재사용(멱등), failurePolicy=Ignore, opt-in 라벨 mutating
 # 생성일: 2026-07-20 | 수정일: 2026-08-24
 # ============================================================

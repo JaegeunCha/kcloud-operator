@@ -341,7 +341,7 @@ func TestBuildInventory_PendingRowCarriesNoInstanceCounts(t *testing.T) {
 	}
 }
 
-// TestBuildInventory_FailedSiblingDoesNotHideReadyRows — 라이브 결함 D-4(Task 5 §5.2):
+// TestBuildInventory_FailedSiblingDoesNotHideReadyRows — 라이브 결함 D-4(§5.2):
 // devicesForNode 의 첫-매치 단락이 Failed 정책("worker1-a2-timeslice")을 골라 같은 노드의
 // Ready 정책(readySiblingPolicyName) 장치 행을 뭉개면 안 된다(/accelerators total 4→ 정상 복원).
 func TestBuildInventory_FailedSiblingDoesNotHideReadyRows(t *testing.T) {

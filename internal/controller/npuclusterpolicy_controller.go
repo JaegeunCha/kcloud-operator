@@ -542,7 +542,7 @@ func (r *NPUClusterPolicyReconciler) ensureNvidiaDevicePlugin(ctx context.Contex
 		applyExcludeNodeSelector(&ds.Spec.Template.Spec, policy.Spec.Nvidia.ExcludeNodeSelector)
 		applyImagePullSecrets(&ds.Spec.Template.Spec, policy.Spec.ImagePullSecrets)
 
-		// 두 writer 조정: ACPP 가 sharing config 를 소유하면 live 배선을 보존한다(Task 3).
+		// 두 writer 조정: ACPP 가 sharing config 를 소유하면 live 배선을 보존한다.
 		var live appsv1.DaemonSet
 		if err := r.Get(ctx, types.NamespacedName{Name: ds.Name, Namespace: ds.Namespace}, &live); err == nil {
 			preserveNvidiaSharing(&live, ds)
@@ -1127,7 +1127,7 @@ interval: 10`,
 	applyImagePullSecrets(&ds.Spec.Template.Spec, policy.Spec.ImagePullSecrets)
 
 	// 두 writer 조정: ACPP 가 partition env 를 소유하면(owner 어노테이션) live 값을 보존한다.
-	// (ACPP 가 RNGD_PARTITION_POLICY 의 권위 — Task 9. 어노테이션 없으면 기존 동작.)
+	// (ACPP 가 RNGD_PARTITION_POLICY 의 권위. 어노테이션 없으면 기존 동작.)
 	var live appsv1.DaemonSet
 	if err := r.Get(ctx, types.NamespacedName{Name: ds.Name, Namespace: ds.Namespace}, &live); err == nil {
 		if owner, owned := live.Annotations[rngd.PartitionOwnerAnnotation]; owned {
@@ -1724,7 +1724,7 @@ func renderDetectorDS(image string, pullSecrets []corev1.LocalObjectReference) *
 							// NFD/GFD 라벨링 능력 활성화(node patch RBAC 는 kcloud-node-manager-role 에 부여됨).
 							{Name: "NODEAGENT_ENABLE_LABELS", Value: "true"},
 						},
-						// P6(S4-5) Pod Security: 비특권 설계 확정. detector 이미지는 distroless/static:nonroot
+						// Pod Security: 비특권 설계 확정. detector 이미지는 distroless/static:nonroot
 						// (USER 65532)이며 드라이버 버전은 host /proc·/sys 읽기로 감지(root·device 불필요),
 						// nvidia-smi 등 host CLI exec 은 best-effort(실패 무해)라 restricted 프로파일과 양립.
 						SecurityContext: &corev1.SecurityContext{

@@ -114,7 +114,7 @@ func TestPreview_WritesNothing(t *testing.T) {
 }
 
 // review: 이 라우트가 실제로 읽는 리소스(ACPP·NDR·AcceleratorClass) 중 어느 하나라도
-// 권한이 없으면 403 이어야 한다(Task 3/4 의 "읽는 리소스는 전부 인가한다" 규칙).
+// 권한이 없으면 403 이어야 한다("읽는 리소스는 전부 인가한다" 규칙).
 func TestPreview_ForbiddenWithoutAuthz(t *testing.T) {
 	for _, resource := range []string{"acceleratorpartitionpolicies", "nodedevicereports", "acceleratorclasses"} {
 		opts := okAuth()

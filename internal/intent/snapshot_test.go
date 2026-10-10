@@ -290,7 +290,7 @@ func TestBuildSnapshotACPPSelectionIsDeterministic(t *testing.T) {
 	}
 }
 
-// TestBuildSnapshotFailedSiblingDoesNotHideReadyPolicy 는 라이브 결함 D-4 재현이다(Task 5 §5.2):
+// TestBuildSnapshotFailedSiblingDoesNotHideReadyPolicy 는 라이브 결함 D-4 재현이다(§5.2):
 // 같은 노드를 타깃하는 ACPP 둘 중 이름 사전순 앞("worker1-a2-timeslice", "a2" < "a30")이 Failed 여도
 // 뒤의 Ready 정책("worker1-a30-4x1g")의 관측이 채택되고 노드는 stale 이 아니어야 한다.
 // 첫-매치 단락은 Failed 정책만 보고 즉시 반환해 Ready 정책의 장치·프로파일을 통째로 가렸다.

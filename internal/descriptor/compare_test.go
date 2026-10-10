@@ -50,7 +50,7 @@ func TestRelateDetectsDisjoint(t *testing.T) {
 }
 
 // 빈 집합 둘은 같다. "관측을 못 했다" 와 "없다" 를 대조기가 가르지 않는다는 뜻이므로,
-// 수집기 쪽에서 빈 관측을 거절해야 한다(Task 4).
+// 수집기 쪽에서 빈 관측을 거절해야 한다.
 func TestRelateEmptyPair(t *testing.T) {
 	if rel, _, _ := relate(nil, nil); rel != RelationEqual {
 		t.Fatalf("빈 집합 둘은 같아야 한다: %s", rel)
