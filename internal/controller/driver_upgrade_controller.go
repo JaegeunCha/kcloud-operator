@@ -3,7 +3,7 @@
 // 상세: DriverUpgradeState CRD를 감시하고 UpgradeStateMachine을 호출하여
 //       노드별 드라이버 업그레이드 상태 전이를 수행합니다.
 //       ensureUpgradeStates()로 NodeDeviceReport 기반 DUS CR을 자동 생성합니다.
-// 생성일: 2026-04-13 | 수정일: 2026-08-12
+// 생성일: 2026-04-13 | 수정일: 2026-10-14
 // ============================================================
 
 package controller
@@ -294,9 +294,13 @@ func (r *DriverUpgradeReconciler) syncUpgradeState(ctx context.Context, nodeName
 	// 아래 두 분기가 조건부로 조기 return 하므로 model 동기화를 먼저 한다.
 	r.syncDUSModel(ctx, &existing, vendorModel)
 
-	// Bug #7 fix: desiredVersion이 정책과 다르면 업데이트 (상태에 무관)
+	// desiredVersion 이 정책과 다르면 update 한다. 단 State==Idle 에서만 — mid-cycle 은
+	// 상태기계가 DesiredVersion 을 소유하고, 롤백은 그것을 PreviousVersion 으로 놓는다.
+	// 여기서 되돌리면 롤백을 깨고 매 롤백마다 재부팅 예산이 리셋돼 MaxReboots 상한이 무력화된다.
+	// Idle 새 사이클 리셋은 handleIdle 이 백업한다.
 	desiredVersion := policy.Spec.Driver.Version
-	if desiredVersion != "" && existing.Status.DesiredVersion != desiredVersion {
+	if desiredVersion != "" && existing.Status.DesiredVersion != desiredVersion &&
+		existing.Status.State == v1alpha1.UpgradeStateIdle {
 		oldDesired := existing.Status.DesiredVersion
 		patch := client.MergeFrom(existing.DeepCopy())
 		existing.Status.DesiredVersion = desiredVersion

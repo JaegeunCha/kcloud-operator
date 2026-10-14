@@ -2,7 +2,7 @@
 // driver_upgrade_controller_test.go: DriverUpgradeReconciler 단위 테스트
 // 상세: ensureUpgradeStates()의 currentVersion 동기화 및 findPolicy fallback 로직 검증
 //       fake client 기반 — envtest 불필요
-// 생성일: 2026-04-21
+// 생성일: 2026-04-21 | 수정일: 2026-10-14
 // ============================================================
 
 package controller
@@ -1747,5 +1747,80 @@ func TestEnsureUpgradeStates_MismatchSyncIsIdempotent(t *testing.T) {
 	}
 	if second.Status.CurrentVersion != installedVer {
 		t.Errorf("currentVersion 동기화 실패: %q", second.Status.CurrentVersion)
+	}
+}
+
+// ─────────────────────────────────────────────
+// desiredVersion 되돌림 vs 진행 중인 사이클(되돌림은 Idle 에서만)
+// ─────────────────────────────────────────────
+
+// 롤백 중(mid-cycle) DUS 의 DesiredVersion(==PreviousVersion)이 정책 버전과 달라도 컨트롤러가
+// 정책 버전으로 되돌리지 않는다. 되돌리면 검증이 정책 버전을 기다려 롤백이 끝나지 않고, 매번
+// 재부팅 예산이 리셋돼 MaxReboots 상한이 무력화된다.
+func TestSyncUpgradeState_RollbackDivergence_PreservesRebootBudget(t *testing.T) {
+	const (
+		nodeName    = "worker-rollback"
+		dusName     = "worker-rollback-furiosa"
+		prevVersion = "1.8.0"   // 롤백 목표: DesiredVersion == PreviousVersion
+		dipVersion  = "1.9.8-3" // 정책은 여전히 상위 버전을 선언(DesiredVersion·PreviousVersion 과 둘 다 다름)
+	)
+	dus := makeDUS(dusName, nodeName, "furiosa", "warboy", v1alpha1.UpgradeStateValidating, prevVersion, prevVersion)
+	dus.Status.PreviousVersion = prevVersion
+	dus.Status.RebootAttempts = 1
+
+	r := newReconciler(dus)
+	dip := makeDIP("furiosa-warboy", "warboy", dipVersion)
+	device := v1alpha1.DeviceEntry{Vendor: "furiosa", Model: "warboy", DriverVersion: prevVersion}
+	ctx := context.Background()
+	r.syncUpgradeState(ctx, nodeName, device, dip, "warboy")
+
+	var got v1alpha1.DriverUpgradeState
+	if err := r.Get(ctx, types.NamespacedName{Name: dusName}, &got); err != nil {
+		t.Fatalf("DUS 조회 실패: %v", err)
+	}
+	if got.Status.RebootAttempts != 1 {
+		t.Errorf("RebootAttempts: got %d, want 1 — 롤백 중인데 재부팅 예산이 리셋됨(MaxReboots 상한 무력화)",
+			got.Status.RebootAttempts)
+	}
+	if got.Status.DesiredVersion != prevVersion {
+		t.Errorf("DesiredVersion: got %q, want %q(PreviousVersion) — 컨트롤러가 롤백을 정책 버전으로 되돌림",
+			got.Status.DesiredVersion, prevVersion)
+	}
+	if got.Status.State != v1alpha1.UpgradeStateValidating {
+		t.Errorf("state: got %q, want %q — 유지되어야 함", got.Status.State, v1alpha1.UpgradeStateValidating)
+	}
+}
+
+// 롤백 보류 중 자체 복구 사이클(startHeldRestore)은 보류 목표 대신 복원 버전을 DesiredVersion 에
+// 둔다. 컨트롤러가 이를 정책 버전(보류 목표)으로 덮으면 복구가 실패한 목표를 다시 설치한다.
+func TestSyncUpgradeState_HeldRestoreKeepsDesiredVersion(t *testing.T) {
+	const (
+		nodeName   = "worker-held"
+		dusName    = "worker-held-furiosa"
+		restored   = "1.8.0"   // 롤백이 복원한 버전
+		heldTarget = "1.9.8-3" // 롤백한 목표 = 정책 버전
+	)
+	dus := makeDUS(dusName, nodeName, "furiosa", "warboy", v1alpha1.UpgradeStateRequired, restored, restored)
+	dus.Status.PreviousVersion = restored
+	dus.Status.RolledBackVersion = heldTarget
+	dus.Status.RolledBackGeneration = 2
+
+	r := newReconciler(dus)
+	dip := makeDIP("furiosa-warboy", "warboy", heldTarget)
+	device := v1alpha1.DeviceEntry{Vendor: "furiosa", Model: "warboy", DriverVersion: restored}
+	ctx := context.Background()
+	r.syncUpgradeState(ctx, nodeName, device, dip, "warboy")
+
+	var got v1alpha1.DriverUpgradeState
+	if err := r.Get(ctx, types.NamespacedName{Name: dusName}, &got); err != nil {
+		t.Fatalf("DUS 조회 실패: %v", err)
+	}
+	if got.Status.DesiredVersion != restored {
+		t.Errorf("DesiredVersion: got %q, want %q — 보류 중 복구 사이클의 목표를 보류 목표로 덮음",
+			got.Status.DesiredVersion, restored)
+	}
+	if got.Status.State != v1alpha1.UpgradeStateRequired || got.Status.RolledBackVersion != heldTarget {
+		t.Errorf("state=%q rolledBack=%q, want %q/%q", got.Status.State, got.Status.RolledBackVersion,
+			v1alpha1.UpgradeStateRequired, heldTarget)
 	}
 }
