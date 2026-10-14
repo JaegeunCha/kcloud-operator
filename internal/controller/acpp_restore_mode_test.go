@@ -1,7 +1,7 @@
 // ============================================================
 // acpp_restore_mode_test.go: 삭제 시 MIG 모드 복원 envtest
 // 상세: 기본값에서는 아무것도 바뀌지 않고, 복원 정책에서만 모드 해제와 재부팅이 일어난다.
-// 생성일: 2026-08-01
+// 생성일: 2026-08-01 | 수정일: 2026-10-14
 // ============================================================
 package controller
 
@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	coordinationv1 "k8s.io/api/coordination/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -399,6 +400,74 @@ var _ = Describe("deletion restores MIG mode before checking the advertisement b
 			"광고가 baseline 에 못 미친다는 이유로 모드 해제가 막혔다 — 그 광고를 되돌리는 것이 모드 해제다")
 		_, jerr := rebootJobFor(node)
 		Expect(jerr).NotTo(HaveOccurred(), "재부팅이 실제로 예약되지 않았다")
+	})
+})
+
+var _ = Describe("deletion keeps the cordon ownership it took for the mode restore reboot", func() {
+	// schedulable 노드와 CordonedByPolicy=false 기록으로 RestoreMode 삭제 첫 pass 를 돌린 뒤의 상태를
+	// 돌려준다. 성공한 apply 는 종점에서 노드를 되돌려 놓으므로 삭제 시점의 실제 상태가 이 조합이다.
+	// 기존 시드는 cordon 된 노드와 CordonedByPolicy=true 라 이 경로를 지나지 않는다.
+	firstPass := func(name string) (*AcceleratorPartitionPolicyReconciler, string, string) {
+		wipeACPPs()
+		DeferCleanup(wipeACPPs)
+		GinkgoT().Setenv("HOST_EXEC_IMAGE", "harbor.local/kcloud/kcloud-host-exec:v1")
+		node := name + "-node"
+		labels := map[string]string{"kcloud.ai/" + name: "true"}
+		seedNvidiaNode(node, labels, false, a30Device("", "Enabled", "Enabled", ""))
+		DeferCleanup(func() { cleanupNvidia(node); cleanupRebootFixture(node) })
+
+		acpp := mkNvidiaACPP(name+"-acpp", labels)
+		acpp.Spec.DeletionPolicy = npuv1alpha1.DeletionPolicyRestoreMode
+		Expect(k8sClient.Create(ctx, acpp)).To(Succeed())
+		seedDeletableRecord(acpp, node)
+		var seeded npuv1alpha1.AcceleratorPartitionPolicy
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: acpp.Name}, &seeded)).To(Succeed())
+		seeded.Status.ApplyRecords[0].CordonedByPolicy = false
+		Expect(k8sClient.Status().Update(ctx, &seeded)).To(Succeed())
+
+		r := nvidiaReconciler()
+		var fresh npuv1alpha1.AcceleratorPartitionPolicy
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: acpp.Name}, &fresh)).To(Succeed())
+		Expect(r.handleNvidiaDeletion(ctx, &fresh)).To(HaveOccurred(), "재부팅을 막 예약했으니 정리는 아직 안 끝나야 한다")
+		return r, node, acpp.Name
+	}
+
+	// 증명: 삭제가 cordon 을 잡은 뒤 mode 복원 재부팅 예약이 저널을 다시 써도 cordon 소유 표시가 남는다.
+	// 깨는 뮤테이션: restoreMigModeDisabled 가 루프의 옛 복사본에서 시작하면 CordonedByPolicy 가
+	// false 로 돌아가 이 단언이 실패한다.
+	It("keeps CordonedByPolicy after scheduling the mode restore reboot", func() {
+		_, node, name := firstPass("restore-cordon-owned")
+
+		var after npuv1alpha1.AcceleratorPartitionPolicy
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: name}, &after)).To(Succeed())
+		rec := getApplyRecord(&after, node)
+		Expect(rec.DisableRebootAttempts).To(Equal(int32(1)), "재부팅 예약이 기록되지 않았다")
+		Expect(rec.CordonedByPolicy).To(BeTrue(),
+			"삭제가 cordon 한 노드인데 소유 표시가 지워졌다 — 삭제가 끝나도 아무도 uncordon 하지 않는다")
+		var n corev1.Node
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: node}, &n)).To(Succeed())
+		Expect(n.Spec.Unschedulable).To(BeTrue(), "재부팅 대기 중에는 노드가 cordon 상태여야 한다")
+	})
+
+	// 증명: mode 가 Disabled 로 관측되는 마지막 pass 에서 정책이 잡은 cordon 이 풀려 노드가 schedulable
+	// 로 돌아온다. 소유 표시가 지워지면 정리는 끝나는데 cordon 만 남는다.
+	// 깨는 뮤테이션: 첫 pass 의 덮어쓰기를 되살리면 restoreSchedulable 이 uncordon 을 건너뛴다.
+	It("returns the node to schedulable on the pass after the mode restore", func() {
+		r, node, name := firstPass("restore-cordon-released")
+
+		var ndr npuv1alpha1.NodeDeviceReport
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: node}, &ndr)).To(Succeed())
+		ndr.Status.Devices[0].MigModeCurrent = migModeDisabled
+		ndr.Status.Devices[0].MigModePending = migModeDisabled
+		Expect(k8sClient.Status().Update(ctx, &ndr)).To(Succeed())
+
+		var fresh npuv1alpha1.AcceleratorPartitionPolicy
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: name}, &fresh)).To(Succeed())
+		Expect(r.handleNvidiaDeletion(ctx, &fresh)).To(Succeed())
+
+		var n corev1.Node
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: node}, &n)).To(Succeed())
+		Expect(n.Spec.Unschedulable).To(BeFalse(), "삭제가 끝났는데 노드가 cordon 으로 남았다")
 	})
 })
 
