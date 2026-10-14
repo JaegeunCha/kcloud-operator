@@ -1,13 +1,10 @@
 // ============================================================
 // state_machine_job.go: driver Job 모드 상태 핸들러 (Mode=job)
-// 상세: state_machine.go 의 handleUpgrading/handleValidating/handleRollback 이
-//       Mode=job 일 때 early-return 으로 진입하는 대체 경로. 검증된 안전 순서
-//       (cordon→drain→install→validate→uncordon) 와 validator 체인은 그대로
-//       재사용하되, "DS 이미지 patch + pod 삭제" 를 "install Job 생성/재생성" 으로,
+// 상세: state_machine.go 의 handleUpgrading/handleValidating/handleRollback 이 Mode=job 일 때
+//       진입하는 대체 경로. "DS 이미지 patch + pod 삭제" 를 "install Job 생성/재생성" 으로,
 //       "DS pod Ready 관찰" 을 "Job 성공 종료 + NDR 일치" 로 재정의한다.
-//       daemonset 경로 본문은 바이트 불변(additive-only).
 //       install Job 의 신원은 이미지 + DRIVER_VERSION 두 축이다(jobTargetsInstall).
-// 생성일: 2026-07-16 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
+// 생성일: 2026-07-16 | 수정일: 2026-10-14
 // ============================================================
 
 package upgrade
@@ -91,6 +88,16 @@ func (m *UpgradeStateMachine) handleUpgradingJob(
 	// DS 가 없어 이전 이미지를 읽을 소스가 없으므로, DIP image 의 variant 접미사 + PreviousVersion
 	// 으로 검증된 build tag 를 재구성해 저장한다. 재구성 불가 시 빈 값 유지 → rollback 은 Failed(안전).
 	captureJobPreviousImage(state, desiredImage, policy.Spec.Driver.Installer)
+
+	// 롤백 보류 중 복구 사이클과 롤백 사이클의 재부팅 뒤 재진입은 보류 목표가 아니라 되돌린 버전을
+	// 설치한다. 정책 이미지는 태그에 정책 목표 버전을 담을 수 있어(ngc) 롤백과 같은 이전 이미지를 쓴다.
+	if held := state.Status.RolledBackVersion; held != "" && desiredVersion != held {
+		if state.Status.PreviousImage == "" {
+			metrics.RecordUpgradeComplete(state.Spec.Vendor, "failure")
+			return m.jobTransitionToFailed(ctx, state, "복원 버전 이미지 재구성 실패(job): 수동 조치 필요")
+		}
+		desiredImage = state.Status.PreviousImage
+	}
 
 	jobName := naming.InstallJobName(state.Spec.Vendor, state.Spec.Model, state.Spec.NodeName)
 	var job batchv1.Job
@@ -307,6 +314,7 @@ func (m *UpgradeStateMachine) handleRollbackJob(
 			"롤백할 이전 버전 없음(job): 수동 조치 필요 (node=%s)", state.Spec.NodeName)
 		return m.jobTransitionToFailed(ctx, state, "이전 버전 없음(job): 수동 조치 필요")
 	}
+	markRolledBack(state, policy)
 
 	// rollback 대상 이미지: 캡처된 PreviousImage 우선, 없으면 DIP variant 재구성.
 	prevImage := state.Status.PreviousImage

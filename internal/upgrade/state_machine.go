@@ -4,7 +4,7 @@
 //       Idle → UpgradeRequired → PreFlight → Cordoning → Draining →
 //       Upgrading → Validating → Uncordoning → Idle (실패 시 Rollback)
 //       Rollback 도 maxRollbackAttempts 초과 시 터미널 Failed 로 전이 (자동 복구 중단).
-// 생성일: 2026-04-13 | 수정일: 2026-10-10 (§ 인용 문서명 보강; 계획서 항목 토큰 제거)
+// 생성일: 2026-04-13 | 수정일: 2026-10-14
 // ============================================================
 
 package upgrade
@@ -183,6 +183,81 @@ func (m *UpgradeStateMachine) TransitionState(
 // 상태 핸들러
 // ─────────────────────────────────────────────
 
+// markRolledBack 은 이 사이클의 목표를 롤백한 버전으로 기록한다. 같은 목표를 이미 기록했으면
+// (잔여 Job 정리 등으로 Rollback 에 다시 들어온 경우) 롤백을 시작할 때의 generation 을 지키고,
+// 같은 사이클의 두 번째 롤백은 DesiredVersion 이 이미 이전 버전이라 덮지 않는다.
+func markRolledBack(state *v1alpha1.DriverUpgradeState, policy *v1alpha1.DriverInstallPolicy) {
+	if state.Status.DesiredVersion == "" || state.Status.DesiredVersion == state.Status.PreviousVersion ||
+		state.Status.RolledBackVersion == state.Status.DesiredVersion {
+		return
+	}
+	state.Status.RolledBackVersion = state.Status.DesiredVersion
+	state.Status.RolledBackGeneration = policy.Generation
+}
+
+// releaseRollbackHold 는 보류가 더는 맞지 않으면 기록을 지운다. 목표나 정책 generation 이 바뀐
+// 경우와, 노드 버전(currentVersion, 컨트롤러가 NDR 로 동기화)이 보류 목표와 같아진 경우(호스트에서
+// 직접 설치 등)다. 두 경우가 겹치면 도달 문구를 남긴다.
+func releaseRollbackHold(state *v1alpha1.DriverUpgradeState, policy *v1alpha1.DriverInstallPolicy, desired string) {
+	held := state.Status.RolledBackVersion
+	switch {
+	case held == "":
+		return
+	case state.Status.CurrentVersion == held:
+		state.Status.Message = fmt.Sprintf("롤백 보류 해제(노드가 보류 목표 %s 에 도달)", held)
+	case held != desired || state.Status.RolledBackGeneration != policy.Generation:
+		state.Status.Message = fmt.Sprintf("롤백 보류 해제(목표 또는 정책 generation 변경): 이전 보류 목표 %s", held)
+	default:
+		return
+	}
+	state.Status.RolledBackVersion = ""
+	state.Status.RolledBackGeneration = 0
+}
+
+// holdAfterRollback 은 같은 정책에서 이미 롤백한 목표면 true 를 반환해 사이클을 열지 않게 한다.
+// 열면 같은 실패와 롤백이 cooldown 간격으로 반복된다. 정책 spec 을 바꾸거나 DUS 를 지우면 다시 시도한다.
+// 경고 이벤트는 메시지가 바뀔 때 한 번만 낸다.
+func (m *UpgradeStateMachine) holdAfterRollback(
+	state *v1alpha1.DriverUpgradeState,
+	policy *v1alpha1.DriverInstallPolicy,
+	desiredVersion, currentVersion string,
+) bool {
+	if state.Status.RolledBackVersion == "" || state.Status.RolledBackVersion != desiredVersion ||
+		state.Status.RolledBackGeneration != policy.Generation {
+		return false
+	}
+	msg := fmt.Sprintf("목표 %s 는 롤백한 버전 — 정책 spec 변경 또는 DUS 삭제 전까지 재시도 보류(현재 %s)",
+		desiredVersion, currentVersion)
+	if state.Status.Message != msg {
+		state.Status.Message = msg
+		m.Recorder.Eventf(state, corev1.EventTypeWarning, "UpgradeHeldAfterRollback", "%s", msg)
+	}
+	return true
+}
+
+// canRestoreHeld 는 롤백 보류 기록이 있고 복원할 버전(currentVersion)을 알 때 true 다.
+// 보류 기록은 있는데 currentVersion 이 비면 복원할 버전을 모르므로 호출부는 정책 목표를 설치한다.
+func canRestoreHeld(state *v1alpha1.DriverUpgradeState, currentVersion string) bool {
+	return state.Status.RolledBackVersion != "" && currentVersion != ""
+}
+
+// startHeldRestore 는 롤백 보류 중 드라이버가 내려간 노드의 복구 사이클을 연다. 실패한 보류 목표가
+// 아니라 롤백이 복원한 버전(restored)을 다시 설치한다. 보류 기록과 previousVersion 은 남긴다 —
+// 재설치가 실패하면 같은 버전으로 롤백하고, 끝나면 보류가 그대로 이어진다.
+// 허용 목록(verifiedVersions)은 보지 않는다. 노드가 쓰던 버전이라 새 목표가 아니다.
+func (m *UpgradeStateMachine) startHeldRestore(state *v1alpha1.DriverUpgradeState, restored string) (bool, time.Duration, error) {
+	held := state.Status.RolledBackVersion
+	state.Status.DesiredVersion = restored
+	state.Status.PreviousVersion = restored
+	state.Status.PreviousImage = ""
+	state.Status.RollbackAttempts = 0
+	resetRebootTracking(&state.Status) // 새 사이클: 재부팅 카운터·마커 초기화
+	m.Recorder.Eventf(state, corev1.EventTypeNormal, "InstallRequired",
+		"Job 모드 복구 필요(driverLoaded=false): 롤백 보류 중이라 보류 목표 %s 대신 복원 버전 %s 재설치", held, restored)
+	return m.transitionTo(state, v1alpha1.UpgradeStateRequired,
+		fmt.Sprintf("Job 모드 복구(롤백 보류 중): %s 재설치", restored), 0)
+}
+
 // handleIdle: 버전 불일치 감지 시 UpgradeRequired로 전이
 func (m *UpgradeStateMachine) handleIdle(
 	ctx context.Context,
@@ -191,6 +266,7 @@ func (m *UpgradeStateMachine) handleIdle(
 ) (bool, time.Duration, error) {
 	desiredVersion := policy.Spec.Driver.Version
 	currentVersion := state.Status.CurrentVersion
+	releaseRollbackHold(state, policy, desiredVersion)
 
 	// TrackOnly 정책: 설치/업그레이드 경로를 절대 트리거하지 않는다(버전 관측 전용).
 	// 아래 Job 모드 self-heal(driverLoaded=false) 트리거보다 먼저 차단하여, installer 미비
@@ -222,6 +298,9 @@ func (m *UpgradeStateMachine) handleIdle(
 			needInstall = notLoaded
 		}
 		if needInstall {
+			if canRestoreHeld(state, currentVersion) {
+				return m.startHeldRestore(state, currentVersion)
+			}
 			// verifiedVersions 화이트리스트는 설치/복구에도 적용(안전).
 			if len(policy.Spec.VerifiedVersions) > 0 && !containsString(policy.Spec.VerifiedVersions, desiredVersion) {
 				msg := fmt.Sprintf("Driver version %s 가 verifiedVersions 화이트리스트에 없음: %v",
@@ -234,6 +313,8 @@ func (m *UpgradeStateMachine) handleIdle(
 			state.Status.PreviousVersion = ""
 			state.Status.PreviousImage = ""
 			state.Status.RollbackAttempts = 0
+			state.Status.RolledBackVersion = ""
+			state.Status.RolledBackGeneration = 0
 			resetRebootTracking(&state.Status) // 새 사이클: 재부팅 카운터·마커 초기화
 			m.Recorder.Eventf(state, corev1.EventTypeNormal, "InstallRequired",
 				"Job 모드 설치/복구 필요(driverLoaded=false): 목표 버전 %s (autoUpgrade 무관)", desiredVersion)
@@ -259,6 +340,10 @@ func (m *UpgradeStateMachine) handleIdle(
 	if policy.Spec.UpgradePolicy == nil || !policy.Spec.UpgradePolicy.AutoUpgrade {
 		m.Recorder.Eventf(state, corev1.EventTypeWarning, "UpgradeAvailable",
 			"드라이버 버전 불일치: current=%s desired=%s (autoUpgrade 비활성화)", currentVersion, desiredVersion)
+		return true, 60 * time.Second, nil
+	}
+
+	if m.holdAfterRollback(state, policy, desiredVersion, currentVersion) {
 		return true, 60 * time.Second, nil
 	}
 
@@ -321,6 +406,8 @@ func (m *UpgradeStateMachine) handleIdle(
 	state.Status.PreviousVersion = currentVersion
 	state.Status.PreviousImage = ""
 	state.Status.RollbackAttempts = 0
+	state.Status.RolledBackVersion = ""
+	state.Status.RolledBackGeneration = 0
 	resetRebootTracking(&state.Status) // 새 사이클: 재부팅 카운터·마커 초기화
 	return m.transitionTo(state, v1alpha1.UpgradeStateRequired,
 		fmt.Sprintf("버전 불일치 감지: %s → %s", currentVersion, desiredVersion), 0)
@@ -681,9 +768,6 @@ func (m *UpgradeStateMachine) handleUncordoning(
 		return false, 0, fmt.Errorf("노드 uncordon 실패: %w", err)
 	}
 
-	m.Recorder.Eventf(state, corev1.EventTypeNormal, "NodeUncordoned",
-		"노드 %s uncordon 완료, 업그레이드 성공", state.Spec.NodeName)
-
 	// architectural plan §A6.1: 사이클 정상 종료 시 quiesce 된 Deployment 복구.
 	// uncordon 후 Idle 진입 직전이 가장 안전한 시점 (노드 schedulable + 새 driver 준비 완료).
 	if err := m.RestoreQuiescedDeployments(ctx, state); err != nil {
@@ -691,8 +775,20 @@ func (m *UpgradeStateMachine) handleUncordoning(
 			"node", state.Spec.NodeName)
 	}
 
+	if v := state.Status.RolledBackVersion; v != "" {
+		// 보류 중 복구 사이클(startHeldRestore)은 롤백 Job 을 만들지 않아 rollbackAttempts 가 0 이다.
+		if state.Status.RollbackAttempts == 0 {
+			msg := fmt.Sprintf("자체 복구 완료(롤백 보류 유지): 보류 목표 %s 대신 %s 재설치", v, state.Status.DesiredVersion)
+			m.Recorder.Eventf(state, corev1.EventTypeNormal, "SelfHealCompleted", "노드 %s %s", state.Spec.NodeName, msg)
+			return m.transitionTo(state, v1alpha1.UpgradeStateIdle, msg, 0)
+		}
+		msg := fmt.Sprintf("롤백 완료: %s 대신 %s 로 복원", v, state.Status.DesiredVersion)
+		m.Recorder.Eventf(state, corev1.EventTypeWarning, "RollbackCompleted", "노드 %s %s", state.Spec.NodeName, msg)
+		return m.transitionTo(state, v1alpha1.UpgradeStateIdle, msg, 0)
+	}
+	m.Recorder.Eventf(state, corev1.EventTypeNormal, "NodeUncordoned",
+		"노드 %s uncordon 완료, 업그레이드 성공", state.Spec.NodeName)
 	metrics.RecordUpgradeComplete(state.Spec.Vendor, "success")
-
 	return m.transitionTo(state, v1alpha1.UpgradeStateIdle, "업그레이드 완료", 0)
 }
 
@@ -868,8 +964,6 @@ func (m *UpgradeStateMachine) handleRollback(
 		return m.handleRollbackJob(ctx, state, policy)
 	}
 
-	metrics.RecordRollback(state.Spec.Vendor)
-
 	// P2: 롤백 시도 횟수 제한. 반복 실패 시 무한 루프 방지.
 	maxRollbacks := int32(3)
 	if policy.Spec.UpgradePolicy != nil && policy.Spec.UpgradePolicy.MaxRollbackAttempts > 0 {
@@ -909,6 +1003,7 @@ func (m *UpgradeStateMachine) handleRollback(
 		}
 		return m.transitionTo(state, v1alpha1.UpgradeStateFailed, "이전 버전 없음: 수동 조치 필요", 0)
 	}
+	markRolledBack(state, policy)
 
 	dsName := naming.DriverDSName(state.Spec.Vendor, state.Spec.Model)
 
@@ -1027,11 +1122,6 @@ func (m *UpgradeStateMachine) transitionTo(
 
 	// 새 상태 게이지 업데이트
 	metrics.SetUpgradeState(nodeName, vendor, nextState)
-
-	// 업그레이드 완료 감지: Uncordoning → Idle
-	if prevState == v1alpha1.UpgradeStateUncordoning && nextState == v1alpha1.UpgradeStateIdle {
-		metrics.RecordUpgradeComplete(vendor, "success")
-	}
 
 	return true, requeueAfter, nil
 }
