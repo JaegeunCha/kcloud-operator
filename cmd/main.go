@@ -318,8 +318,9 @@ func main() {
 	}
 
 	sm := &upgrade.UpgradeStateMachine{
-		Client:   mgr.GetClient(),
-		Recorder: mgr.GetEventRecorderFor("driver-upgrade-statemachine"),
+		Client:    mgr.GetClient(),
+		APIReader: mgr.GetAPIReader(),
+		Recorder:  mgr.GetEventRecorderFor("driver-upgrade-statemachine"),
 	}
 	driverReconciler := &controller.DriverUpgradeReconciler{
 		Client:       mgr.GetClient(),

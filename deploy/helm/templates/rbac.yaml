@@ -1,5 +1,5 @@
 # rbac.yaml: NPU Operator RBAC 리소스
-# 생성일: 2026-03-25 | 수정일: 2026-10-11
+# 생성일: 2026-03-25 | 수정일: 2026-10-22
 {{- if .Values.serviceAccount.create }}
 apiVersion: v1
 kind: ServiceAccount
@@ -271,6 +271,39 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: {{ include "kcloud-operator.fullname" . }}-leader-election
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "kcloud-operator.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+
+---
+# 설치 Secret 확인 — 드라이버 상태 기계가 Warboy 설치 파드에 마운트할 Secret 이 있는지 메타데이터로만
+# 확인한다(internal/upgrade 의 MissingInstallSecret). 없으면 업그레이드 슬롯·cordon 을 잡지 않고 기다려
+# 같은 노드·클러스터의 다른 벤더 설치를 막지 않는다. 이름 하나에 get 만 준다 — 다른 Secret 은 읽지 못한다.
+# 이 Role 이 없으면 확인을 건너뛰고 종전처럼 진행한다.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "kcloud-operator.fullname" . }}-install-secret
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "kcloud-operator.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["furiosa-apt-auth"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "kcloud-operator.fullname" . }}-install-secret
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "kcloud-operator.fullname" . }}-install-secret
 subjects:
   - kind: ServiceAccount
     name: {{ include "kcloud-operator.serviceAccountName" . }}

@@ -3,7 +3,7 @@
 // 상세: DriverUpgradeState CRD를 감시하고 UpgradeStateMachine을 호출하여
 //       노드별 드라이버 업그레이드 상태 전이를 수행합니다.
 //       ensureUpgradeStates()로 NodeDeviceReport 기반 DUS CR을 자동 생성합니다.
-// 생성일: 2026-04-13 | 수정일: 2026-10-14
+// 생성일: 2026-04-13 | 수정일: 2026-10-22
 // ============================================================
 
 package controller
@@ -84,7 +84,8 @@ func (r *DriverUpgradeReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	// Defer cleanup — Reconcile 함수가 panic 으로 중단되거나 ctx 가 cancel 된 직후라도
-	// 사이클 종료 상태(UpgradeCycleClosed)에서는 라벨이 절대 남지 않도록 보장한다.
+	// 사이클 종료 상태(UpgradeCycleClosed)에서는 라벨이 남지 않도록 한다. 같은 노드의 다른 DUS 가
+	// 사이클 중이면 그 사이클의 라벨이라 남긴다(아래 otherCycleOnNode).
 	// reconcile ctx 와 분리된 background ctx 를 사용해야 ctx cancel 시에도 cleanup 이 실행됨.
 	defer func() {
 		// 패닉 자체는 그대로 전파하되, 라벨 cleanup 은 시도한다.
@@ -94,6 +95,12 @@ func (r *DriverUpgradeReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		if v1alpha1.UpgradeCycleClosed(state.Status.State) {
 			cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
+			// 라벨은 노드 단위다. 같은 노드의 다른 DUS 가 사이클 중이면 그 사이클의 라벨이라 지우지 않는다 —
+			// 지우면 그 사이클의 health 복구 억제와 device-plugin 차단이 풀린다(혼재 노드). 목록을 못 읽어도
+			// 지우지 않는다. 남은 라벨은 sweep 이 노드의 모든 DUS 종료를 확인한 뒤 지운다.
+			if busy, err := r.otherCycleOnNode(cleanupCtx, &state); err != nil || busy {
+				return
+			}
 			if err := r.StateMachine.EnsureUpgradingLabelRemoved(cleanupCtx, state.Spec.NodeName); err != nil {
 				logger.Error(err, "defer cleanup: driver-upgrading 라벨 제거 실패",
 					"node", state.Spec.NodeName, "state", state.Status.State)
@@ -121,7 +128,7 @@ func (r *DriverUpgradeReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// 3.5. 위임 모드 — 상태머신을 여기서 직접 돌리는 대신 트랜잭션을 만든다(분기가 아니라
 	// 호출자의 이동이므로 조정자와 이 컨트롤러가 동시에 상태머신을 돌릴 수 없다).
 	if delegateModeEnabled() {
-		if handled, res, derr := r.delegateDriverUpgrade(ctx, &state); handled {
+		if handled, res, derr := r.delegateDriverUpgrade(ctx, &state, policy); handled {
 			return res, derr
 		}
 	}
@@ -150,6 +157,21 @@ func (r *DriverUpgradeReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 	// Furiosa DUS 가 watch event 를 받지 못하는 경우를 위한 주기적 재체크(30초).
 	return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+}
+
+// otherCycleOnNode 는 같은 노드의 다른 DUS 가 사이클 중(UpgradeCycleClosed 가 아님)인지다. 자기 자신은
+// 캐시 사본이 이번 pass 의 전이보다 늦을 수 있어 이름으로 뺀다.
+func (r *DriverUpgradeReconciler) otherCycleOnNode(ctx context.Context, state *v1alpha1.DriverUpgradeState) (bool, error) {
+	var list v1alpha1.DriverUpgradeStateList
+	if err := r.List(ctx, &list); err != nil {
+		return false, err
+	}
+	for _, d := range list.Items {
+		if d.Name != state.Name && d.Spec.NodeName == state.Spec.NodeName && !v1alpha1.UpgradeCycleClosed(d.Status.State) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // ensureUpgradeStates는 NodeDeviceReport 기반으로 DriverUpgradeState CR을 자동 생성합니다.
@@ -807,7 +829,8 @@ func OperationNameForDriver(state *v1alpha1.DriverUpgradeState) string {
 // 유휴 상태에서는 위임하지 않는다(handled=false) — 그 시점엔 상태머신이 아직 아무것도
 // 건드리지 않았고 목표 버전도 계산 전일 수 있어, "업그레이드가 필요한가" 의 판정은
 // 상태머신 몫으로 남기고 여기서 다시 구현하지 않는다.
-func (r *DriverUpgradeReconciler) delegateDriverUpgrade(ctx context.Context, state *v1alpha1.DriverUpgradeState) (bool, ctrl.Result, error) {
+func (r *DriverUpgradeReconciler) delegateDriverUpgrade(ctx context.Context, state *v1alpha1.DriverUpgradeState,
+	policy *v1alpha1.DriverInstallPolicy) (bool, ctrl.Result, error) {
 	if state.Status.State != v1alpha1.UpgradeStateRequired {
 		// 유휴·진행 중·터미널 — 진행 중이면 이미 만들어 둔 작업이 상태머신을 돌리고 있으므로
 		// 여기서는 아무것도 하지 않고 넘긴다.
@@ -815,6 +838,21 @@ func (r *DriverUpgradeReconciler) delegateDriverUpgrade(ctx context.Context, sta
 			return true, ctrl.Result{RequeueAfter: opRequeue}, nil
 		}
 		return false, ctrl.Result{}, nil
+	}
+	// 설치 Secret 이 없으면 작업을 만들지 않고 DUS 를 Idle 로 되돌린다(대기는 Idle 이 맡는다). 작업을
+	// 만들면 노드 잠금 키를 쥔 채 대기해 같은 노드의 다른 벤더 작업이 Blocked 에 묶인다. 상태머신에 넘기지도
+	// 않는다 — 그쪽 재확인 사이에 Secret 이 생기면 작업 없이 PreFlight 로 가고, 그 DUS 는 아무도 진행시키지
+	// 않은 채 슬롯을 쥔다.
+	if back, err := r.StateMachine.BackToIdleWithoutInstallSecret(ctx, state, policy); err != nil {
+		return true, ctrl.Result{}, err
+	} else if back {
+		if err := r.Status().Update(ctx, state); err != nil {
+			if apierrors.IsConflict(err) {
+				return true, ctrl.Result{Requeue: true}, nil
+			}
+			return true, ctrl.Result{}, err
+		}
+		return true, ctrl.Result{RequeueAfter: upgrade.InstallSecretRecheck}, nil
 	}
 
 	pcis, err := r.devicePCIsForNode(ctx, state.Spec.NodeName, state.Spec.Vendor)

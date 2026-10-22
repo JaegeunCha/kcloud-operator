@@ -3,7 +3,7 @@
 // 상세: 스위치가 꺼진 기본 상태의 회귀 0, 켰을 때의 작업 생성, 그리고 같은 노드의 파티션
 // 작업과 동시에 적용되지 않는지를 본다. 직렬화를 이루는 두 기제(자원 키 충돌 판정, 노드
 // Lease)를 각각 격리해서도 확인한다.
-// 생성일: 2026-08-01 | 수정일: 2026-10-11
+// 생성일: 2026-08-01 | 수정일: 2026-10-22
 // ============================================================
 package controller
 
@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	npuv1alpha1 "kcloud-operator/api/v1alpha1"
+	"kcloud-operator/internal/driveradapter"
 	"kcloud-operator/internal/naming"
 	"kcloud-operator/internal/operation"
 	"kcloud-operator/internal/upgrade"
@@ -128,7 +129,7 @@ var _ = Describe("driver delegate mode", func() {
 			})
 			r := driverReconcilerForTest()
 			for i := 0; i < 4; i++ {
-				handled, _, err := r.delegateDriverUpgrade(ctx, dus)
+				handled, _, err := r.delegateDriverUpgrade(ctx, dus, nvidiaDriverPolicy("drv-on-dip"))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(handled).To(BeTrue(), "위임 분기에 도달하지 못했다")
 			}
@@ -143,6 +144,58 @@ var _ = Describe("driver delegate mode", func() {
 		})
 	})
 
+	// 증명: 설치 Secret 이 없으면 작업을 만들지 않고 DUS 를 Idle 로 되돌린다(대기는 Idle 이 맡는다).
+	//       작업을 만들면 노드 잠금 키를 쥔 채 대기해 같은 노드의 다른 벤더(NVIDIA 등) 작업이 Blocked 에
+	//       묶이고, 상태머신에 넘기면 그쪽 재확인 사이에 Secret 이 생길 때 작업 없이 PreFlight 로 간다.
+	//       Secret 이 생긴 뒤 다시 UpgradeRequired 가 되면 작업을 만든다.
+	// 깨는 뮤테이션: delegateDriverUpgrade 의 Secret 확인을 빼면 첫 호출에서 작업이 생겨 실패한다.
+	It("returns to idle without an operation while the install secret is missing", func() {
+		withDelegateMode(func() {
+			dus := &npuv1alpha1.DriverUpgradeState{
+				ObjectMeta: metav1.ObjectMeta{Name: "drv-nosecret"},
+				Spec: npuv1alpha1.DriverUpgradeStateSpec{
+					NodeName: "drv-nosecret-node", Vendor: "furiosa", Model: "warboy"},
+			}
+			Expect(k8sClient.Create(ctx, dus)).To(Succeed())
+			dus.Status.State = npuv1alpha1.UpgradeStateRequired
+			dus.Status.DesiredVersion = "1.9.9-3"
+			Expect(k8sClient.Status().Update(ctx, dus)).To(Succeed())
+			DeferCleanup(func() {
+				_ = k8sClient.Delete(ctx, dus, client.PropagationPolicy(metav1.DeletePropagationBackground))
+				for _, o := range driverOperationsFor("drv-nosecret") {
+					_ = k8sClient.Delete(ctx, &o, client.PropagationPolicy(metav1.DeletePropagationBackground))
+				}
+			})
+			pol := &npuv1alpha1.DriverInstallPolicy{Spec: npuv1alpha1.DriverInstallPolicySpec{
+				Vendor: "furiosa", Model: "warboy"}}
+			r := driverReconcilerForTest()
+			r.StateMachine.APIReader = k8sClient
+
+			handled, res, err := r.delegateDriverUpgrade(ctx, dus, pol)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(handled).To(BeTrue(), "Secret 이 없는데 상태머신으로 넘겼다")
+			Expect(res.RequeueAfter).To(Equal(upgrade.InstallSecretRecheck))
+			Expect(driverOperationsFor("drv-nosecret")).To(BeEmpty())
+			var got npuv1alpha1.DriverUpgradeState
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: dus.Name}, &got)).To(Succeed())
+			Expect(got.Status.State).To(Equal(npuv1alpha1.UpgradeStateIdle))
+			Expect(got.Status.Message).To(ContainSubstring(driveradapter.AptAuthSecretName))
+
+			secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
+				Name: driveradapter.AptAuthSecretName, Namespace: naming.OperatorNamespace()}}
+			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+			DeferCleanup(func() {
+				_ = k8sClient.Delete(ctx, secret)
+			})
+			got.Status.State = npuv1alpha1.UpgradeStateRequired
+			Expect(k8sClient.Status().Update(ctx, &got)).To(Succeed())
+			handled, _, err = r.delegateDriverUpgrade(ctx, &got, pol)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(handled).To(BeTrue())
+			Expect(driverOperationsFor("drv-nosecret")).To(HaveLen(1))
+		})
+	})
+
 	// 증명: 유휴 상태에서는 위임하지 않는다 — 상태머신이 필요를 판정할 기회를 뺏지 않는다.
 	//       (이 가드가 없으면 목표 버전도 모르는 채 작업이 생긴다.)
 	// 깨는 뮤테이션: 상태 검사를 빼면 유휴 DUS 에도 작업이 생겨 실패한다.
@@ -153,7 +206,7 @@ var _ = Describe("driver delegate mode", func() {
 			DeferCleanup(func() {
 				_ = k8sClient.Delete(ctx, dus, client.PropagationPolicy(metav1.DeletePropagationBackground))
 			})
-			handled, _, err := driverReconcilerForTest().delegateDriverUpgrade(ctx, dus)
+			handled, _, err := driverReconcilerForTest().delegateDriverUpgrade(ctx, dus, nvidiaDriverPolicy("drv-idle-dip"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(handled).To(BeFalse(), "유휴 상태를 위임이 가로챘다")
 			Expect(driverOperationsFor("drv-idle")).To(BeEmpty())

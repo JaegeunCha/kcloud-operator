@@ -4,7 +4,7 @@
 // deploy/helm/templates/rbac.yaml 이 쓰인다 — 둘이 갈라지면 kubebuilder 마커를 고쳐도 배포에
 // 반영되지 않는다. 대조는 리소스 이름 목록이 아니라 두 파일의 규칙 전체를 비교한다 — 목록
 // 방식은 목록에 없는 새 리소스를 그냥 통과시킨다. 의도한 차이는 knownRBACDivergence 에 모은다.
-// 생성일: 2026-08-04 | 수정일: 2026-10-11
+// 생성일: 2026-08-04 | 수정일: 2026-10-22
 // ============================================================
 package controller
 
@@ -19,9 +19,10 @@ import (
 )
 
 type rbacRule struct {
-	APIGroups []string `json:"apiGroups"`
-	Resources []string `json:"resources"`
-	Verbs     []string `json:"verbs"`
+	APIGroups     []string `json:"apiGroups"`
+	Resources     []string `json:"resources"`
+	ResourceNames []string `json:"resourceNames"`
+	Verbs         []string `json:"verbs"`
 }
 
 type rbacRuleList struct {

@@ -1,5 +1,5 @@
 # values.yaml: NPU Operator 기본 설정값
-# 생성일: 2026-03-25 | 수정일: 2026-10-15
+# 생성일: 2026-03-25 | 수정일: 2026-10-22
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 레지스트리는 두 종류다. 어느 이미지가 어느 쪽인지는 deploy/helm/README.md 의 "레지스트리
@@ -177,8 +177,8 @@ serviceAccount:
   name: ""
 
 rbac:
-  # 부분 스위치다 — rbac.yaml(operator 본체 + kcloud-node-manager + leader-election)
-  # 만 끈다. pre/post hook Job 넷(uninstall gate·crd purge·crd apply·구 DS 정리)이
+  # 부분 스위치다 — rbac.yaml(operator 본체 + kcloud-node-manager + leader-election
+  # + 설치 Secret 확인 Role)만 끈다. pre/post hook Job 넷(uninstall gate·crd purge·crd apply·구 DS 정리)이
   # 각자 갖는 SA·ClusterRole·ClusterRoleBinding 열두 개는 이 값과 무관하게 항상 생성된다.
   create: true
 

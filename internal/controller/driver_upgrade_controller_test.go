@@ -2,7 +2,7 @@
 // driver_upgrade_controller_test.go: DriverUpgradeReconciler 단위 테스트
 // 상세: ensureUpgradeStates()의 currentVersion 동기화 및 findPolicy fallback 로직 검증
 //       fake client 기반 — envtest 불필요
-// 생성일: 2026-04-21 | 수정일: 2026-10-14
+// 생성일: 2026-04-21 | 수정일: 2026-10-22
 // ============================================================
 
 package controller
@@ -674,6 +674,25 @@ func TestReconcile_DeferRemovesLabelInClosedStates(t *testing.T) {
 				t.Errorf("state=%s 라벨 존재=%v, want %v", tc.state, got, tc.wantLabel)
 			}
 		})
+	}
+}
+
+// TestReconcile_DeferKeepsLabelWhileAnotherCycleRunsOnNode 는 같은 노드의 다른 벤더 사이클이 진행 중이면
+// 사이클을 닫은 DUS 의 defer 가 노드 라벨을 지우지 않는지 본다. 라벨은 노드 단위라 지우면 진행 중인
+// 사이클의 health 복구 억제·device-plugin 차단이 풀린다 — Warboy 가 설치 Secret 을 기다리며 Idle 로
+// 재조정되는 동안 같은 노드의 NVIDIA 가 설치하는 경우다.
+// 깨는 뮤테이션: defer 의 otherCycleOnNode 확인을 빼면 두 라벨이 지워져 실패한다.
+func TestReconcile_DeferKeepsLabelWhileAnotherCycleRunsOnNode(t *testing.T) {
+	const nodeName = "worker-shared"
+	idle := dusWithTransition(nodeName+"-furiosa", nodeName, "furiosa", v1alpha1.UpgradeStateIdle, 0)
+	busy := dusWithTransition(nodeName+"-nvidia", nodeName, "nvidia", v1alpha1.UpgradeStateUpgrading, 0)
+	r := newReconciler(nodeWithBothUpgradingLabels(nodeName), idle, busy)
+	r.Recorder = record.NewFakeRecorder(64)
+	r.StateMachine.Recorder = r.Recorder
+
+	_, _ = r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: idle.Name}})
+	if !hasUpgradingLabel(t, r, nodeName) || !hasBlockingLabel(t, r, nodeName) {
+		t.Errorf("같은 노드의 NVIDIA 사이클이 진행 중인데 Idle DUS 의 defer 가 라벨을 지웠다")
 	}
 }
 

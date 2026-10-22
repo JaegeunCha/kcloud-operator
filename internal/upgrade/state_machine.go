@@ -2,7 +2,7 @@
 // state_machine.go: Driver Upgrade 상태 머신
 // 상세: 노드별 드라이버 업그레이드 상태 전이를 관리한다. Idle → UpgradeRequired → PreFlight →
 //       Cordoning → Draining → Upgrading → Validating → Uncordoning → Idle(실패 시 Rollback).
-// 생성일: 2026-04-13 | 수정일: 2026-10-14
+// 생성일: 2026-04-13 | 수정일: 2026-10-22
 // ============================================================
 
 package upgrade
@@ -31,6 +31,7 @@ import (
 
 	v1alpha1 "kcloud-operator/api/v1alpha1"
 	"kcloud-operator/internal/draclaim"
+	"kcloud-operator/internal/driveradapter"
 	"kcloud-operator/internal/driverjob"
 	"kcloud-operator/internal/intent"
 	"kcloud-operator/internal/metrics"
@@ -98,7 +99,10 @@ const defaultIdleCooldown = 10 * time.Second
 // UpgradeStateMachine은 노드별 드라이버 업그레이드 상태 전이를 담당합니다.
 type UpgradeStateMachine struct {
 	client.Client
-	Recorder record.EventRecorder
+	// APIReader 는 캐시 없는 읽기 경로다. 설치 Secret 확인(missingInstallSecret)이 쓴다 — 매니저
+	// 캐시(Client)로 Secret 을 읽으면 클러스터 전체 Secret informer 가 뜬다. nil 이면 확인을 건너뛴다.
+	APIReader client.Reader
+	Recorder  record.EventRecorder
 }
 
 // TransitionState는 현재 DriverUpgradeState를 읽어 다음 상태로 전이합니다.
@@ -323,18 +327,37 @@ func canRestoreHeld(state *v1alpha1.DriverUpgradeState, currentVersion string) b
 // startHeldRestore 는 롤백 보류 중 드라이버가 내려간 노드의 복구 사이클을 연다. 실패한 보류 목표가
 // 아니라 롤백이 복원한 버전(restored)을 다시 설치한다. 보류 기록과 previousVersion 은 남긴다 —
 // 재설치가 실패하면 같은 버전으로 롤백하고, 끝나면 보류와 드리프트 기준이 그대로 이어진다.
-// 허용 목록(verifiedVersions)은 보지 않는다. 노드가 쓰던 버전이라 새 목표가 아니다.
-func (m *UpgradeStateMachine) startHeldRestore(state *v1alpha1.DriverUpgradeState, restored string) (bool, time.Duration, error) {
+// 허용 목록(verifiedVersions)은 보지 않는다. 노드가 쓰던 버전이라 새 목표가 아니다. 설치 Secret 이
+// 없으면 openCycle 이 사이클을 열지 않고 Idle 에서 기다리게 한다.
+func (m *UpgradeStateMachine) startHeldRestore(ctx context.Context, state *v1alpha1.DriverUpgradeState,
+	policy *v1alpha1.DriverInstallPolicy, restored string) (bool, time.Duration, error) {
 	held := state.Status.RolledBackVersion
-	state.Status.DesiredVersion = restored
-	state.Status.PreviousVersion = restored
-	state.Status.PreviousImage = ""
-	state.Status.RollbackAttempts = 0
-	resetRebootTracking(&state.Status) // 새 사이클: 재부팅 카운터·마커 초기화
-	m.Recorder.Eventf(state, corev1.EventTypeNormal, "InstallRequired",
-		"Job 모드 복구 필요(driverLoaded=false): 롤백 보류 중이라 보류 목표 %s 대신 복원 버전 %s 재설치", held, restored)
-	return m.transitionTo(state, v1alpha1.UpgradeStateRequired,
-		fmt.Sprintf("Job 모드 복구(롤백 보류 중): %s 재설치", restored), 0)
+	return m.openCycle(ctx, state, policy, fmt.Sprintf("Job 모드 복구(롤백 보류 중): %s 재설치", restored), func() {
+		state.Status.DesiredVersion = restored
+		state.Status.PreviousVersion = restored
+		state.Status.PreviousImage = ""
+		state.Status.RollbackAttempts = 0
+		resetRebootTracking(&state.Status) // 새 사이클: 재부팅 카운터·마커 초기화
+		m.Recorder.Eventf(state, corev1.EventTypeNormal, "InstallRequired",
+			"Job 모드 복구 필요(driverLoaded=false): 롤백 보류 중이라 보류 목표 %s 대신 복원 버전 %s 재설치", held, restored)
+	})
+}
+
+// openCycle 은 Idle 에서 새 사이클을 연다 — handleIdle 이 UpgradeRequired 로 가는 길은 모두 여기를
+// 지난다. 설치 Secret 이 없으면 prepare 를 부르지 않고 Idle 에 머문다(holdForInstallSecret). 있으면
+// prepare 로 새 사이클의 입력을 정리하고 UpgradeRequired 로 전이한다.
+func (m *UpgradeStateMachine) openCycle(ctx context.Context, state *v1alpha1.DriverUpgradeState,
+	policy *v1alpha1.DriverInstallPolicy, message string, prepare func()) (bool, time.Duration, error) {
+	if held, err := m.holdForInstallSecret(ctx, state, policy); err != nil || held {
+		// 새 DUS 는 생성 때 status 가 버려져 상태가 빈 값이다. 기다리는 동안 `kubectl get dus` 와 상태
+		// 지표가 Idle 을 보이도록 한 번 맞춘다(목표 버전은 Idle 이 된 뒤 컨트롤러 동기화가 채운다).
+		if held && state.Status.State == "" {
+			_, _, _ = m.transitionTo(state, v1alpha1.UpgradeStateIdle, state.Status.Message, 0)
+		}
+		return held, InstallSecretRecheck, err
+	}
+	prepare()
+	return m.transitionTo(state, v1alpha1.UpgradeStateRequired, message, 0)
 }
 
 // handleIdle: 버전 불일치 감지 시 UpgradeRequired로 전이
@@ -400,7 +423,7 @@ func (m *UpgradeStateMachine) handleIdle(
 		}
 		if needInstall {
 			if canRestoreHeld(state, currentVersion) {
-				return m.startHeldRestore(state, currentVersion)
+				return m.startHeldRestore(ctx, state, policy, currentVersion)
 			}
 			// verifiedVersions 화이트리스트는 설치/복구에도 적용(안전).
 			if len(policy.Spec.VerifiedVersions) > 0 && !containsString(policy.Spec.VerifiedVersions, desiredVersion) {
@@ -410,17 +433,17 @@ func (m *UpgradeStateMachine) handleIdle(
 				state.Status.DesiredVersion = desiredVersion
 				return m.transitionTo(state, v1alpha1.UpgradeStateUnverifiedVersion, msg, 0)
 			}
-			state.Status.DesiredVersion = desiredVersion
-			state.Status.PreviousVersion = ""
-			state.Status.PreviousImage = ""
-			state.Status.RollbackAttempts = 0
-			state.Status.RolledBackVersion = ""
-			state.Status.RolledBackGeneration = 0
-			resetRebootTracking(&state.Status) // 새 사이클: 재부팅 카운터·마커 초기화
-			m.Recorder.Eventf(state, corev1.EventTypeNormal, "InstallRequired",
-				"Job 모드 설치/복구 필요(driverLoaded=false): 목표 버전 %s (autoUpgrade 무관)", desiredVersion)
-			return m.transitionTo(state, v1alpha1.UpgradeStateRequired,
-				fmt.Sprintf("Job 모드 설치/복구: %s", desiredVersion), 0)
+			return m.openCycle(ctx, state, policy, fmt.Sprintf("Job 모드 설치/복구: %s", desiredVersion), func() {
+				state.Status.DesiredVersion = desiredVersion
+				state.Status.PreviousVersion = ""
+				state.Status.PreviousImage = ""
+				state.Status.RollbackAttempts = 0
+				state.Status.RolledBackVersion = ""
+				state.Status.RolledBackGeneration = 0
+				resetRebootTracking(&state.Status) // 새 사이클: 재부팅 카운터·마커 초기화
+				m.Recorder.Eventf(state, corev1.EventTypeNormal, "InstallRequired",
+					"Job 모드 설치/복구 필요(driverLoaded=false): 목표 버전 %s (autoUpgrade 무관)", desiredVersion)
+			})
 		}
 	}
 
@@ -502,23 +525,88 @@ func (m *UpgradeStateMachine) handleIdle(
 	// PreviousImage는 이번 사이클에서 handleUpgrading이 DS로부터 다시 수집하도록 비움.
 	// 이전 업그레이드 값이 남아있으면 잘못된 이미지로 롤백될 수 있음.
 	// RollbackAttempts는 새 사이클이므로 0으로 초기화(무한 루프 방지).
-	state.Status.DesiredVersion = desiredVersion
-	state.Status.PreviousVersion = currentVersion
-	state.Status.PreviousImage = ""
-	state.Status.RollbackAttempts = 0
-	state.Status.RolledBackVersion = ""
-	state.Status.RolledBackGeneration = 0
-	resetRebootTracking(&state.Status) // 새 사이클: 재부팅 카운터·마커 초기화
-	return m.transitionTo(state, v1alpha1.UpgradeStateRequired,
-		fmt.Sprintf("버전 불일치 감지: %s → %s", currentVersion, desiredVersion), 0)
+	return m.openCycle(ctx, state, policy, fmt.Sprintf("버전 불일치 감지: %s → %s", currentVersion, desiredVersion), func() {
+		state.Status.DesiredVersion = desiredVersion
+		state.Status.PreviousVersion = currentVersion
+		state.Status.PreviousImage = ""
+		state.Status.RollbackAttempts = 0
+		state.Status.RolledBackVersion = ""
+		state.Status.RolledBackGeneration = 0
+		resetRebootTracking(&state.Status) // 새 사이클: 재부팅 카운터·마커 초기화
+	})
 }
 
-// handleUpgradeRequired: MaxParallelUpgrades 슬롯 확인 후 PreFlight로 전이
+// missingInstallSecret 은 설치 파드가 마운트할 Secret 이 운영자 네임스페이스에 없으면 그 이름
+// (namespace/name)을, 있거나 필요 없거나 확인할 수 없으면 빈 문자열을 돌려준다. 마운트 여부는 설치
+// Job·DaemonSet 렌더러와 같은 어댑터 판단(AptAuthRequired)이다. 확인할 수 없을 때(APIReader 미주입,
+// Role 없는 배포의 Forbidden)는 종전처럼 진행시킨다 — 막으면 Secret 이 있는 클러스터에서도 설치가
+// 시작되지 않는다. 메타데이터만 읽으므로 자격 증명 값은 operator 로 오지 않는다.
+func (m *UpgradeStateMachine) missingInstallSecret(ctx context.Context, policy *v1alpha1.DriverInstallPolicy) (string, error) {
+	a, ok := driveradapter.ForModel(policy.Spec.Vendor, policy.Spec.Model)
+	if !ok || !a.AptAuthRequired() || m.APIReader == nil {
+		return "", nil
+	}
+	key := types.NamespacedName{Namespace: naming.OperatorNamespace(), Name: driveradapter.AptAuthSecretName}
+	var meta metav1.PartialObjectMetadata
+	meta.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
+	switch err := m.APIReader.Get(ctx, key, &meta); {
+	case err == nil:
+		return "", nil
+	case apierrors.IsNotFound(err):
+		return key.String(), nil
+	case apierrors.IsForbidden(err):
+		logf.FromContext(ctx).V(1).Info("설치 Secret 조회 권한 없음 — 확인 없이 진행", "secret", key.String())
+		return "", nil
+	default:
+		return "", fmt.Errorf("설치 Secret 확인 실패: %w", err)
+	}
+}
+
+// InstallSecretRecheck 는 설치 Secret 이 없을 때 다시 확인하는 간격이다. Secret 은 watch 하지 않는다.
+const InstallSecretRecheck = 60 * time.Second
+
+// holdForInstallSecret 은 설치 Secret 이 없으면 대기 사유를 status.message 에 남기고 true 를 돌려준다
+// (사유가 바뀔 때만 경고 이벤트). openCycle 이 사이클을 열기 직전에 부른다 — 기다리는 동안 Idle 에
+// 머물러야 목표 버전·autoUpgrade·verifiedVersions 가 매 pass 다시 판정된다. UpgradeRequired 에서
+// 기다리면 대기 중에 바뀐 정책이 무시되고 Secret 이 생기는 순간 예전 목표로 사이클이 열린다.
+func (m *UpgradeStateMachine) holdForInstallSecret(ctx context.Context, state *v1alpha1.DriverUpgradeState,
+	policy *v1alpha1.DriverInstallPolicy) (bool, error) {
+	missing, err := m.missingInstallSecret(ctx, policy)
+	if err != nil || missing == "" {
+		return false, err
+	}
+	m.noteWait(state, corev1.EventTypeWarning, "InstallSecretMissing",
+		fmt.Sprintf("설치 Secret %s 없음 — 만들면 자동 진행(그때까지 업그레이드 슬롯·cordon 미점유)", missing))
+	return true, nil
+}
+
+// BackToIdleWithoutInstallSecret 은 UpgradeRequired 의 DUS 를 설치 Secret 이 없으면 Idle 로 되돌리고
+// true 를 돌려준다(status 저장은 호출자 몫). 대기는 Idle 이 맡는다(holdForInstallSecret). 슬롯을 잡기
+// 직전의 상태머신과 작업을 만들기 직전의 위임 경로가 같은 판정을 쓰도록 여기 하나로 둔다.
+func (m *UpgradeStateMachine) BackToIdleWithoutInstallSecret(ctx context.Context, state *v1alpha1.DriverUpgradeState,
+	policy *v1alpha1.DriverInstallPolicy) (bool, error) {
+	held, err := m.holdForInstallSecret(ctx, state, policy)
+	if err != nil || !held {
+		return false, err
+	}
+	_, _, _ = m.transitionTo(state, v1alpha1.UpgradeStateIdle, state.Status.Message, 0)
+	return true, nil
+}
+
+// handleUpgradeRequired: 설치 Secret·MaxParallelUpgrades 슬롯 확인 후 PreFlight로 전이
 func (m *UpgradeStateMachine) handleUpgradeRequired(
 	ctx context.Context,
 	state *v1alpha1.DriverUpgradeState,
 	policy *v1alpha1.DriverInstallPolicy,
 ) (bool, time.Duration, error) {
+	// 설치 파드가 마운트할 Secret 이 없으면 슬롯을 잡지 않고 Idle 로 돌아가 기다린다. 잡으면 설치 파드가
+	// 볼륨 마운트에서 멈춘 채 install Job 시한(30분)까지 노드 cordon 과 슬롯을 쥐어, 슬롯을 함께 세는 다른
+	// 벤더(같은 노드의 NVIDIA 등)의 설치까지 막는다. 보통은 Idle 이 먼저 막으므로 여기 오는 것은 수정 배포
+	// 전에 들어온 DUS 와 전이 직후 Secret 이 지워진 경우다.
+	if back, err := m.BackToIdleWithoutInstallSecret(ctx, state, policy); err != nil || back {
+		return back, InstallSecretRecheck, err
+	}
+
 	maxParallel := int32(1)
 	if policy.Spec.UpgradePolicy != nil && policy.Spec.UpgradePolicy.MaxParallelUpgrades > 0 {
 		maxParallel = policy.Spec.UpgradePolicy.MaxParallelUpgrades
@@ -526,13 +614,16 @@ func (m *UpgradeStateMachine) handleUpgradeRequired(
 		maxParallel = policy.Spec.UpgradePolicy.MaxUnavailable
 	}
 
-	active, err := m.countActiveUpgrades(ctx)
+	active, err := m.activeUpgrades(ctx)
 	if err != nil {
 		return false, 0, fmt.Errorf("활성 업그레이드 수 조회 실패: %w", err)
 	}
 
-	if int32(active) >= maxParallel {
-		// 슬롯 없음: 대기
+	if int32(len(active)) >= maxParallel {
+		// 슬롯 없음: 대기. 슬롯은 벤더 구분 없이 세므로 누가 쥐었는지 남긴다 — 다른 벤더의 사이클이
+		// 막고 있어도 이 DUS 에서 이유가 보인다.
+		m.noteWait(state, corev1.EventTypeNormal, "UpgradeSlotWait",
+			fmt.Sprintf("업그레이드 슬롯 대기(%d/%d 사용 중: %s)", len(active), maxParallel, strings.Join(active, ", ")))
 		return true, 30 * time.Second, nil
 	}
 
@@ -1529,19 +1620,33 @@ func stateToPhase(state string) string {
 	}
 }
 
-// countActiveUpgrades는 Idle/Failed 이외의 상태인 DriverUpgradeState 수를 반환합니다.
-func (m *UpgradeStateMachine) countActiveUpgrades(ctx context.Context) (int, error) {
+// activeUpgrades 는 슬롯을 쥔(isActiveState) DriverUpgradeState 의 이름을 정렬해 반환합니다. 캐시 List 는
+// 순서가 정해지지 않는다 — 정렬하지 않으면 대기 사유가 pass 마다 바뀌어 이벤트·status 쓰기가 반복된다.
+func (m *UpgradeStateMachine) activeUpgrades(ctx context.Context) ([]string, error) {
 	var list v1alpha1.DriverUpgradeStateList
 	if err := m.List(ctx, &list); err != nil {
-		return 0, err
+		return nil, err
 	}
-	count := 0
+	var names []string
 	for _, s := range list.Items {
 		if isActiveState(s.Status.State) {
-			count++
+			names = append(names, s.Name)
 		}
 	}
-	return count, nil
+	sort.Strings(names)
+	return names, nil
+}
+
+// noteWait 는 대기 사유를 status.message 에 남기고, 사유가 바뀔 때만 이벤트를 낸다 — 재확인마다
+// 같은 이벤트가 쌓이지 않게 한다.
+func (m *UpgradeStateMachine) noteWait(state *v1alpha1.DriverUpgradeState, eventType, reason, msg string) {
+	if state.Status.Message == msg {
+		return
+	}
+	state.Status.Message = msg
+	if m.Recorder != nil {
+		m.Recorder.Eventf(state, eventType, reason, "%s", msg)
+	}
 }
 
 // isActiveState는 업그레이드가 진행 중인 상태(슬롯 점유)인지 반환합니다.

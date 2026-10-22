@@ -1,4 +1,4 @@
-<!-- INSTALL.md: kcloud-operator Helm 설치와 확인 절차 | 생성일: 2026-09-14 | 수정일: 2026-10-15 -->
+<!-- INSTALL.md: kcloud-operator Helm 설치와 확인 절차 | 생성일: 2026-09-14 | 수정일: 2026-10-22 -->
 
 # kcloud-operator 설치 · 확인 절차
 
@@ -56,6 +56,22 @@ EOF
 ```
 
 사설 미러를 쓰면 두 값을 미러 주소로 바꿉니다. `nvidia.devicePluginImage` 처럼 전체 경로를 그대로 받는 항목은 조립되지 않으므로 이 파일에 직접 적습니다. 본보기는 `../integration/examples/site-values.example.yaml` 에 있습니다.
+
+Warboy 노드가 있으면 설치 전에 Furiosa 사설 APT 저장소 자격 증명을 릴리스 네임스페이스의 Secret `furiosa-apt-auth` 로 만듭니다. 키 `furiosa.conf` 는 apt `auth.conf` 형식이고, `furiosa.list`(저장소 줄)와 `furiosa-apt-key.gpg`(서명 키)는 필요할 때만 넣습니다. RNGD 는 공개 저장소를 쓰므로 이 Secret 이 필요 없습니다.
+
+```bash
+kubectl create namespace kcloud --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n kcloud create secret generic furiosa-apt-auth --from-file=furiosa.conf=./furiosa.conf
+```
+
+0.8.1 은 이 Secret 이 없으면 Warboy 설치 파드가 볼륨 마운트에서 멈춘 채 최대 30분(드라이버 버전 변경이면 최대 약 2시간) 노드를 cordon 하고 드라이버 업그레이드 슬롯을 잡습니다. 슬롯은 벤더를 구분하지 않으므로 그동안 같은 노드의 NVIDIA 를 포함한 다른 드라이버 설치도 기다립니다. 멈춘 뒤라도 Secret 을 만들면 kubelet 이 마운트를 다시 시도해 설치가 이어집니다. 이 시한이 지나 Warboy 의 DriverUpgradeState 가 `Failed` 가 되었으면 Secret 을 만든 뒤 남은 설치 Job 과 DriverUpgradeState 를 지워 다시 시작합니다. 실패한 설치 Job 은 10분 동안 남아 있고, 지우지 않으면 새 사이클이 그 Job 을 다시 써서 곧바로 실패합니다.
+
+```bash
+kubectl -n kcloud delete job -l npu.ai/vendor=furiosa,npu.ai/node=<노드>
+kubectl delete driverupgradestate <노드>-furiosa
+```
+
+0.8.1 다음 버전부터는 Secret 이 없으면 Warboy 설치 사이클을 시작하지 않고 기다립니다. DriverUpgradeState 는 `Idle` 에 머물고 사유와 이벤트 `InstallSecretMissing` 을 남기며, 노드 cordon 과 슬롯을 잡지 않습니다. Secret 을 만들면 1분 안팎에 설치가 시작되고, 다른 드라이버 설치(같은 노드의 다른 벤더 포함)가 슬롯을 쓰는 중이면 그 설치가 끝난 뒤에 시작됩니다. 차트가 만드는 Secret 확인용 Role 이 없는 배포(`rbac.create=false` 등)는 확인을 건너뛰고 0.8.1 처럼 동작합니다.
 
 ## 4. 설치 전 렌더링 점검
 
@@ -126,7 +142,7 @@ kubectl get driverupgradestate
 kubectl -n kcloud get jobs
 ```
 
-이름은 `<노드>-<벤더>` 형식이고 열은 NODE, VENDOR, STATE, CURRENT, DESIRED 입니다. 설치 Job 이 끝나면 상태가 `Idle` 로 돌아옵니다. 드라이버 설치 Job 도 `kcloud` 네임스페이스에 생깁니다. `Installing` 이 오래 유지되면 그 Job 의 로그를 확인합니다.
+이름은 `<노드>-<벤더>` 형식이고 열은 NODE, VENDOR, STATE, CURRENT, DESIRED 입니다. 설치 Job 이 끝나면 상태가 `Idle` 로 돌아옵니다. 드라이버 설치 Job 도 `kcloud` 네임스페이스에 생깁니다. `Installing` 이 오래 유지되면 그 Job 의 로그를 확인합니다. Warboy 설치 파드가 `ContainerCreating` 에 머물고 `kubectl -n kcloud describe pod <파드>` 이벤트에 `secret "furiosa-apt-auth" not found` 가 보이거나(0.8.1), Warboy 가 `Idle` 인데 드라이버가 없고 `kubectl describe driverupgradestate <노드>-furiosa` 의 사유가 `설치 Secret … 없음` 이면(0.8.1 다음 버전) 3단계의 Secret 을 만듭니다.
 
 ## 10. 확인 5 — 노드 자원 광고
 
