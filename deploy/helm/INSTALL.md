@@ -63,7 +63,7 @@ Rebellions ATOM+ 노드는 공식 device plugin 두 판을 모두 쓸 수 있습
 준비 상태는 NPUClusterPolicy 조건 `RebellionsDevicePluginReady` 로 확인합니다. 사유가 `RblnSmiMissing` 이면 노드에 Rebellions SDK 도구를 설치하고, `NoRblnDevice` 이면 드라이버를 확인합니다. `PluginCrashLoop` 이면 플러그인 판이 이미지와 맞는지, `PluginNotStarted` 이면 플러그인 이미지를 받을 수 있는지(사설 미러에 올렸는지) 확인합니다.
 
 ```bash
-kubectl get npuclusterpolicy -o jsonpath='{.items[*].status.conditions[?(@.type=="RebellionsDevicePluginReady")]}'
+kubectl get npuclusterpolicy -A -o jsonpath='{.items[*].status.conditions[?(@.type=="RebellionsDevicePluginReady")]}'
 ```
 
 ## 4. 설치 전 렌더링 점검
