@@ -17,7 +17,7 @@ limitations under the License.
 // ============================================================
 // npuclusterpolicy_types.go: NPUClusterPolicy CRD 타입 정의
 // 상세: Detector/Nvidia/Furiosa/Rebellions/Tenstorrent vendor spec 포함
-// 생성일: 2025-01-01 | 수정일: 2026-10-10 (FuriosaFamilyPresentLabel 상수 추가)
+// 생성일: 2025-01-01 | 수정일: 2026-10-24
 // ============================================================
 
 package v1alpha1
@@ -129,13 +129,19 @@ type DcgmExporterSpec struct {
 // RebellionsSpec defines the Rebellions ATOM+ device plugin configuration.
 // Backward-compatible: all fields are omitempty; omit the whole block to keep legacy behavior.
 type RebellionsSpec struct {
-	Enabled           bool              `json:"enabled,omitempty"`
-	DevicePluginImage string            `json:"devicePluginImage"`
-	ResourceName      string            `json:"resourceName,omitempty"`   // default "ATOM"
-	ResourcePrefix    string            `json:"resourcePrefix,omitempty"` // default "rebellions.ai"
-	Namespace         string            `json:"namespace,omitempty"`      // default "rbln-system"
-	ConfigMapName     string            `json:"configMapName,omitempty"`  // default "rbln-device-plugin-config"
-	NodeSelector      map[string]string `json:"nodeSelector,omitempty"`
+	Enabled           bool   `json:"enabled,omitempty"`
+	DevicePluginImage string `json:"devicePluginImage"`
+	ResourceName      string `json:"resourceName,omitempty"`   // default "ATOM"
+	ResourcePrefix    string `json:"resourcePrefix,omitempty"` // default "rebellions.ai"
+	Namespace         string `json:"namespace,omitempty"`      // default "rbln-system"
+	ConfigMapName     string `json:"configMapName,omitempty"`  // default "rbln-device-plugin-config"
+	// DevicePluginGeneration 은 device plugin 이미지의 판 형식이다. v0.3 은 SR-IOV 기반 구판
+	// (인자 --log-dir, /etc/pcidp ConfigMap), v0.4 는 rbln-device-plugin 신판(인자 없음, 환경변수)이다.
+	// 비우면 DevicePluginImage 의 태그로 판별하고, 판별할 수 없으면 v0.3 으로 본다.
+	// +kubebuilder:validation:Enum=v0.3;v0.4
+	// +optional
+	DevicePluginGeneration string            `json:"devicePluginGeneration,omitempty"`
+	NodeSelector           map[string]string `json:"nodeSelector,omitempty"`
 	// ExcludeNodeSelector 는 이 벤더의 배포 대상에서 뺄 노드를 고른다. FuriosaSpec.ExcludeNodeSelector 참조.
 	// +optional
 	ExcludeNodeSelector *metav1.LabelSelector `json:"excludeNodeSelector,omitempty"`
@@ -175,6 +181,13 @@ type NPUClusterPolicySpec struct {
 	// +optional
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
+
+// NPUClusterPolicy Condition 타입 상수
+const (
+	// ConditionRebellionsDevicePluginReady 는 Rebellions device plugin 파드의 사전 점검(rbln-smi·장치·
+	// CDI 이름 파일)과 플러그인 기동 상태다. Rebellions 를 켰을 때만 둔다.
+	ConditionRebellionsDevicePluginReady = "RebellionsDevicePluginReady"
+)
 
 // NPUClusterPolicyStatus defines the observed state of NPUClusterPolicy.
 type NPUClusterPolicyStatus struct {

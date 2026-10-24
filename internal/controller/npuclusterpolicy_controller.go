@@ -25,7 +25,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 
@@ -360,6 +359,8 @@ func (r *NPUClusterPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// -- All ensureXxx succeeded: set Ready=True and record success event
+	// Rebellions device plugin 파드의 사전 점검·기동 상태를 조건으로 남긴다(조건만 세팅, flush 는 아래).
+	r.reportRebellionsDevicePlugin(ctx, &policy, policy.Spec.Rebellions.Enabled)
 	r.setReadyCondition(ctx, &policy, metav1.ConditionTrue, "AllResourcesReady", "All resources reconciled successfully")
 	r.Recorder.Eventf(&policy, corev1.EventTypeNormal, "Reconciled", "Successfully reconciled all resources")
 
@@ -1483,6 +1484,10 @@ func (r *NPUClusterPolicyReconciler) ensureRbllnsRBAC(ctx context.Context, polic
 // ensureRbllnsConfigMap creates the ConfigMap consumed by the Rebellions device plugin
 // (/etc/pcidp/config.json). Device IDs cover all 12 ATOM+ variants (1eff:0010~1251).
 func (r *NPUClusterPolicyReconciler) ensureRbllnsConfigMap(ctx context.Context, policy *npuv1alpha1.NPUClusterPolicy) error {
+	// 신판(v0.4)은 /etc/pcidp 설정을 읽지 않는다. 이미 있는 ConfigMap 은 지우지 않는다(쓰는 곳이 없다).
+	if gen, _ := rebellionsPluginGeneration(policy.Spec.Rebellions); gen == rbllnsGenV04 {
+		return nil
+	}
 	ns := rbllnsResolveNamespace(policy)
 	name := policy.Spec.Rebellions.ConfigMapName
 	if name == "" {
@@ -1515,9 +1520,11 @@ func (r *NPUClusterPolicyReconciler) ensureRbllnsConfigMap(ctx context.Context, 
 	return r.createOrUpdateCM(ctx, cm)
 }
 
-// ensureRebellionsDevicePlugin creates the DaemonSet running the Rebellions device
-// plugin. Spec mirrors Rebellions 공식 daemonset.yaml (hostNetwork, privileged, 9 volumes).
-// Note: host-driver-usr-bin mounts /usr/local/bin (Phase 0-A 실측: rbln-stat/rbln-smi 는 /usr/local/bin 에 위치).
+// ensureRebellionsDevicePlugin creates the DaemonSet running the Rebellions device plugin.
+// 컨테이너·볼륨은 판(rebellionsPluginGeneration)에 따라 rebellions_plugin_render.go 가 만든다.
+// 두 판 모두 init container(rebellions_cdi_prep.go)가 rbln-smi 를 확인하고 CDI 이름 파일을 쓴다.
+// v0.3.6 은 rbln-smi 를 /usr/bin/rbln-smi 다음에 PATH 에서만 찾으므로 PATH 로 호스트 경로를 알려 준다.
+// 예전의 단일 파일 연결 마운트(type=File)는 SDK 가 /usr/bin 에 설치한 노드에서 파드를 멈추게 해 쓰지 않는다.
 func (r *NPUClusterPolicyReconciler) ensureRebellionsDevicePlugin(ctx context.Context, policy *npuv1alpha1.NPUClusterPolicy) error {
 	log := logf.FromContext(ctx)
 
@@ -1526,7 +1533,7 @@ func (r *NPUClusterPolicyReconciler) ensureRebellionsDevicePlugin(ctx context.Co
 	if cmName == "" {
 		cmName = rbllnsConfigMapNameDefault
 	}
-	image := policy.Spec.Rebellions.DevicePluginImage
+	gen, _ := rebellionsPluginGeneration(policy.Spec.Rebellions)
 
 	// 자립 라벨(node-manager 부여, 수동 라벨 비의존) + arch 게이트.
 	sel := map[string]string{
@@ -1537,7 +1544,7 @@ func (r *NPUClusterPolicyReconciler) ensureRebellionsDevicePlugin(ctx context.Co
 		sel = policy.Spec.Rebellions.NodeSelector
 	}
 
-	labels := map[string]string{"app.kubernetes.io/name": "rbln-device-plugin"}
+	labels := map[string]string{"app.kubernetes.io/name": rbllnsDaemonSetName}
 	ds := &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rbllnsDaemonSetName,
@@ -1546,75 +1553,27 @@ func (r *NPUClusterPolicyReconciler) ensureRebellionsDevicePlugin(ctx context.Co
 		},
 	}
 	setOwnerAnnotation(&ds.ObjectMeta, policy)
+	podSpec := corev1.PodSpec{
+		// 구판은 공식 daemonset.yaml 을 따라 hostNetwork 를 쓴다. 신판 벤더 차트는 쓰지 않는다 —
+		// 상태 확인 gRPC 포트(51515)가 호스트 포트를 차지하지 않게 한다.
+		HostNetwork:        gen == rbllnsGenV03,
+		ServiceAccountName: rbllnsServiceAccountName,
+		NodeSelector:       sel,
+		Tolerations: []corev1.Toleration{
+			{Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule},
+			{Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoExecute},
+		},
+		Containers: []corev1.Container{rbllnsPluginContainer(gen, policy.Spec.Rebellions.DevicePluginImage)},
+		Volumes:    rbllnsPluginVolumes(gen, cmName),
+	}
+	if c := rbllnsPrepInitContainer(HostExecImage(), gen, rbllnsCDIKind(policy.Spec.Rebellions, gen)); c != nil {
+		podSpec.InitContainers = []corev1.Container{*c}
+	}
 	ds.Spec = appsv1.DaemonSetSpec{
 		Selector: &metav1.LabelSelector{MatchLabels: labels},
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{Labels: labels},
-			Spec: corev1.PodSpec{
-				HostNetwork:        true,
-				ServiceAccountName: rbllnsServiceAccountName,
-				NodeSelector:       sel,
-				Tolerations: []corev1.Toleration{
-					{Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule},
-					{Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoExecute},
-				},
-				Containers: []corev1.Container{{
-					Name:            "rbln-device-plugin",
-					Image:           image,
-					ImagePullPolicy: corev1.PullIfNotPresent,
-					Args:            []string{"--log-dir=device-plugin", "--log-level=10"},
-					SecurityContext: &corev1.SecurityContext{
-						Privileged: boolPtr(true),
-						RunAsUser:  int64Ptr(0),
-					},
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceCPU:    resource.MustParse("250m"),
-							corev1.ResourceMemory: resource.MustParse("40Mi"),
-						},
-						Limits: corev1.ResourceList{
-							corev1.ResourceCPU:    resource.MustParse("1"),
-							corev1.ResourceMemory: resource.MustParse("200Mi"),
-						},
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{Name: "devicesock", MountPath: "/var/lib/kubelet/device-plugins"},
-						{Name: "plugins-registry", MountPath: "/var/lib/kubelet/plugins_registry"},
-						{Name: "log", MountPath: "/var/log"},
-						{Name: "config-volume", MountPath: "/etc/pcidp"},
-						{Name: "device-info", MountPath: "/var/run/k8s.cni.cncf.io/devinfo/dp"},
-						{Name: "host-usr-bin", MountPath: "/host/usr/bin", ReadOnly: true},
-						{Name: "host-driver-usr-bin", MountPath: "/host/driver/usr/bin", ReadOnly: true},
-						// F-A2 (2026-04-22): Rebellions device plugin 이미지는 `rbln-smi`
-						// 를 /usr/bin/rbln-smi 에서 찾음. host 는 /usr/local/bin/rbln-smi
-						// 이므로 single-file hostPath 로 경로 bridge. 없어도 동작 자체는
-						// 되나 RSD group 생성 경로에서 "rbln-smi not found" 경고 제거.
-						{Name: "host-rbln-smi", MountPath: "/usr/bin/rbln-smi", ReadOnly: true},
-						{Name: "host-dev", MountPath: "/dev"},
-						{Name: "host-sys", MountPath: "/sys"},
-					},
-				}},
-				Volumes: []corev1.Volume{
-					{Name: "devicesock", VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/var/lib/kubelet/device-plugins"}}},
-					{Name: "plugins-registry", VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/var/lib/kubelet/plugins_registry"}}},
-					{Name: "log", VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/var/log"}}},
-					{Name: "config-volume", VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: cmName},
-						},
-					}},
-					{Name: "device-info", VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/var/run/k8s.cni.cncf.io/devinfo/dp"}}},
-					{Name: "host-usr-bin", VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/usr/bin"}}},
-					{Name: "host-driver-usr-bin", VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/usr/local/bin"}}},
-					// F-A2: single-file hostPath (HostPathFile) for /usr/bin/rbln-smi bridge
-					{Name: "host-rbln-smi", VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{
-						Path: "/usr/local/bin/rbln-smi",
-						Type: hostPathFilePtr(),
-					}}},
-					{Name: "host-dev", VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/dev"}}},
-					{Name: "host-sys", VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/sys"}}},
-				},
-			},
+			Spec:       podSpec,
 		},
 	}
 
@@ -1627,7 +1586,7 @@ func (r *NPUClusterPolicyReconciler) ensureRebellionsDevicePlugin(ctx context.Co
 		log.Error(err, "failed to ensure rebellions device plugin daemonset")
 		return err
 	}
-	log.Info("Rebellions device plugin daemonset ensured")
+	log.Info("Rebellions device plugin daemonset ensured", "generation", gen)
 	return nil
 }
 
@@ -1818,12 +1777,6 @@ func boolPtr(b bool) *bool {
 
 func int64Ptr(i int64) *int64 {
 	return &i
-}
-
-// hostPathFilePtr returns a pointer to HostPathFile HostPathType for single-file hostPath volumes.
-func hostPathFilePtr() *corev1.HostPathType {
-	t := corev1.HostPathFile
-	return &t
 }
 
 // control-plane/master 노드를 식별하는 라벨. driver_upgrade_controller 의 노드 제외
