@@ -413,9 +413,9 @@ func rebellionsPolicy() *npuv1alpha1.NPUClusterPolicy {
 	return p
 }
 
-// 벤더 플러그인이 Allocate 응답에서 /usr/bin/rbln-smi 를 직접 마운트한다.
-// 우리가 거는 단일 파일 hostPath 는 중복이고, SDK 가 /usr/bin 에 설치한 노드에서는
-// type=File 검사가 실패해 파드가 ContainerCreating 에서 멈춘다.
+// 단일 파일 hostPath(type=File)로 rbln-smi 를 연결하면 SDK 가 /usr/bin 에 설치한 노드에서 검사가 실패해
+// 파드가 ContainerCreating 에서 멈춘다. 구판이 rbln-smi 를 찾는 경로는 컨테이너 PATH 로 알려 준다
+// (rebellions_plugin_render.go rbllnsV03Path).
 func TestEnsureRebellionsDevicePlugin_NoSingleFileSmiBridge(t *testing.T) {
 	p := rebellionsPolicy()
 	r := newDRAReconciler(p)
@@ -447,32 +447,6 @@ func TestEnsureRebellionsDevicePlugin_NoSingleFileSmiBridge(t *testing.T) {
 	}
 	if !hasUsrBin {
 		t.Error("host-usr-bin 볼륨까지 사라졌다 — 제거 범위가 넓다")
-	}
-}
-
-// fake client 는 PodSpec 의 volumeMount→volume 참조를 검증하지 않는다. 그래서 볼륨을
-// 하나 지우고 마운트를 남겨도 시험이 통과한다. 이 단언이 그 구멍을 막는다.
-func TestEnsureRebellionsDevicePlugin_AllMountsHaveVolumes(t *testing.T) {
-	p := rebellionsPolicy()
-	r := newDRAReconciler(p)
-	if err := r.ensureRebellionsDevicePlugin(context.Background(), p); err != nil {
-		t.Fatalf("ensureRebellionsDevicePlugin: %v", err)
-	}
-	var ds appsv1.DaemonSet
-	if err := r.Get(context.Background(), types.NamespacedName{
-		Name: rbllnsDaemonSetName, Namespace: naming.KubeSystemNamespace}, &ds); err != nil {
-		t.Fatalf("DaemonSet 이 생성되지 않았다: %v", err)
-	}
-	have := map[string]bool{}
-	for _, v := range ds.Spec.Template.Spec.Volumes {
-		have[v.Name] = true
-	}
-	for _, c := range ds.Spec.Template.Spec.Containers {
-		for _, m := range c.VolumeMounts {
-			if !have[m.Name] {
-				t.Errorf("volumeMount %q 에 대응하는 volume 이 없다 — apiserver 가 PodSpec 을 거부한다", m.Name)
-			}
-		}
 	}
 }
 

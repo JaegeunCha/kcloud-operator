@@ -1,4 +1,4 @@
-<!-- INSTALL.md: kcloud-operator Helm 설치와 확인 절차 | 생성일: 2026-09-14 | 수정일: 2026-10-22 -->
+<!-- INSTALL.md: kcloud-operator Helm 설치와 확인 절차 | 생성일: 2026-09-14 | 수정일: 2026-10-24 -->
 
 # kcloud-operator 설치 · 확인 절차
 
@@ -72,6 +72,16 @@ kubectl delete driverupgradestate <노드>-furiosa
 ```
 
 0.8.1 다음 버전부터는 Secret 이 없으면 Warboy 설치 사이클을 시작하지 않고 기다립니다. DriverUpgradeState 는 `Idle` 에 머물고 사유와 이벤트 `InstallSecretMissing` 을 남기며, 노드 cordon 과 슬롯을 잡지 않습니다. Secret 을 만들면 1분 안팎에 설치가 시작되고, 다른 드라이버 설치(같은 노드의 다른 벤더 포함)가 슬롯을 쓰는 중이면 그 설치가 끝난 뒤에 시작됩니다. 차트가 만드는 Secret 확인용 Role 이 없는 배포(`rbac.create=false` 등)는 확인을 건너뛰고 0.8.1 처럼 동작합니다.
+
+Rebellions ATOM+ 노드는 공식 device plugin 두 판을 모두 쓸 수 있습니다. 기본은 `v0.3.6` 이고, 신판을 쓰려면 `rebellions.devicePluginTag` 를 `v0.4.3` 으로 바꿉니다. 판은 태그로 판별합니다. digest 로 고정해 태그가 없으면 `rebellions.devicePluginGeneration` 에 `v0.3` 또는 `v0.4` 를 적습니다. 사설 미러를 쓰면 `rebellions/k8s-device-plugin:v0.4.3` 을 미리 미러에 올립니다.
+
+플러그인 파드의 init container `rbln-cdi-prep` 는 기동 전에 두 가지를 합니다. 먼저 호스트 `/usr/bin` 이나 `/usr/local/bin` 에 `rbln-smi` 가 없으면 실패해 그 노드에서 플러그인을 띄우지 않습니다. 파드마다 전용 NPU 묶음(RSD 그룹)을 만들 수 없는 노드에서 노드 전체 묶음이 파드에 들어가는 일을 막기 위해서입니다. 다음으로 `/var/run/cdi/kcloud-rebellions.yaml` 에 플러그인이 요청하는 CDI 이름을 정의합니다. containerd 2.x 처럼 CDI 가 켜진 노드에서는 이 파일이 있어야 ATOM 파드가 만들어지고, CDI 가 꺼진 노드에서는 containerd 가 이 파일을 읽지 않습니다. v0.4 형식으로 쓴 노드에는 이 파일이 Rebellions 를 끄거나 operator 를 지운 뒤에도 남으므로, 그 노드에 벤더 container toolkit 을 설치하기 전에 파일을 지우거나 노드를 재부팅합니다(두 파일이 같은 이름 `runtime` 을 정의하면 CDI 가 둘 다 무시해 그 노드의 ATOM 파드가 만들어지지 않습니다).
+
+준비 상태는 NPUClusterPolicy 조건 `RebellionsDevicePluginReady` 로 확인합니다. 사유가 `RblnSmiMissing` 이면 노드에 Rebellions SDK 도구를 설치하고, `NoRblnDevice` 이면 드라이버를 확인합니다. `PluginCrashLoop` 이면 플러그인 판이 이미지와 맞는지, `PluginNotStarted` 이면 플러그인 이미지를 받을 수 있는지(사설 미러에 올렸는지) 확인합니다. `PrepFailed` 이면 init container 이미지(operator 의 `HOST_EXEC_IMAGE` 환경변수가 가리키는 host-exec 이미지)를 노드가 받을 수 있는지와 플러그인 파드의 init container 종료 메시지(`kubectl describe pod`)를 확인하고, `CDIWriteFailed` 이면 노드의 `/var/run/cdi` 에 쓸 수 있는지 확인합니다. `HostExecImageUnset` 은 차트 밖에서 operator 를 실행해 `HOST_EXEC_IMAGE` 가 비었을 때 나오며, 이때는 init container 없이 플러그인만 배포되므로 환경변수를 채우고 operator 를 다시 시작합니다.
+
+```bash
+kubectl get npuclusterpolicy -A -o jsonpath='{.items[*].status.conditions[?(@.type=="RebellionsDevicePluginReady")]}'
+```
 
 ## 4. 설치 전 렌더링 점검
 
@@ -174,6 +184,8 @@ helm uninstall kcloud-operator -n kcloud --wait
 ```
 
 가속기를 쓰는 Pod 가 남아 있으면 pre-delete hook 이 삭제를 중단시키고 uninstall 이 실패합니다. 사유는 `kubectl -n kcloud logs job/kcloud-operator-uninstall-gate` 에 남습니다. 삭제 정책은 `README.md` 의 Uninstall 절에 있습니다.
+
+Rebellions 를 v0.4 형식으로 쓴 노드에는 `/var/run/cdi/kcloud-rebellions.yaml` 이 남습니다. 이 파일은 노드를 재부팅하면 사라지고, 그 전에 벤더 container toolkit 을 설치하려면 `sudo rm -f /var/run/cdi/kcloud-rebellions.yaml` 로 지웁니다. 같은 디렉터리의 두 파일이 같은 이름 `runtime` 을 정의하면 CDI 가 둘 다 무시해 그 노드의 ATOM 파드가 만들어지지 않습니다.
 
 ## 13. 완료 판정
 

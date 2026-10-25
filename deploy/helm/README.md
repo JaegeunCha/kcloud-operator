@@ -206,6 +206,7 @@ Helm 은 설계상 `crds/` 디렉터리의 CRD 를 삭제하지 않습니다. `u
 | `furiosa.rngd.partitionPolicy` / `debugMode` | `none` / `false` | `none`(1)/`quad-core`(2)/`dual-core`(4)/`single-core`(8) instance/card. `none` 외 값은 파티션 지원 내부 이미지(`kcloud/furiosa-device-plugin-mi`) 필요 |
 | `rebellions.enabled` | `true` | ATOM+ device-plugin |
 | `rebellions.devicePluginUpstream` / `devicePluginRepository` / `devicePluginTag` | `docker.io` / `rebellions/k8s-device-plugin` / `v0.3.6` | 벤더 공개 ATOM+ device-plugin(`global.vendorRegistry` 로 조립) |
+| `rebellions.devicePluginGeneration` | `""` | 플러그인 판 형식(`v0.3`·`v0.4`). 비우면 `devicePluginTag` 로 판별 |
 | `driverInstallPolicies.<vendor>.enabled` | `true` | 벤더별 driver 설치 정책 CR 생성 |
 | `driverInstallPolicies.<vendor>.driver.version` / `.image` | 벤더별 | 설치할 드라이버 버전·이미지 |
 | `driverInstallPolicies.<vendor>.driver.mode` | `daemonset` | (job 모드는 legacy) |

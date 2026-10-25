@@ -2,7 +2,7 @@
 // chart_values_schema_test.go: values.schema.json 이 모르는 키를 막는지 고정한다.
 // 상세: helm 은 스키마가 없으면 오타 키를 받고 조용히 버린다. 닫은 블록은 거절하고, 사이트마다
 // 키가 달라 열어 둔 블록은 통과해야 한다 — 둘을 같이 고정해야 엄격함이 의도대로 걸렸음이 남는다.
-// 생성일: 2026-10-04 | 수정일: 2026-10-11
+// 생성일: 2026-10-04 | 수정일: 2026-10-24
 // ============================================================
 package controller
 
@@ -183,5 +183,23 @@ func TestChartRendersKernelImageAssemblyKeys(t *testing.T) {
 	}
 	if strings.Contains(string(base), "kernelImageVariant") {
 		t.Error("기본 렌더에 kernelImageVariant 가 혼자 실렸다 — 빌드 개정과 함께만 실려야 한다")
+	}
+}
+
+// rebellions.devicePluginGeneration 은 빈 값·v0.3·v0.4 만 받고, 값은 정책에 그대로 실린다.
+// 빈 값이면 정책에 필드를 싣지 않는다(operator 가 태그로 판별).
+func TestChartRebellionsDevicePluginGeneration(t *testing.T) {
+	if ok, out := helmRenderWithSet(t, "rebellions.devicePluginGeneration=v0.9"); ok {
+		t.Fatalf("허용값 밖의 판이 거절되지 않았다\n%s", out)
+	}
+	ok, out := helmRenderWithSet(t, "rebellions.devicePluginGeneration=v0.4")
+	if !ok {
+		t.Fatalf("v0.4 렌더 실패\n%s", out)
+	}
+	if !strings.Contains(out, `devicePluginGeneration: "v0.4"`) {
+		t.Error("정책에 devicePluginGeneration 이 실리지 않았다")
+	}
+	if strings.Contains(helmTemplate(t), "devicePluginGeneration:") {
+		t.Error("빈 값인데 정책에 devicePluginGeneration 이 실렸다")
 	}
 }

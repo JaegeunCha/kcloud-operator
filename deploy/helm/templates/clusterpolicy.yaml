@@ -1,6 +1,6 @@
 {{- if .Values.deployClusterPolicy }}
 # clusterpolicy.yaml: NPUClusterPolicy 샘플 CR
-# 생성일: 2026-03-25 | 수정일: 2026-10-11
+# 생성일: 2026-03-25 | 수정일: 2026-10-24
 apiVersion: npu.ai/v1alpha1
 kind: NPUClusterPolicy
 metadata:
@@ -92,6 +92,9 @@ spec:
     managementMode: {{ . | quote }}
     {{- end }}
     devicePluginImage: {{ include "kcloud-operator.vendorImage" (dict "registry" .Values.global.vendorRegistry "upstream" .Values.rebellions.devicePluginUpstream "repo" .Values.rebellions.devicePluginRepository "tag" .Values.rebellions.devicePluginTag) | quote }}
+    {{- with .Values.rebellions.devicePluginGeneration }}
+    devicePluginGeneration: {{ . | quote }}
+    {{- end }}
     resourceName: {{ .Values.rebellions.resourceName | quote }}
     resourcePrefix: {{ .Values.rebellions.resourcePrefix | quote }}
     namespace: {{ .Values.rebellions.namespace | quote }}

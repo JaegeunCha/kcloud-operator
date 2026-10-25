@@ -1099,6 +1099,15 @@ spec:
                     x-kubernetes-map-type: atomic
                   configMapName:
                     type: string
+                  devicePluginGeneration:
+                    description: |-
+                      DevicePluginGeneration 은 device plugin 이미지의 판 형식이다. v0.3 은 SR-IOV 기반 구판
+                      (인자 --log-dir, /etc/pcidp ConfigMap), v0.4 는 rbln-device-plugin 신판(인자 없음, 환경변수)이다.
+                      비우면 DevicePluginImage 의 태그로 판별하고, 판별할 수 없으면 v0.3 으로 본다.
+                    enum:
+                    - v0.3
+                    - v0.4
+                    type: string
                   devicePluginImage:
                     type: string
                   dra:
