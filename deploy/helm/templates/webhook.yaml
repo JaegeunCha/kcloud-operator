@@ -1,8 +1,9 @@
 {{- if .Values.webhook.enabled }}
 # ============================================================
 # webhook.yaml: Admission webhook Service + cert Secret + Validating/Mutating 설정
-# 상세: cert 는 lookup 으로 최초 1회 발급·재사용(멱등), failurePolicy=Ignore, opt-in 라벨 mutating
-# 생성일: 2026-07-20 | 수정일: 2026-10-11
+# 상세: cert 는 lookup 으로 최초 1회 발급·재사용(멱등), failurePolicy=Ignore, opt-in 라벨 mutating.
+#       injectScope=namespace 면 라벨 네임스페이스 대상 mutating 을 하나 더 둔다.
+# 생성일: 2026-07-20 | 수정일: 2026-10-26
 # ============================================================
 {{- $fullname := include "kcloud-operator.fullname" . -}}
 {{- $svcName := printf "%s-webhook" $fullname -}}
@@ -160,7 +161,7 @@ metadata:
     app.kubernetes.io/name: {{ include "kcloud-operator.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
 webhooks:
-# Pod mutating: kube-system 제외 + opt-in 라벨(injectLabel=true) 대상만.
+# Pod mutating(pod 범위): kube-system 제외 + opt-in 라벨(injectLabel=true) Pod 만. injectScope 와 무관하게 항상 둔다.
 - name: mpod.npu.ai
   admissionReviewVersions: ["v1"]
   sideEffects: None
@@ -186,4 +187,33 @@ webhooks:
     operations: ["CREATE"]
     resources: ["pods"]
     scope: "Namespaced"
+{{- if eq (.Values.webhook.injectScope | default "pod") "namespace" }}
+# Pod mutating(namespace 범위): injectLabel=true 라벨이 붙은 네임스페이스의 Pod 전부. kube-system 제외.
+#   objectSelector 가 없어 Pod 라벨을 보지 않는다 — Pod 에 라벨을 넣을 수 없는 도구가 만드는 GPU Pod 가 대상이다.
+- name: mpod-namespace.npu.ai
+  admissionReviewVersions: ["v1"]
+  sideEffects: None
+  failurePolicy: {{ .Values.webhook.failurePolicy }}
+  reinvocationPolicy: Never
+  clientConfig:
+    service:
+      name: {{ $svcName }}
+      namespace: {{ .Release.Namespace }}
+      path: /mutate--v1-pod
+    caBundle: {{ $caCert }}
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values: ["kube-system"]
+    - key: {{ .Values.webhook.injectLabel }}
+      operator: In
+      values: ["true"]
+  rules:
+  - apiGroups: [""]
+    apiVersions: ["v1"]
+    operations: ["CREATE"]
+    resources: ["pods"]
+    scope: "Namespaced"
+{{- end }}
 {{- end }}

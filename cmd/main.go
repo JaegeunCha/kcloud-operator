@@ -142,6 +142,10 @@ func main() {
 	flag.StringVar(&webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
 	flag.StringVar(&webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
 	flag.StringVar(&webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")
+	var webhookInjectScope string
+	flag.StringVar(&webhookInjectScope, "webhook-inject-scope", npuwebhook.InjectScopePod,
+		"Pod mutating webhook 의 주입 대상 범위: pod(opt-in 라벨 Pod) 또는 namespace(라벨 네임스페이스의 Pod 전부). "+
+			"차트 값 webhook.injectScope 와 같은 값이다.")
 	flag.StringVar(&metricsCertPath, "metrics-cert-path", "",
 		"The directory that contains the metrics server certificate.")
 	flag.StringVar(&metricsCertName, "metrics-cert-name", "tls.crt", "The name of the metrics server certificate file.")
@@ -440,7 +444,7 @@ func main() {
 	// 통째로 죽는다. helm 차트는 webhook.enabled=false 면 --webhook-cert-path 를 주지 않으므로
 	// 이 가드가 없으면 차트 기본값 그대로는 operator 가 뜨지 않는다.
 	if webhookCertPath != "" {
-		if err := npuwebhook.Setup(mgr); err != nil {
+		if err := npuwebhook.Setup(mgr, webhookInjectScope); err != nil {
 			setupLog.Error(err, "unable to set up admission webhooks")
 			os.Exit(1)
 		}

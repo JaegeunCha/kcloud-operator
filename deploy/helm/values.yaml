@@ -1,5 +1,5 @@
 # values.yaml: NPU Operator 기본 설정값
-# 생성일: 2026-03-25 | 수정일: 2026-10-24
+# 생성일: 2026-03-25 | 수정일: 2026-10-26
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 레지스트리는 두 종류다. 어느 이미지가 어느 쪽인지는 deploy/helm/README.md 의 "레지스트리
@@ -47,7 +47,7 @@ metrics:
 # operator 이미지: registry 는 global.registry 로 조립됨 (repository 는 registry-relative path).
 image:
   repository: kcloud-operator
-  tag: v0.8.1
+  tag: v0.8.2
   pullPolicy: IfNotPresent
 
 # hostExec: operator 가 호스트에서 명령을 대신 실행할 때 띄우는 특권 hostPID Job 이미지
@@ -415,6 +415,10 @@ webhook:
   failurePolicy: Ignore
   # Pod mutating 대상 opt-in 라벨. 이 라벨이 없는 Pod 는 무개입.
   injectLabel: "kcloud.ai/inject"
+  # 주입 대상 범위. pod: 위 라벨이 "true" 인 Pod 만(기본). namespace: 그 라벨이 "true" 인 네임스페이스의
+  #   Pod 전부를 대상에 더한다(Pod 라벨 opt-in 은 그대로 유지). Pod 에 라벨을 넣을 수 없는 도구가 만드는
+  #   GPU Pod 에 쓴다. 두 경우 모두 kube-system 은 제외하고, nvidia.com/* 를 요청하는 Pod 에만 주입한다.
+  injectScope: pod
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 관리 REST API + 웹 콘솔(track ③, /ui/): kubeconfig 없는 외부 관리툴/대시보드용 HTTP API.

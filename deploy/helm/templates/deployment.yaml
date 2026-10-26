@@ -1,5 +1,5 @@
 # deployment.yaml: NPU Operator Controller Manager Deployment
-# 생성일: 2026-03-25 | 수정일: 2026-10-11
+# 생성일: 2026-03-25 | 수정일: 2026-10-26
 {{/*
 operator 이미지 태그가 이 차트와 같은 릴리스 라인인지 render 단계에서 검사한다. -k8s1.28
 접미는 K8s 1.26~1.30 릴리스 라인(차트는 release/k8s-1.28 브랜치)이다 — 섞으면 구 라인
@@ -56,6 +56,7 @@ spec:
         - --health-probe-bind-address=:8081
         {{- if .Values.webhook.enabled }}
         - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
+        - --webhook-inject-scope={{ .Values.webhook.injectScope | default "pod" }}
         {{- end }}
         {{- if .Values.api.enabled }}
         - "--api-bind-address=:{{ .Values.api.port }}"

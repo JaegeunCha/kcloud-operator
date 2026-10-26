@@ -1,8 +1,9 @@
 // ============================================================
 // webhook.go: Admission webhook 핸들러 (DIP/NCP/AcceleratorClass/AcceleratorWorkload/
 // AcceleratorPartitionPolicy validating + Pod mutating)
-// 상세: spec 검증 거부 + 추상 워크로드 변환 검증 + opt-in 라벨 Pod 에 NVIDIA runtimeClass 주입
-// 생성일: 2026-07-20 | 수정일: 2026-10-11
+// 상세: spec 검증 거부 + 추상 워크로드 변환 검증 + opt-in 라벨 Pod(injectScope=namespace 면 라벨
+//       네임스페이스의 Pod 전부)에 NVIDIA runtimeClass 주입
+// 생성일: 2026-07-20 | 수정일: 2026-10-26
 // ============================================================
 
 package webhook
@@ -35,6 +36,27 @@ func recordRejection(kind string, err error) error {
 // InjectLabel: 이 라벨이 "true" 인 Pod 만 mutating 대상(opt-in). 그 외 Pod 무개입.
 const InjectLabel = "kcloud.ai/inject"
 
+// Pod mutating 의 대상 범위. 차트 값 webhook.injectScope 와 매니저 플래그 --webhook-inject-scope 가
+// 같은 문자열을 쓴다.
+const (
+	// InjectScopePod: InjectLabel=true 인 Pod 만 대상(기본).
+	InjectScopePod = "pod"
+	// InjectScopeNamespace: InjectLabel=true 인 네임스페이스의 Pod 전부가 대상이다. 네임스페이스 선택은
+	// MutatingWebhookConfiguration 의 namespaceSelector 가 맡고, PodMutator 는 Pod 라벨을 보지 않는다.
+	InjectScopeNamespace = "namespace"
+)
+
+// NormalizeInjectScope 는 빈 값을 InjectScopePod 로 보고, 두 값 외에는 오류를 돌려준다.
+func NormalizeInjectScope(s string) (string, error) {
+	switch s {
+	case "", InjectScopePod:
+		return InjectScopePod, nil
+	case InjectScopeNamespace:
+		return InjectScopeNamespace, nil
+	}
+	return "", fmt.Errorf("webhook inject scope %q: %q 또는 %q 만 허용한다", s, InjectScopePod, InjectScopeNamespace)
+}
+
 // nvidiaResourcePrefix: NVIDIA device-plugin 이 광고하는 extended resource 접두.
 // 전체 장치(nvidia.com/gpu)와 mixed MIG 조각(nvidia.com/mig-<profile>)이 모두 여기 걸린다 —
 // 리터럴 nvidia.com/gpu 만 보면 MIG Pod 이 runtimeClass 없이 떠서 /dev/nvidia* 를 못 받는다.
@@ -54,8 +76,13 @@ var knownVendors = map[string]bool{
 // Setup 은 여섯 개의 admission webhook(DIP/NCP/AcceleratorClass/AcceleratorWorkload/
 // AcceleratorPartitionPolicy validating, Pod mutating)을 매니저에 등록한다.
 // WebhookConfiguration(외부)이 없으면 admission 호출이 서버에 도달하지 않으므로,
-// webhook.enabled=false 배포에서는 무해하게 미사용 상태로 남는다.
-func Setup(mgr ctrl.Manager) error {
+// webhook.enabled=false 배포에서는 무해하게 미사용 상태로 남는다. injectScope 는 Pod mutating 의
+// 대상 범위(InjectScopePod·InjectScopeNamespace)다.
+func Setup(mgr ctrl.Manager, injectScope string) error {
+	scope, scopeErr := NormalizeInjectScope(injectScope)
+	if scopeErr != nil {
+		return scopeErr
+	}
 	if err := ctrl.NewWebhookManagedBy(mgr).
 		For(&npuv1alpha1.DriverInstallPolicy{}).
 		WithValidator(&DIPValidator{}).
@@ -88,7 +115,7 @@ func Setup(mgr ctrl.Manager) error {
 	}
 	if err := ctrl.NewWebhookManagedBy(mgr).
 		For(&corev1.Pod{}).
-		WithDefaulter(&PodMutator{}).
+		WithDefaulter(&PodMutator{Scope: scope}).
 		Complete(); err != nil {
 		return fmt.Errorf("register Pod mutator: %w", err)
 	}
@@ -231,17 +258,22 @@ func validateNCP(obj runtime.Object) error {
 	return nil
 }
 
-// PodMutator 는 opt-in 라벨(kcloud.ai/inject=true) Pod 가 NVIDIA GPU 를 요청하고
-// runtimeClassName 미지정일 때 nvidia runtimeClass 를 주입한다. 비라벨 Pod 는 무개입.
-type PodMutator struct{}
+// PodMutator 는 NVIDIA GPU 를 요청하고 runtimeClassName 미지정인 Pod 에 nvidia runtimeClass 를
+// 주입한다. Scope 가 InjectScopePod(기본·빈 값)면 opt-in 라벨(kcloud.ai/inject=true) Pod 만,
+// InjectScopeNamespace 면 admission selector 가 보낸 Pod 전부가 대상이다. 그 외 Pod 는 무개입.
+type PodMutator struct {
+	// Scope 는 InjectScopePod 또는 InjectScopeNamespace 다. NormalizeInjectScope 로 정규화한 값을 넣는다.
+	Scope string
+}
 
 func (m *PodMutator) Default(_ context.Context, obj runtime.Object) error {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return fmt.Errorf("expected Pod, got %T", obj)
 	}
-	// opt-in 라벨 없으면 개입하지 않음(objectSelector 이중 방어).
-	if pod.Labels[InjectLabel] != "true" {
+	// pod 범위: opt-in 라벨 없으면 개입하지 않음(objectSelector 이중 방어). namespace 범위는
+	// 네임스페이스 선택을 admission namespaceSelector 가 하므로 Pod 라벨을 보지 않는다.
+	if m.Scope != InjectScopeNamespace && pod.Labels[InjectLabel] != "true" {
 		return nil
 	}
 	if podRequestsNvidiaGPU(pod) && (pod.Spec.RuntimeClassName == nil || *pod.Spec.RuntimeClassName == "") {

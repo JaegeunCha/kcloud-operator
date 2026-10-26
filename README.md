@@ -19,7 +19,7 @@ Kubernetes 버전에 맞는 명령 하나를 고릅니다.
 ```bash
 # Kubernetes 1.31~1.34
 helm upgrade --install kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-operator \
-  --version 0.8.1 -n kcloud --create-namespace \
+  --version 0.8.2 -n kcloud --create-namespace \
   -f https://raw.githubusercontent.com/openkcloud/kcloud-operator/main/deploy/helm/values-k8s1.34.yaml
 
 # Kubernetes 1.26~1.30
@@ -102,7 +102,7 @@ cd cmd/kubectl-npu && go build -o kubectl-npu .
 
 ```bash
 helm upgrade --install kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-operator \
-  --version 0.8.1 -n kcloud --create-namespace \
+  --version 0.8.2 -n kcloud --create-namespace \
   -f deploy/helm/values-k8s1.34.yaml
 ```
 
@@ -224,6 +224,7 @@ RELEASE=kcloud-operator NAMESPACE=kcloud bash deploy/helm/uninstall.sh
 | `furiosa.unified.enabled` | `false` | Warboy·RNGD 를 통합 device-plugin 하나로 배치 |
 | `driverInstallPolicies.<vendor>.enabled` | `true` | 벤더별 `DriverInstallPolicy` CR 생성 |
 | `webhook.enabled` | `false` | DIP·NCP validating webhook 과 opt-in Pod mutating webhook |
+| `webhook.injectScope` | `pod` | `namespace` 면 `webhook.injectLabel` 이 `true` 인 네임스페이스의 `nvidia.com/*` 요청 Pod 에도 runtimeClass 를 주입(Pod 라벨 opt-in 은 유지) |
 | `api.enabled` | `false` | 관리 REST API 와 웹 콘솔(`:9444` HTTPS) |
 | `api.console.extraServiceAccounts` | `[]` | 외부 화면용 SA·권한 묶음 목록(name, role=viewer\|operator) |
 | `metrics.enabled` | `false` | controller-runtime 지표 노출 |

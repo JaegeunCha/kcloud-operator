@@ -1,7 +1,7 @@
 // ============================================================
 // webhook_test.go: admission webhook 핸들러 단위 테스트
 // 상세: DIP/NCP 거부·통과, Pod 주입/무개입 케이스
-// 생성일: 2026-07-20 | 수정일: 2026-10-11
+// 생성일: 2026-07-20 | 수정일: 2026-10-26
 // ============================================================
 
 package webhook
@@ -297,5 +297,63 @@ func TestPodMutatorInjectsForMIGAndInitContainerResources(t *testing.T) {
 	}
 	if p.Spec.RuntimeClassName != nil {
 		t.Fatalf("non-nvidia resource must not be mutated, got %v", *p.Spec.RuntimeClassName)
+	}
+}
+
+// injectScope=namespace 에서는 Pod 라벨이 없어도 nvidia 요청 Pod 에 주입한다. 네임스페이스 선택은
+// admission namespaceSelector 가 하므로 mutator 는 라벨을 보지 않는다. nvidia 자원·빈
+// runtimeClassName 조건은 pod 범위와 같다.
+func TestPodMutatorNamespaceScopeIgnoresPodLabel(t *testing.T) {
+	m := &PodMutator{Scope: InjectScopeNamespace}
+
+	p := gpuPod(nil, true, "")
+	if err := m.Default(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Spec.RuntimeClassName == nil || *p.Spec.RuntimeClassName != nvidiaRuntimeClass {
+		t.Fatalf("namespace 범위는 라벨 없는 GPU Pod 에도 주입해야 한다, got %v", p.Spec.RuntimeClassName)
+	}
+
+	p = resourcePod(nil, map[string]bool{"furiosa.ai/rngd": true}, "")
+	if err := m.Default(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Spec.RuntimeClassName != nil {
+		t.Fatalf("nvidia 자원이 없는 Pod 는 무개입이어야 한다, got %v", *p.Spec.RuntimeClassName)
+	}
+
+	p = gpuPod(nil, true, "custom")
+	if err := m.Default(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	if *p.Spec.RuntimeClassName != "custom" {
+		t.Fatalf("명시한 runtimeClass 는 유지해야 한다, got %v", *p.Spec.RuntimeClassName)
+	}
+
+	// pod 범위(빈 Scope)는 라벨 없는 Pod 에 개입하지 않는다 — 기본 동작이 바뀌지 않았는지 같은 입력으로 본다.
+	p = gpuPod(nil, true, "")
+	if err := (&PodMutator{}).Default(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	if p.Spec.RuntimeClassName != nil {
+		t.Fatalf("pod 범위는 라벨 없는 Pod 에 개입하면 안 된다, got %v", *p.Spec.RuntimeClassName)
+	}
+}
+
+func TestNormalizeInjectScope(t *testing.T) {
+	for _, tc := range []struct {
+		in, want string
+		wantErr  bool
+	}{
+		{"", InjectScopePod, false},
+		{"pod", InjectScopePod, false},
+		{"namespace", InjectScopeNamespace, false},
+		{"Pod", "", true},
+		{"cluster", "", true},
+	} {
+		got, err := NormalizeInjectScope(tc.in)
+		if (err != nil) != tc.wantErr || got != tc.want {
+			t.Errorf("NormalizeInjectScope(%q) = (%q, %v), want (%q, err=%v)", tc.in, got, err, tc.want, tc.wantErr)
+		}
 	}
 }

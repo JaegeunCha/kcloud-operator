@@ -243,7 +243,8 @@
         "enabled": { "type": "boolean" },
         "port": {},
         "failurePolicy": {},
-        "injectLabel": {}
+        "injectLabel": {},
+        "injectScope": { "enum": ["pod", "namespace"] }
       }
     },
     "api": {
