@@ -19,7 +19,7 @@ Kubernetes 버전에 맞는 명령 하나를 고릅니다.
 ```bash
 # Kubernetes 1.31+
 helm upgrade --install kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-operator \
-  --version 0.8.0 -n kcloud --create-namespace \
+  --version 0.8.3 -n kcloud --create-namespace \
   -f https://raw.githubusercontent.com/openkcloud/kcloud-operator/main/deploy/helm/values-k8s1.34.yaml
 
 # Kubernetes 1.26~1.30
