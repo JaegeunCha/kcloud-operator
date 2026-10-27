@@ -4,13 +4,14 @@
 //	core/v1 Node(allocatable)를 한 번에 조회해 ClusterStatus로 합친다.
 //	kubectl-npu status --json 및 사람용 텍스트 출력이 공통으로 사용하는 단일 진입점.
 //
-// 생성일: 2026-07-16 | 수정일: 2026-08-12
+// 생성일: 2026-07-16 | 수정일: 2026-10-27
 package npuctl
 
 import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -163,14 +164,26 @@ func buildClusterPolicyStatuses(ncps []npuv1alpha1.NPUClusterPolicy) []ClusterPo
 			Name:      ncp.Name,
 			Phase:     ncp.Status.Phase,
 		}
+		const devicePluginSuffix = "DevicePluginReady"
 		for _, cond := range ncp.Status.Conditions {
 			if cond.Type == "Ready" {
 				cp.Ready = string(cond.Status)
 				cp.ReadyReason = cond.Reason
 				cp.ReadyMessage = cond.Message
-				break
+				continue
+			}
+			if strings.HasSuffix(cond.Type, devicePluginSuffix) {
+				cp.DevicePlugins = append(cp.DevicePlugins, VendorConditionStatus{
+					Vendor:  strings.ToLower(strings.TrimSuffix(cond.Type, devicePluginSuffix)),
+					Status:  string(cond.Status),
+					Reason:  cond.Reason,
+					Message: cond.Message,
+				})
 			}
 		}
+		sort.Slice(cp.DevicePlugins, func(i, j int) bool {
+			return cp.DevicePlugins[i].Vendor < cp.DevicePlugins[j].Vendor
+		})
 		out = append(out, cp)
 	}
 	sort.Slice(out, func(i, j int) bool {

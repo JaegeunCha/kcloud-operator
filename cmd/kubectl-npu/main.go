@@ -4,7 +4,7 @@
 //	조회·제어 로직은 pkg/npuctl(kcloud-operator 모듈, replace로 로컬 참조)에 위임하고,
 //	이 파일은 CLI 파싱 + 사람용/JSON 출력 포맷팅만 담당한다.
 //
-// 생성일: 2026-03-25 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
+// 생성일: 2026-03-25 | 수정일: 2026-10-27
 package main
 
 import (
@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"kcloud-operator/pkg/npuctl"
 )
@@ -229,9 +230,10 @@ func printStatusText(status *npuctl.ClusterStatus) {
 	for _, cp := range status.ClusterPolicies {
 		if cp.Ready == "" {
 			fmt.Printf("  %s/%s: no conditions\n", cp.Namespace, cp.Name)
-			continue
+		} else {
+			fmt.Printf("  %s/%s: Ready=%s (%s)\n", cp.Namespace, cp.Name, cp.Ready, cp.ReadyReason)
 		}
-		fmt.Printf("  %s/%s: Ready=%s (%s)\n", cp.Namespace, cp.Name, cp.Ready, cp.ReadyReason)
+		printDevicePluginLines(cp)
 	}
 
 	fmt.Println("\n=== DriverUpgradeState ===")
@@ -242,6 +244,28 @@ func printStatusText(status *npuctl.ClusterStatus) {
 		}
 	}
 	printTable([]string{"NODE", "VENDOR", "STATE", "CURRENT", "DESIRED"}, upRows)
+}
+
+// printDevicePluginLines 는 kcloud 가 배포한 device plugin 의 준비 상태(<Vendor>DevicePluginReady)를
+// 벤더 한 줄씩 낸다 — 항목이 없으면 줄을 내지 않는다. 폭은 데이터에서 잰다(printTable 과 같은 원칙).
+// 메시지에 플러그인 판 형식과 실패 노드가 있어 함께 적는다.
+func printDevicePluginLines(cp npuctl.ClusterPolicyStatus) {
+	vendorWidth, statusWidth := 0, 0
+	for _, dp := range cp.DevicePlugins {
+		vendorWidth = maxInt(vendorWidth, utf8.RuneCountInString(dp.Vendor))
+		statusWidth = maxInt(statusWidth, utf8.RuneCountInString(dp.Status))
+	}
+	for _, dp := range cp.DevicePlugins {
+		reason := dp.Reason
+		if reason == "" {
+			reason = "-"
+		}
+		row := fmt.Sprintf("    %-*s device-plugin %-*s %s", vendorWidth, dp.Vendor, statusWidth, dp.Status, reason)
+		if dp.Message != "" {
+			row += "  " + dp.Message
+		}
+		fmt.Println(row)
+	}
 }
 
 func cmdDriverVersion() {

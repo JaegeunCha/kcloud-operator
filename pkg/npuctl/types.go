@@ -3,7 +3,7 @@
 //
 //	안정 필드명의 JSON 계약. 필드는 모두 omitempty로 두어 벤더/리소스가 없을 때 생략된다.
 //
-// 생성일: 2026-07-16 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
+// 생성일: 2026-07-16 | 수정일: 2026-10-27
 package npuctl
 
 // 벤더 식별자 상수. NPUClusterPolicy.spec의 최상위 키와 1:1 대응하며(rngd는 furiosa의 서브벤더),
@@ -107,6 +107,15 @@ type UpgradeStatus struct {
 	Retries        int32  `json:"retries,omitempty"`
 }
 
+// VendorConditionStatus 는 NPUClusterPolicy 의 벤더별 조건(<Vendor>DevicePluginReady) 하나를 옮긴 것이다.
+// 판정은 컨트롤러가 이미 내렸고 이 패키지는 옮기기만 한다.
+type VendorConditionStatus struct {
+	Vendor  string `json:"vendor"`
+	Status  string `json:"status"` // "True"|"False"|"Unknown"
+	Reason  string `json:"reason,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
 // ClusterPolicyStatus는 NPUClusterPolicy 하나의 조회 결과(관측 상태)입니다.
 type ClusterPolicyStatus struct {
 	Namespace string `json:"namespace"`
@@ -116,6 +125,9 @@ type ClusterPolicyStatus struct {
 	Ready        string `json:"ready,omitempty"` // "True"|"False"|"Unknown"|"" (조건 없음)
 	ReadyReason  string `json:"readyReason,omitempty"`
 	ReadyMessage string `json:"readyMessage,omitempty"`
+	// DevicePlugins 는 <Vendor>DevicePluginReady 조건 목록이다(벤더 이름 오름차순). kcloud 가 직접 배포한
+	// device plugin 의 준비 상태다.
+	DevicePlugins []VendorConditionStatus `json:"devicePlugins,omitempty"`
 }
 
 // NodeDetail 은 노드 하나의 상세다. 여기 실리는 값은 전부 다른 컨트롤러가 이미 판정해

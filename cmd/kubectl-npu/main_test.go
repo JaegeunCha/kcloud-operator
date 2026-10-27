@@ -3,7 +3,7 @@
 //
 //	describe 명령의 렌더·인자 파싱도 여기서 시험한다.
 //
-// 생성일: 2026-08-11 | 수정일: 2026-08-24
+// 생성일: 2026-08-11 | 수정일: 2026-10-27
 package main
 
 import (
@@ -547,5 +547,44 @@ func TestRenderTable_들여쓰기(t *testing.T) {
 		if !strings.HasPrefix(ln, "  ") {
 			t.Errorf("들여쓰기 없는 줄: %q", ln)
 		}
+	}
+}
+
+// device-plugin 조건은 Ready 줄 뒤에 종류 열(device-plugin)과 메시지를 달고 나온다.
+func TestPrintStatusText_ClusterPolicyShowsDevicePluginLines(t *testing.T) {
+	status := &npuctl.ClusterStatus{ClusterPolicies: []npuctl.ClusterPolicyStatus{{
+		Namespace: "kcloud", Name: "default", Ready: "True", ReadyReason: "AllResourcesReady",
+		DevicePlugins: []npuctl.VendorConditionStatus{
+			{Vendor: "rebellions", Status: "True", Reason: "Prepared", Message: "판: v0.3 형식(태그 v0.3.6)"},
+		},
+	}}}
+	out := captureStdout(t, func() { printStatusText(status) })
+
+	section := out[strings.Index(out, "=== NPUClusterPolicy ==="):]
+	section = section[:strings.Index(section, "\n\n=== DriverUpgradeState ===")]
+	lines := strings.Split(strings.TrimRight(section, "\n"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("헤더+Ready+device-plugin 1줄=3줄이어야 하는데 %d줄: %q", len(lines), lines)
+	}
+	if lines[1] != "  kcloud/default: Ready=True (AllResourcesReady)" {
+		t.Errorf("Ready 줄이 바뀜: %q", lines[1])
+	}
+	if !strings.Contains(lines[2], "rebellions") || !strings.Contains(lines[2], "device-plugin") ||
+		!strings.Contains(lines[2], "True") || !strings.Contains(lines[2], "Prepared") ||
+		!strings.Contains(lines[2], "판: v0.3 형식(태그 v0.3.6)") {
+		t.Errorf("device-plugin 줄이 다르다: %q", lines[2])
+	}
+}
+
+// 조건이 없는 정책은 종전처럼 Ready 줄 하나만 낸다.
+func TestPrintStatusText_ClusterPolicyWithoutDevicePluginsUnchanged(t *testing.T) {
+	status := &npuctl.ClusterStatus{ClusterPolicies: []npuctl.ClusterPolicyStatus{
+		{Namespace: "kcloud", Name: "default", Ready: "True", ReadyReason: "AllResourcesReady"},
+	}}
+	out := captureStdout(t, func() { printStatusText(status) })
+	section := out[strings.Index(out, "=== NPUClusterPolicy ==="):]
+	section = section[:strings.Index(section, "\n\n=== DriverUpgradeState ===")]
+	if lines := strings.Split(strings.TrimRight(section, "\n"), "\n"); len(lines) != 2 {
+		t.Fatalf("헤더+Ready줄=2줄이어야 하는데 %d줄: %q", len(lines), lines)
 	}
 }

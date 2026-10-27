@@ -1,10 +1,12 @@
 // status_test.go: CollectStatus 단위 테스트(fake client, envtest 불필요)
 // 상세: NCP/DIP(+rngd 서브벤더)/NDR/DUS/Node를 섞어 넣고 ClusterStatus 집약 결과를 검증한다.
-// 생성일: 2026-07-16 | 수정일: 2026-08-12
+// 생성일: 2026-07-16 | 수정일: 2026-10-27
 package npuctl
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -282,5 +284,50 @@ func TestCollectStatus_EmptyCluster(t *testing.T) {
 	}
 	if len(status.Nodes) != 0 {
 		t.Errorf("빈 클러스터에서 노드가 없어야 함: %+v", status.Nodes)
+	}
+}
+
+// device plugin 조건도 집계에 포함된다 — Ready 조건만 읽으면 kcloud 가 직접 배포하는 플러그인의
+// 준비 상태(RebellionsDevicePluginReady)가 출력에서 빠진다.
+func TestBuildClusterPolicyStatuses_IncludesDevicePluginConditions(t *testing.T) {
+	const statusTrue = "True"
+	ncp := npuv1alpha1.NPUClusterPolicy{}
+	ncp.Name = "default"
+	ncp.Status.Conditions = []metav1.Condition{
+		{Type: "Ready", Status: metav1.ConditionTrue, Reason: "AllResourcesReady"},
+		{Type: "RebellionsDevicePluginReady", Status: metav1.ConditionTrue, Reason: "Prepared",
+			Message: "판: v0.3 형식(태그 v0.3.6)"},
+	}
+
+	out := buildClusterPolicyStatuses([]npuv1alpha1.NPUClusterPolicy{ncp})
+
+	if len(out) != 1 || len(out[0].DevicePlugins) != 1 {
+		t.Fatalf("device plugin 조건 집계가 다르다: %+v", out)
+	}
+	dp := out[0].DevicePlugins[0]
+	if dp.Vendor != "rebellions" || dp.Status != statusTrue || dp.Reason != "Prepared" ||
+		dp.Message != "판: v0.3 형식(태그 v0.3.6)" {
+		t.Errorf("device plugin 항목이 다르다: %+v", dp)
+	}
+	if out[0].Ready != statusTrue || out[0].ReadyReason != "AllResourcesReady" {
+		t.Errorf("Ready 요약이 바뀌었다: %+v", out[0])
+	}
+}
+
+func TestClusterPolicyStatus_JSON_DevicePluginsOmittedWhenEmpty(t *testing.T) {
+	raw, err := json.Marshal(ClusterPolicyStatus{Namespace: "kcloud", Name: "cluster-policy", Ready: "True"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "devicePlugins") {
+		t.Errorf("조건이 없는데 devicePlugins 키가 출력됨: %s", raw)
+	}
+	raw, err = json.Marshal(ClusterPolicyStatus{Name: "p",
+		DevicePlugins: []VendorConditionStatus{{Vendor: "rebellions", Status: "True"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"devicePlugins":[{"vendor":"rebellions","status":"True"}]`) {
+		t.Errorf("devicePlugins JSON 이 다르다: %s", raw)
 	}
 }
