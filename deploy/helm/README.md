@@ -167,7 +167,7 @@ Helm 은 설계상 `crds/` 디렉터리의 CRD 를 삭제하지 않습니다. `u
 | `image.pullPolicy` | `IfNotPresent` | |
 | `imagePullSecrets` | `[]` | 사설 레지스트리 인증 시 |
 | `deployClusterPolicy` | `true` | NPUClusterPolicy CR 자동 생성 |
-| `detector.image` | `…/npu-detector:0.4.3` | 노드 디바이스 감지기 |
+| `detector.repository` / `detector.tag` | `kcloud-node-manager` / `0.6.20` | 노드 디바이스 감지기(`global.registry` 로 조립). 0.6.20 은 Rebellions 드라이버 버전을 보고한다 |
 | `nvidia.enabled` / `nvidia.devicePluginImage` | `true` / `nvcr.io/nvidia/k8s-device-plugin:v0.17.1` | NVIDIA device-plugin |
 | `furiosa.enabled` / `furiosa.devicePluginImage` | `true` / `ghcr.io/furiosa-ai/k8s-device-plugin:0.10.1` | Warboy device-plugin |
 | `furiosa.rngd.enabled` | `true` | RNGD device-plugin |
