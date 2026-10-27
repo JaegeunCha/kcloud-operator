@@ -77,7 +77,7 @@ helm template kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-operator \
   | grep -E "image:|kind:" | sort -u
 ```
 
-operator 이미지가 `ghcr.io/openkcloud/kcloud-operator:v0.8.4` 으로 나오는지 봅니다. 목록에 DRA 드라이버 이미지 두 개가 함께 보이는데, 기본값이 꺼져 있어 실제로 배포되지는 않습니다. `kcloud-host-exec` 과 Tenstorrent device-plugin 은 차트가 아니라 operator 가 실행 중에 만들기 때문에 이 목록에 나오지 않습니다.
+operator 이미지가 `ghcr.io/openkcloud/kcloud-operator:v0.8.4` 로 나오는지 봅니다. 목록에 DRA 드라이버 이미지 두 개가 함께 보이는데, 기본값이 꺼져 있어 실제로 배포되지는 않습니다. `kcloud-host-exec` 과 Tenstorrent device-plugin 은 차트가 아니라 operator 가 실행 중에 만들기 때문에 이 목록에 나오지 않습니다.
 
 ## 5. 설치
 
