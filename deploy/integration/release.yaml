@@ -32,7 +32,7 @@ kubernetesProfiles:
     valuesBrowseURL: https://raw.githubusercontent.com/openkcloud/kcloud-operator/main/deploy/helm/values-k8s1.34.yaml
     operatorTag: v0.8.3
   - range: "1.26-1.30"
-    chartVersion: "0.6.3"   # DRA 를 뺀 라인. 2026-09-10 1.28 클러스터에서 검증
+    chartVersion: "0.6.3"   # DRA 를 뺀 라인. 0.6.2 는 2026-09-10 1.28 클러스터에서 검증, 0.6.3 은 렌더·시험으로만 확인
     valuesFile: values-k8s1.28.yaml
     valuesURL: https://raw.githubusercontent.com/openkcloud/kcloud-operator/2770a11a6df6d7c6ac0980ea5286ef6b13745260/deploy/helm/values-k8s1.28.yaml
     valuesBrowseURL: https://raw.githubusercontent.com/openkcloud/kcloud-operator/release/k8s-1.28/deploy/helm/values-k8s1.28.yaml
