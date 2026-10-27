@@ -1,4 +1,4 @@
-<!-- INSTALL.md: kcloud-operator Helm 설치와 확인 절차 | 생성일: 2026-09-14 | 수정일: 2026-10-27 -->
+<!-- INSTALL.md: kcloud-operator Helm 설치와 확인 절차 | 생성일: 2026-09-14 | 수정일: 2026-10-28 -->
 
 # kcloud-operator 설치 · 확인 절차
 
@@ -29,18 +29,18 @@ serverVersion:
 
 | Service K8s | 차트 | 프리셋 | 설치용 values 주소 |
 |---|---|---|---|
-| 1.31+ | 0.8.3 | `values-k8s1.34.yaml` | `.../6efe8a0706f62b56697def671ddc8b23a0eb07df/deploy/helm/values-k8s1.34.yaml` |
+| 1.31+ | 0.8.4 | `values-k8s1.34.yaml` | `.../ae8ff4626ce670c2786e7d9e590256f2142b049f/deploy/helm/values-k8s1.34.yaml` |
 | 1.26~1.30 | 0.6.3 | `values-k8s1.28.yaml` | `.../2770a11a6df6d7c6ac0980ea5286ef6b13745260/deploy/helm/values-k8s1.28.yaml` |
 
 브랜치 주소(`release.yaml` 의 `valuesBrowseURL`)는 최신 내용을 사람이 확인할 때만 씁니다. 브랜치는 새 커밋이 들어오면 같은 주소가 다른 내용을 돌려주므로 설치에는 쓰지 않습니다.
 
 ```bash
-export CHART_VERSION=0.8.3
-export VALUES_SHA=6efe8a0706f62b56697def671ddc8b23a0eb07df
+export CHART_VERSION=0.8.4
+export VALUES_SHA=ae8ff4626ce670c2786e7d9e590256f2142b049f
 export VALUES_URL="https://raw.githubusercontent.com/openkcloud/kcloud-operator/$VALUES_SHA/deploy/helm/values-k8s1.34.yaml"
 ```
 
-1.26~1.30 클러스터라면 `CHART_VERSION=0.6.3`, `VALUES_SHA=2770a11a6df6d7c6ac0980ea5286ef6b13745260`, 프리셋 파일 이름은 `values-k8s1.28.yaml` 입니다. 그 프리셋은 차트 `0.6.3` 을 담은 이 브랜치(`release/k8s-1.28`)에 있고 차트 `0.8.3` 의 소스 트리에는 없습니다. 반대로 `values-k8s1.34.yaml` 은 `main` 브랜치에만 있습니다 — 위 표의 values 주소가 각자 그 라인의 커밋을 가리키므로 설치 절차는 같습니다. 차트 `0.6.3` 을 1.31+ 클러스터에 설치하려 하면 `kubeVersion` 선언 때문에 helm 이 거절합니다.
+1.26~1.30 클러스터라면 `CHART_VERSION=0.6.3`, `VALUES_SHA=2770a11a6df6d7c6ac0980ea5286ef6b13745260`, 프리셋 파일 이름은 `values-k8s1.28.yaml` 입니다. 그 프리셋은 차트 `0.6.3` 을 담은 이 브랜치(`release/k8s-1.28`)에 있고 차트 `0.8.4` 의 소스 트리에는 없습니다. 반대로 `values-k8s1.34.yaml` 은 `main` 브랜치에만 있습니다 — 위 표의 values 주소가 각자 그 라인의 커밋을 가리키므로 설치 절차는 같습니다. 차트 `0.6.3` 을 1.31+ 클러스터에 설치하려 하면 `kubeVersion` 선언 때문에 helm 이 거절합니다.
 
 ## 3. site-values.yaml 작성
 
@@ -77,7 +77,7 @@ helm template kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-operator \
   | grep -E "image:|kind:" | sort -u
 ```
 
-operator 이미지가 `ghcr.io/openkcloud/kcloud-operator:v0.8.3` 으로 나오는지 봅니다. 목록에 DRA 드라이버 이미지 두 개가 함께 보이는데, 기본값이 꺼져 있어 실제로 배포되지는 않습니다. `kcloud-host-exec` 과 Tenstorrent device-plugin 은 차트가 아니라 operator 가 실행 중에 만들기 때문에 이 목록에 나오지 않습니다.
+operator 이미지가 `ghcr.io/openkcloud/kcloud-operator:v0.8.4` 으로 나오는지 봅니다. 목록에 DRA 드라이버 이미지 두 개가 함께 보이는데, 기본값이 꺼져 있어 실제로 배포되지는 않습니다. `kcloud-host-exec` 과 Tenstorrent device-plugin 은 차트가 아니라 operator 가 실행 중에 만들기 때문에 이 목록에 나오지 않습니다.
 
 ## 5. 설치
 

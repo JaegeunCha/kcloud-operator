@@ -1,15 +1,15 @@
 # ============================================================
-# image-manifest.yaml: 릴리스 세트 0.8.3 이 사용하는 컨테이너 이미지 전체 목록
+# image-manifest.yaml: 릴리스 세트 0.8.4 이 사용하는 컨테이너 이미지 전체 목록
 # 상세: 미러(air-gap)와 감사용. condition 은 어떤 상황에서 실제로 pull 되는지다.
 #       digest 는 ghcr.io/openkcloud 발행본(2026-09-10)의 매니페스트 digest 다. 벤더 이미지는 upstream 그대로이며
 #       global.vendorRegistry 를 채우면 <미러>/<org>/<image> 로 조립된다.
-# 생성일: 2026-09-10 | 수정일: 2026-10-27 (0.6.3)
+# 생성일: 2026-09-10 | 수정일: 2026-10-28 (0.6.3)
 # ============================================================
-release: "0.8.3"
+release: "0.8.4"
 kcloud:  # global.registry 로 조립. 기본 ghcr.io/openkcloud
   - image: kcloud-operator
-    tag: v0.8.3
-    digest: sha256:eb1080f4a6e599c5a085f13efbfecd86eec2726899c31757867fcdbd2c2be511  # 발행 뒤 갱신
+    tag: v0.8.4
+    digest: sha256:986b044972e19780a864f65c4e53461e84b30e48e5e7309c43eeb90a10018ca5  # 발행 뒤 갱신
     condition: 항상. pre-delete hook Job 도 이 이미지. K8s 1.26~1.30 프로파일은 v0.6.3-k8s1.28 (digest 발행 뒤 갱신, 나머지 이미지는 동일)
   - image: kcloud-node-manager
     tag: "0.6.20"
