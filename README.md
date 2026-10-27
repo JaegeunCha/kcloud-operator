@@ -1,4 +1,4 @@
-<!-- README.md: kcloud operator 저장소 안내 — 지원 가속기, 빌드, 배포, CRD 목록, 개발 진입점 | 생성일: 2025-07-04 | 수정일: 2026-09-11 -->
+<!-- README.md: kcloud operator 저장소 안내 — 지원 가속기, 빌드, 배포, CRD 목록, 개발 진입점 | 생성일: 2025-07-04 | 수정일: 2026-10-27 -->
 <!-- cdocs-profile: blog -->
 
 # kcloud operator
@@ -24,7 +24,7 @@ helm upgrade --install kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-op
 
 # Kubernetes 1.26~1.30
 helm upgrade --install kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-operator \
-  --version 0.6.2 -n kcloud --create-namespace \
+  --version 0.6.3 -n kcloud --create-namespace \
   -f https://raw.githubusercontent.com/openkcloud/kcloud-operator/release/k8s-1.28/deploy/helm/values-k8s1.28.yaml
 ```
 
@@ -102,7 +102,7 @@ cd cmd/kubectl-npu && go build -o kubectl-npu .
 
 ```bash
 helm upgrade --install kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-operator \
-  --version 0.6.2 -n kcloud --create-namespace \
+  --version 0.6.3 -n kcloud --create-namespace \
   -f deploy/helm/values-k8s1.28.yaml
 ```
 
