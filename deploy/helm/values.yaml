@@ -542,6 +542,29 @@ driverInstallPolicies:
       maxUnavailable: 1
       validationTimeout: "10m"
 
+  # ─────────────────────────────────────────────────────────────────────
+  # Rebellions ATOM+ (trackOnly). 드라이버 패키지(rebellions-dkms)는 벤더 포털 인증이 필요해
+  # operator 가 설치하지 못하고 호스트 관리자가 설치한다. 이 정책은 설치 경로 없이
+  # DriverUpgradeState 로 노드별 드라이버 버전만 추적한다(kubectl npu status 의 DIP·DUS 표).
+  # versionSource=Host 라 목표 버전은 호스트에 설치된 버전을 따라간다. 설치기가 생기면 같은
+  # 정책에서 trackOnly 를 끄고 이미지를 붙인다.
+  # ─────────────────────────────────────────────────────────────────────
+  rebellions:
+    enabled: true
+    name: rebellions-atom-ds
+    vendor: rebellions
+    model: atom
+    # 자립 셀렉터(node-manager 부여). 수동 라벨 비의존.
+    nodeSelector:
+      kcloud.ai/rebellions.present: "true"
+    driver:
+      mode: job
+      trackOnly: true
+      # 비우면 호스트 버전이 desired 가 된다. 값을 적어도 드라이버가 올라온 노드는 호스트 버전이 우선하고,
+      # 드라이버가 없는 노드의 desired 로만 쓰인다.
+      version: ""
+      versionSource: "Host"
+
 rollingUpdate:
   maxUnavailable: 1
 

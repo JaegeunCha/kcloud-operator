@@ -91,17 +91,10 @@ spec:
                     type: array
                   image:
                     description: |-
-                      인스톨러 컨테이너 이미지
-                      예: "registry.example.com:5000/furiosa-driver-installer:1.7.8" 또는 "ghcr.io/you/nvidia-apt-installer:latest"
-
-                      CRD 는 docker reference 의 syntax 만 검증한다 (tag 부에 invalid char 차단). 의미론적
-                      검증 — broken plain tag 가 mode=daemonset 환경에서 entrypoint 누락된 broken image 로
-                      작동하는 결함을 차단 (architectural plan §3.4 defense-in-depth) — 은 state_machine 의
-                      isVerifiedBuildTag 가드 가 담당한다 (followup plan §F4).
-
-                      허용 (registry/host:port/repo 부 + ":" + tag 부):
-                        - registry 부: alphanumerics, `.`, `_`, `:`, `/`, `-` (port 표기 호환)
-                        - tag 부:      alphanumerics, `.`, `_`, `+`, `-` (sub-version 예: "580.142-v17.1")
+                      Image 는 인스톨러 컨테이너 이미지입니다(예: "registry.example.com:5000/furiosa-driver-installer:1.7.8").
+                      registry/host:port/repo 부와 tag 부로 구성되며, tag 부는 alphanumerics·`.`·`_`·`+`·`-` 만
+                      허용합니다(sub-version 예: "580.142-v17.1"). 구문만 검증하며 의미론적 검증은 별도입니다.
+                      trackOnly=true 인 정책은 설치 경로가 없어 비울 수 있습니다(그 외에는 DriverSpec 의 CEL 규칙이 필수로 요구).
                     pattern: ^[a-zA-Z0-9._:/-]+:[a-zA-Z0-9._+-]+$
                     type: string
                   installer:
@@ -156,10 +149,10 @@ spec:
                   trackOnly:
                     default: false
                     description: |-
-                      TrackOnly 는 true 면 DUS 추적(버전 관측 + verifiedVersions 게이트)만 수행하고,
-                      설치 경로(driver DaemonSet / install Job)를 생성하지 않습니다. installer 이미지가
-                      아직 없는 벤더를 버전 관리 체계에 임시 편입할 때 사용합니다(예: Tenstorrent Blackhole —
-                      실제 설치는 tt-kmd DKMS 로 2차). 기본 false = 기존 동작(설치 경로 활성).
+                      TrackOnly 는 true 면 DriverUpgradeState 로 노드별 드라이버 버전만 추적하고 설치 경로(driver
+                      DaemonSet/install Job)는 만들지 않습니다. 설치기 이미지를 만들 수 없는 벤더(Rebellions: 드라이버
+                      패키지가 벤더 포털 인증 뒤에만 받아진다)를 버전 관리 체계에 편입할 때 씁니다. image 는 비울 수
+                      있고 verifiedVersions 는 적용되지 않습니다. 기본 false(설치 경로 활성).
                     type: boolean
                   version:
                     description: |-
@@ -176,9 +169,11 @@ spec:
                     - Policy
                     - Host
                     type: string
-                required:
-                - image
                 type: object
+                x-kubernetes-validations:
+                - message: driver.image is required unless driver.trackOnly=true
+                  rule: (has(self.trackOnly) && self.trackOnly) || (has(self.image)
+                    && size(self.image) > 0)
               imagePullSecrets:
                 description: |-
                   ImagePullSecrets 는 operator 가 생성하는 driver DaemonSet pod spec 에 부착되는

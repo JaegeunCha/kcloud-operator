@@ -1,6 +1,6 @@
 // control_test.go: UpgradeVendor/SetVendorEnabled 단위 테스트(fake client)
 // 상세: 가드레일에 따라 제어 경로는 라이브 클러스터에서 실행하지 않고 fake client로만 검증한다.
-// 생성일: 2026-07-16
+// 생성일: 2026-07-16 | 수정일: 2026-10-27
 package npuctl
 
 import (
@@ -169,5 +169,33 @@ func TestSetVendorEnabled_NoClusterPolicy(t *testing.T) {
 	c := newTestClient(t)
 	if _, err := c.SetVendorEnabled(context.Background(), "nvidia", true); err == nil {
 		t.Errorf("NPUClusterPolicy가 없으면 에러여야 함")
+	}
+}
+
+// TestUpgradeVendor_TrackOnly면거절 은 설치 경로가 없는 정책(Rebellions)에 대한 upgrade 를 거절하는지 본다.
+// 거절하지 않으면 patch 는 성공하지만 아무 일도 일어나지 않고, 확인 문구는 설치·재부팅을 경고해 거짓 신호가 된다.
+func TestUpgradeVendor_TrackOnly면거절(t *testing.T) {
+	dip := &npuv1alpha1.DriverInstallPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "rebellions-atom-ds"},
+		Spec: npuv1alpha1.DriverInstallPolicySpec{
+			Vendor: "rebellions", Model: "atom",
+			Driver: npuv1alpha1.DriverSpec{Mode: "job", TrackOnly: true, VersionSource: "Host"},
+		},
+	}
+	c := newTestClient(t, dip)
+
+	_, err := c.UpgradeVendor(context.Background(), "rebellions", "3.1.0", UpgradeOptions{})
+	if err == nil {
+		t.Fatalf("TrackOnly 정책에 대한 upgrade 는 거절해야 하는데 성공함")
+	}
+	if !strings.Contains(err.Error(), "TrackOnly") || !strings.Contains(err.Error(), "rebellions-atom-ds") {
+		t.Errorf("거절 사유가 TrackOnly 와 정책 이름을 대지 않음: %v", err)
+	}
+	var got npuv1alpha1.DriverInstallPolicy
+	if err := c.c.Get(context.Background(), client.ObjectKey{Name: "rebellions-atom-ds"}, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Spec.Driver.Version != "" {
+		t.Errorf("거절했는데 spec.driver.version 이 %q 로 바뀜", got.Spec.Driver.Version)
 	}
 }

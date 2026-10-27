@@ -1,4 +1,4 @@
-<!-- INSTALL.md: kcloud-operator Helm 설치와 확인 절차 | 생성일: 2026-09-14 | 수정일: 2026-10-24 -->
+<!-- INSTALL.md: kcloud-operator Helm 설치와 확인 절차 | 생성일: 2026-09-14 | 수정일: 2026-10-27 -->
 
 # kcloud-operator 설치 · 확인 절차
 
@@ -115,7 +115,7 @@ kubectl -n kcloud get npuclusterpolicy npuclusterpolicy-sample \
 kubectl get dip -o custom-columns='NAME:.metadata.name,VENDOR:.spec.vendor,MODE:.spec.driver.mode'
 ```
 
-CRD 는 13종입니다. 정책 CR 이름은 `npuclusterpolicy-sample` 이고 네임스페이스는 `kcloud` 이며, `get` 출력에는 READY 열이 없으므로 조건 값을 직접 읽습니다. DriverInstallPolicy 는 클러스터 범위이고 기본 이름은 `nvidia-gpu-ds`, `furiosa-warboy-ds`, `furiosa-rngd-ds`, `tenstorrent-blackhole-ds` 입니다.
+CRD 는 13종입니다. 정책 CR 이름은 `npuclusterpolicy-sample` 이고 네임스페이스는 `kcloud` 이며, `get` 출력에는 READY 열이 없으므로 조건 값을 직접 읽습니다. DriverInstallPolicy 는 클러스터 범위이고 기본 이름은 `nvidia-gpu-ds`, `furiosa-warboy-ds`, `furiosa-rngd-ds`, `tenstorrent-blackhole-ds`, `rebellions-atom-ds` 입니다. `rebellions-atom-ds` 는 설치 경로가 없는 추적 전용(`trackOnly`) 정책입니다. Rebellions 드라이버 패키지는 벤더 포털 인증이 필요해 호스트 관리자가 설치하고, operator 는 노드별 버전만 DriverUpgradeState 로 기록합니다. 1.26~1.30 프리셋(`values-k8s1.28.yaml`)은 Rebellions 를 공개 범위 밖으로 두어 이 정책도 끕니다.
 
 ## 8. 확인 3 — 노드 라벨과 DaemonSet
 

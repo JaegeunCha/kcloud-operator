@@ -7,7 +7,7 @@
 //	⚠️ 라이브 클러스터에서 이 경로를 실행하는 검증은 금지되어 있다(가드레일) — fake client
 //	단위 테스트로만 검증한다.
 //
-// 생성일: 2026-07-16
+// 생성일: 2026-07-16 | 수정일: 2026-10-27
 package npuctl
 
 import (
@@ -44,7 +44,7 @@ type UpgradeResult struct {
 }
 
 // UpgradeVendor는 vendor(+옵션 model)에 대응하는 단일 DriverInstallPolicy.spec.driver.version을
-// version으로 patch합니다. 매칭 DIP가 없거나 둘 이상(모델 미지정)이면 에러를 반환합니다.
+// version으로 patch합니다. 매칭 DIP가 없거나 둘 이상(모델 미지정)이거나 TrackOnly 정책이면 에러를 반환합니다.
 // 모든 쓰기는 DIP(및 --force 시 NPUClusterPolicy annotation) patch로 귀결됩니다.
 func (c *Client) UpgradeVendor(
 	ctx context.Context,
@@ -58,6 +58,12 @@ func (c *Client) UpgradeVendor(
 	dip, err := c.resolveDIP(ctx, vendor, opts.Model)
 	if err != nil {
 		return nil, err
+	}
+	if dip.Spec.Driver.TrackOnly {
+		return nil, fmt.Errorf(
+			"vendor=%q(model=%q)는 DriverInstallPolicy %q 가 TrackOnly 라 설치 경로가 없습니다 — "+
+				"드라이버는 호스트에서 직접 설치하고 이 정책은 버전만 추적합니다",
+			dip.Spec.Vendor, dip.Spec.Model, dip.Name)
 	}
 
 	prevVersion := dip.Spec.Driver.Version
