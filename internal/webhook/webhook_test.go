@@ -1,7 +1,7 @@
 // ============================================================
 // webhook_test.go: admission webhook 핸들러 단위 테스트
 // 상세: DIP/NCP 거부·통과, Pod 주입/무개입 케이스
-// 생성일: 2026-07-20 | 수정일: 2026-10-26
+// 생성일: 2026-07-20 | 수정일: 2026-10-27
 // ============================================================
 
 package webhook
@@ -36,6 +36,7 @@ func goodDIP() *npuv1alpha1.DriverInstallPolicy {
 }
 
 func TestValidateDIP(t *testing.T) {
+	const modeJob = "job"
 	cases := []struct {
 		name    string
 		mutate  func(*npuv1alpha1.DriverInstallPolicy)
@@ -53,8 +54,18 @@ func TestValidateDIP(t *testing.T) {
 		}, true},
 		{"trackOnly job ok", func(d *npuv1alpha1.DriverInstallPolicy) {
 			d.Spec.Driver.TrackOnly = true
-			d.Spec.Driver.Mode = "job"
+			d.Spec.Driver.Mode = modeJob
 		}, false},
+		{"trackOnly job no image ok", func(d *npuv1alpha1.DriverInstallPolicy) {
+			d.Spec.Driver.TrackOnly = true
+			d.Spec.Driver.Mode = modeJob
+			d.Spec.Driver.Image = ""
+		}, false},
+		{"trackOnly job bad image still rejected", func(d *npuv1alpha1.DriverInstallPolicy) {
+			d.Spec.Driver.TrackOnly = true
+			d.Spec.Driver.Mode = modeJob
+			d.Spec.Driver.Image = "repo/x:"
+		}, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

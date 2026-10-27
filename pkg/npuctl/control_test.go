@@ -1,6 +1,6 @@
 // control_test.go: UpgradeVendor/SetVendorEnabled 단위 테스트(fake client)
 // 상세: 가드레일에 따라 제어 경로는 라이브 클러스터에서 실행하지 않고 fake client로만 검증한다.
-// 생성일: 2026-07-16 | 수정일: 2026-10-11
+// 생성일: 2026-07-16 | 수정일: 2026-10-27
 package npuctl
 
 import (
@@ -571,4 +571,56 @@ func TestUpgradeVendor_Force는어노테이션을남기지않는다(t *testing.T
 	if dipAfter.Spec.UpgradePolicy == nil || !dipAfter.Spec.UpgradePolicy.ForceUpgrade {
 		t.Fatal("--force 의 실제 의미(upgradePolicy.forceUpgrade)가 사라졌다")
 	}
+}
+
+// newTrackOnlyRebellionsClient 는 설치 경로 없이 버전만 추적하는 Rebellions 정책(rebellions-atom-ds) 하나만 가진
+// 시험용 Client 다. upgrade 거절 시험들이 같은 정책을 쓴다.
+func newTrackOnlyRebellionsClient(t *testing.T) *Client {
+	t.Helper()
+	return newTestClient(t, &npuv1alpha1.DriverInstallPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "rebellions-atom-ds"},
+		Spec: npuv1alpha1.DriverInstallPolicySpec{
+			Vendor: "rebellions", Model: "atom",
+			Driver: npuv1alpha1.DriverSpec{Mode: "job", TrackOnly: true, VersionSource: "Host"},
+		},
+	})
+}
+
+// assertTrackOnlyRefusal 은 err 가 TrackOnly 정책 때문인 거절이고 저장된 정책의 버전이 바뀌지 않았는지 본다.
+func assertTrackOnlyRefusal(t *testing.T, c *Client, err error) {
+	t.Helper()
+	if !strings.Contains(err.Error(), "TrackOnly") || !strings.Contains(err.Error(), "rebellions-atom-ds") {
+		t.Errorf("거절 사유가 TrackOnly 와 정책 이름을 대지 않음: %v", err)
+	}
+	var got npuv1alpha1.DriverInstallPolicy
+	if err := c.c.Get(context.Background(), client.ObjectKey{Name: "rebellions-atom-ds"}, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Spec.Driver.Version != "" {
+		t.Errorf("거절했는데 spec.driver.version 이 %q 로 바뀜", got.Spec.Driver.Version)
+	}
+}
+
+// TestUpgradeVendor_TrackOnly면거절 은 설치 경로가 없는 정책(Rebellions)에 대한 upgrade 를 거절하는지 본다.
+// 거절하지 않으면 patch 는 성공하지만 아무 일도 일어나지 않고, 확인 문구는 설치·재부팅을 경고해 거짓 신호가 된다.
+func TestUpgradeVendor_TrackOnly면거절(t *testing.T) {
+	c := newTrackOnlyRebellionsClient(t)
+
+	_, err := c.UpgradeVendor(context.Background(), "rebellions", "3.1.0", UpgradeOptions{})
+	if err == nil {
+		t.Fatalf("TrackOnly 정책에 대한 upgrade 는 거절해야 하는데 성공함")
+	}
+	assertTrackOnlyRefusal(t, c, err)
+}
+
+// TestPreviewVendorUpgrade_TrackOnly면거절 은 확인 프롬프트 앞의 미리보기도 TrackOnly 정책을 거절하는지 본다.
+// 미리보기가 통과하면 --yes 없는 upgrade 는 설치·재부팅 경고를 먼저 보이고 확인 뒤에야 거절해 거짓 신호가 된다.
+func TestPreviewVendorUpgrade_TrackOnly면거절(t *testing.T) {
+	c := newTrackOnlyRebellionsClient(t)
+
+	_, err := c.PreviewVendorUpgrade(context.Background(), "rebellions", "3.1.0", UpgradeOptions{})
+	if err == nil {
+		t.Fatalf("TrackOnly 정책에 대한 미리보기는 거절해야 하는데 성공함")
+	}
+	assertTrackOnlyRefusal(t, c, err)
 }

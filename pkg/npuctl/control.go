@@ -2,7 +2,7 @@
 // 상세: 드라이버 버전 변경·벤더 enabled 토글·롤백 요청 어노테이션 patch 를 제공한다.
 // status 는 컨트롤러만 쓰므로 CLI 는 metadata/spec 만 patch 하고 실제 작업은 operator
 // 재조정이 한다. 라이브 클러스터 실행 검증은 금지(가드레일).
-// 생성일: 2026-07-16 | 수정일: 2026-10-11
+// 생성일: 2026-07-16 | 수정일: 2026-10-27
 package npuctl
 
 import (
@@ -40,7 +40,7 @@ type UpgradeResult struct {
 	NoChange        bool   `json:"noChange"`
 }
 
-// PreviewVendorUpgrade 는 UpgradeVendor 와 같은 해석(DIP 특정·NoChange 판정)을 거쳐 같은
+// PreviewVendorUpgrade 는 UpgradeVendor 와 같은 해석(DIP 특정·TrackOnly 거절·NoChange 판정)을 거쳐 같은
 // 요약을 돌려주되 아무것도 patch 하지 않는다 — 확인 프롬프트가 무엇을 바꾸는지 보여 주는 용도다.
 func (c *Client) PreviewVendorUpgrade(
 	ctx context.Context, vendor, version string, opts UpgradeOptions,
@@ -52,6 +52,9 @@ func (c *Client) PreviewVendorUpgrade(
 	if err != nil {
 		return nil, err
 	}
+	if dip.Spec.Driver.TrackOnly {
+		return nil, trackOnlyUpgradeError(dip)
+	}
 	return &UpgradeResult{
 		PolicyName: dip.Name, Vendor: dip.Spec.Vendor, Model: dip.Spec.Model,
 		PreviousVersion: dip.Spec.Driver.Version, NewVersion: version,
@@ -60,8 +63,8 @@ func (c *Client) PreviewVendorUpgrade(
 }
 
 // UpgradeVendor는 vendor(+옵션 model)에 대응하는 단일 DriverInstallPolicy.spec.driver.version을
-// version으로 patch합니다. 매칭 DIP가 없거나 둘 이상(모델 미지정)이면 에러를 반환합니다.
-// 모든 쓰기는 DIP patch로 귀결됩니다.
+// version으로 patch합니다. 매칭 DIP가 없거나 둘 이상(모델 미지정)이거나 TrackOnly 정책이면 에러를
+// 반환합니다. 모든 쓰기는 DIP patch로 귀결됩니다.
 func (c *Client) UpgradeVendor(
 	ctx context.Context,
 	vendor, version string,
@@ -74,6 +77,9 @@ func (c *Client) UpgradeVendor(
 	dip, err := c.resolveDIP(ctx, vendor, opts.Model)
 	if err != nil {
 		return nil, err
+	}
+	if dip.Spec.Driver.TrackOnly {
+		return nil, trackOnlyUpgradeError(dip)
 	}
 
 	prevVersion := dip.Spec.Driver.Version
@@ -115,6 +121,15 @@ func (c *Client) UpgradeVendor(
 	}
 
 	return result, nil
+}
+
+// trackOnlyUpgradeError 는 TrackOnly 정책(설치 경로 없이 버전만 추적한다)에 대한 upgrade 를 거절하는 오류다.
+// PreviewVendorUpgrade 와 UpgradeVendor 가 함께 써서 확인 프롬프트 앞뒤의 거절 문구가 같다.
+func trackOnlyUpgradeError(dip *npuv1alpha1.DriverInstallPolicy) error {
+	return fmt.Errorf(
+		"vendor=%q(model=%q)는 DriverInstallPolicy %q 가 TrackOnly 라 설치 경로가 없습니다 — "+
+			"드라이버는 호스트에서 직접 설치하고 이 정책은 버전만 추적합니다",
+		dip.Spec.Vendor, dip.Spec.Model, dip.Name)
 }
 
 // resolveDIP는 vendor(+model)에 대응하는 단일 DriverInstallPolicy를 찾습니다.

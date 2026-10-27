@@ -3,7 +3,7 @@
 // 상세: DriverUpgradeState CRD를 감시하고 UpgradeStateMachine을 호출하여
 //       노드별 드라이버 업그레이드 상태 전이를 수행합니다.
 //       ensureUpgradeStates()로 NodeDeviceReport 기반 DUS CR을 자동 생성합니다.
-// 생성일: 2026-04-13 | 수정일: 2026-10-22
+// 생성일: 2026-04-13 | 수정일: 2026-10-27
 // ============================================================
 
 package controller
@@ -493,13 +493,14 @@ func (r *DriverUpgradeReconciler) syncUpgradeState(ctx context.Context, nodeName
 	}
 }
 
-// ensureTrackOnlyState 는 TrackOnly 정책에 대해 DUS 를 Idle 상태로만 유지합니다.
-// 설치/업그레이드 전이 없이 currentVersion(NDR) 과 desiredVersion(정책)만 동기화하여
-// 버전 관측·verifiedVersions 게이트 용도로 추적합니다(installer 미비 벤더 임시 편입).
+// ensureTrackOnlyState 는 TrackOnly 정책에 대해 DUS 를 Idle 상태로만 유지한다. 설치·업그레이드 전이 없이
+// currentVersion(NDR)과 desiredVersion 만 동기화한다. desired 는 설치 정책과 같은 규칙으로 고른다 —
+// versionSource=Host 면 호스트에 올라온 버전이 곧 목표다(설치기 없는 벤더는 사이트마다 버전이 다르다).
 func (r *DriverUpgradeReconciler) ensureTrackOnlyState(ctx context.Context, nodeName string,
 	device v1alpha1.DeviceEntry, policy *v1alpha1.DriverInstallPolicy, vendorModel string, observed []string) error {
 	const trackMsg = "TrackOnly: 버전 관측 전용(설치 경로 없음)"
 	dusName := driverUpgradeStateName(nodeName, device.Vendor)
+	desired := upgrade.EffectiveDesiredVersion(policy, device.DriverVersion)
 
 	var existing v1alpha1.DriverUpgradeState
 	err := r.Get(ctx, types.NamespacedName{Name: dusName}, &existing)
@@ -514,7 +515,7 @@ func (r *DriverUpgradeReconciler) ensureTrackOnlyState(ctx context.Context, node
 			Status: v1alpha1.DriverUpgradeStateStatus{
 				State:              v1alpha1.UpgradeStateIdle,
 				CurrentVersion:     device.DriverVersion,
-				DesiredVersion:     policy.Spec.Driver.Version,
+				DesiredVersion:     desired,
 				LastTransitionTime: metav1.Now(),
 				Message:            trackMsg,
 				ObservedModels:     observed,
@@ -535,11 +536,11 @@ func (r *DriverUpgradeReconciler) ensureTrackOnlyState(ctx context.Context, node
 	// 기존 DUS: currentVersion/desiredVersion 동기화, State 는 항상 Idle 로 강제.
 	if existing.Status.State != v1alpha1.UpgradeStateIdle ||
 		existing.Status.CurrentVersion != device.DriverVersion ||
-		existing.Status.DesiredVersion != policy.Spec.Driver.Version {
+		existing.Status.DesiredVersion != desired {
 		patch := client.MergeFrom(existing.DeepCopy())
 		existing.Status.State = v1alpha1.UpgradeStateIdle
 		existing.Status.CurrentVersion = device.DriverVersion
-		existing.Status.DesiredVersion = policy.Spec.Driver.Version
+		existing.Status.DesiredVersion = desired
 		existing.Status.LastTransitionTime = metav1.Now()
 		existing.Status.Message = trackMsg
 		return r.Status().Patch(ctx, &existing, patch)

@@ -3,7 +3,7 @@
 //
 //	안정 필드명의 JSON 계약. 필드는 모두 omitempty로 두어 벤더/리소스가 없을 때 생략된다.
 //
-// 생성일: 2026-07-16 | 수정일: 2026-10-14
+// 생성일: 2026-07-16 | 수정일: 2026-10-27
 package npuctl
 
 import "kcloud-operator/internal/health"
@@ -64,6 +64,8 @@ type DIPStatus struct {
 	VersionSource    string   `json:"versionSource,omitempty"`
 	AutoUpgrade      bool     `json:"autoUpgrade,omitempty"`
 	DrainEnabled     bool     `json:"drainEnabled,omitempty"`
+	// TrackOnly 는 설치 경로 없이 버전만 추적하는 정책이다(DriverSpec.TrackOnly). upgrade·rollback 의 대상이 아니다.
+	TrackOnly bool `json:"trackOnly,omitempty"`
 }
 
 // NodeStatus는 노드 하나의 디바이스/allocatable/업그레이드 상태 요약입니다.
@@ -121,14 +123,17 @@ type UpgradeStatus struct {
 	Models []string `json:"models,omitempty"`
 }
 
-// VendorOperatorStatus 는 NPUClusterPolicy 의 <Vendor>OperatorReady 조건 하나를 옮긴 것이다.
-// 판정은 컨트롤러가 이미 내렸고 이 패키지는 옮기기만 한다.
-type VendorOperatorStatus struct {
+// VendorConditionStatus 는 NPUClusterPolicy 의 벤더별 조건(<Vendor>OperatorReady·<Vendor>DevicePluginReady)
+// 하나를 옮긴 것이다. 판정은 컨트롤러가 이미 내렸고 이 패키지는 옮기기만 한다.
+type VendorConditionStatus struct {
 	Vendor  string `json:"vendor"`
 	Status  string `json:"status"` // "True"|"False"|"Unknown"
 	Reason  string `json:"reason,omitempty"`
 	Message string `json:"message,omitempty"`
 }
+
+// VendorOperatorStatus 는 VendorConditionStatus 의 종전 이름이다 — 호출부와 JSON 스키마 이름을 유지한다.
+type VendorOperatorStatus = VendorConditionStatus
 
 // ClusterPolicyStatus는 NPUClusterPolicy 하나의 조회 결과(관측 상태)입니다.
 type ClusterPolicyStatus struct {
@@ -141,6 +146,9 @@ type ClusterPolicyStatus struct {
 	ReadyMessage string `json:"readyMessage,omitempty"`
 	// VendorOperators 는 <Vendor>OperatorReady 조건 목록이다(벤더 이름 오름차순).
 	VendorOperators []VendorOperatorStatus `json:"vendorOperators,omitempty"`
+	// DevicePlugins 는 <Vendor>DevicePluginReady 조건 목록이다(벤더 이름 오름차순). kcloud 가 직접 배포한
+	// device plugin 의 준비 상태로, 외부 벤더 operator 감지인 VendorOperators 와 다르다.
+	DevicePlugins []VendorConditionStatus `json:"devicePlugins,omitempty"`
 }
 
 // NodeDetail 은 노드 하나의 상세다. 여기 실리는 값은 전부 다른 컨트롤러가 이미 판정해

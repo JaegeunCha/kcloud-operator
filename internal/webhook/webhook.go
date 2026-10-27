@@ -3,7 +3,7 @@
 // AcceleratorPartitionPolicy validating + Pod mutating)
 // 상세: spec 검증 거부 + 추상 워크로드 변환 검증 + opt-in 라벨 Pod(injectScope=namespace 면 라벨
 //       네임스페이스의 Pod 전부)에 NVIDIA runtimeClass 주입
-// 생성일: 2026-07-20 | 수정일: 2026-10-26
+// 생성일: 2026-07-20 | 수정일: 2026-10-27
 // ============================================================
 
 package webhook
@@ -149,8 +149,12 @@ func validateDIP(obj runtime.Object) error {
 	if !knownVendors[strings.ToLower(s.Vendor)] {
 		return fmt.Errorf("spec.vendor %q is not a known vendor (allowed: nvidia, furiosa, tenstorrent, rebellions)", s.Vendor)
 	}
-	if err := validateImageRef(s.Driver.Image); err != nil {
-		return fmt.Errorf("spec.driver.image: %w", err)
+	// trackOnly=true 는 설치 경로가 없어 설치기 이미지를 비울 수 있다(Rebellions: 드라이버는 호스트 관리자가
+	// 설치). 적혀 있으면 구문은 같은 규칙으로 검사한다.
+	if !s.Driver.TrackOnly || strings.TrimSpace(s.Driver.Image) != "" {
+		if err := validateImageRef(s.Driver.Image); err != nil {
+			return fmt.Errorf("spec.driver.image: %w", err)
+		}
 	}
 	// trackOnly=true 는 설치 경로를 만들지 않으므로 job 모드와만 정합한다.
 	if s.Driver.TrackOnly && s.Driver.Mode != "" && s.Driver.Mode != "job" {

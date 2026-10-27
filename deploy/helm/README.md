@@ -55,7 +55,7 @@ kcloud 가 공개 발행하는 차트는 GHCR 에 있다. `v*` 태그를 push �
 
 ```bash
 helm install kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-operator \
-  --version 0.8.2 -n kcloud --create-namespace
+  --version 0.8.3 -n kcloud --create-namespace
 ```
 
 GHCR 은 HTTPS 이므로 `--plain-http` 를 붙이지 않는다. 공개 패키지는 인증 없이 받을 수 있고,
@@ -90,18 +90,20 @@ helm upgrade kcloud-operator deploy/helm -n kcloud --reset-then-reuse-values --s
 - **반영 후 확인**: 리비전이 올라간 것만으로는 값이 반영됐다는 증거가 아니다. 바꾼 필드가 실제로
   라이브에 들어갔는지 `helm get values` 등으로 직접 확인한다.
 
+0.8.2 이하에서 webhook 을 켠 채 0.8.3 으로 올릴 때는 Rebellions 추적 전용 정책(`rebellions-atom-ds`)을 끈 상태로 먼저 올린다. 1.34 프리셋은 이 정책을 끄지만 차트 기본값은 켜져 있으므로, 프리셋 없이 올릴 때는 `--set driverInstallPolicies.rebellions.enabled=false` 를 준다. 옛 operator 의 webhook 이 image 없는 정책을 거절하기 때문이다. 이 정책을 쓰려면 operator 롤아웃이 끝난 뒤 두 번째 upgrade 에서 `--set driverInstallPolicies.rebellions.enabled=true` 를 준다. `--reset-then-reuse-values` 는 앞서 준 값을 남기므로 끈 값을 빼는 것만으로는 켜지지 않는다.
+
 ### 0.7.x·0.6.x 에서 올릴 때
 
 정책을 hook 으로 만드는 차트(0.7.x, 1.26~1.30 라인의 0.6.x)에서 올리는 클러스터는 정책에 helm 소유
 표시가 없어, 그대로 `helm upgrade` 하면 helm 이 `invalid ownership metadata` 로 거절한다. 업그레이드
 직전에 차트가 만든 정책만 이름으로 지운다(`driverInstallPolicies.<vendor>.name` 을 바꿨다면 그 이름).
 그 차트들도 업그레이드마다 hook 으로 같은 삭제·재생성을 했고, 정책이 소유한 DaemonSet 은 업그레이드
-뒤 operator 가 다시 만든다. `--all` 로 지우면 직접 만든 다른 정책까지 지워지고, helm 은 차트의 네
+뒤 operator 가 다시 만든다. `--all` 로 지우면 직접 만든 다른 정책까지 지워지고, helm 은 차트의 다섯
 이름만 다시 만든다.
 
 ```bash
 kubectl delete driverinstallpolicies.npu.ai --ignore-not-found \
-  furiosa-warboy-ds nvidia-gpu-ds furiosa-rngd-ds tenstorrent-blackhole-ds
+  furiosa-warboy-ds nvidia-gpu-ds furiosa-rngd-ds tenstorrent-blackhole-ds rebellions-atom-ds
 ```
 
 0.7.x 의 values 파일에 `driverInstallPolicies.nvidia.toolkit.method` 가 있으면 0.8.x 의
@@ -208,6 +210,7 @@ Helm 은 설계상 `crds/` 디렉터리의 CRD 를 삭제하지 않습니다. `u
 | `rebellions.devicePluginUpstream` / `devicePluginRepository` / `devicePluginTag` | `docker.io` / `rebellions/k8s-device-plugin` / `v0.3.6` | 벤더 공개 ATOM+ device-plugin(`global.vendorRegistry` 로 조립) |
 | `rebellions.devicePluginGeneration` | `""` | 플러그인 판 형식(`v0.3`·`v0.4`). 비우면 `devicePluginTag` 로 판별 |
 | `driverInstallPolicies.<vendor>.enabled` | `true` | 벤더별 driver 설치 정책 CR 생성 |
+| `driverInstallPolicies.rebellions.driver.trackOnly` | `true`(고정) | Rebellions 는 설치기 이미지가 없어(드라이버 패키지가 벤더 포털 인증 필요) 버전 추적만 한다. `driver.versionSource: Host` 라 목표 버전은 호스트 설치 버전을 따른다 |
 | `driverInstallPolicies.<vendor>.driver.version` / `.image` | 벤더별 | 설치할 드라이버 버전·이미지 |
 | `driverInstallPolicies.<vendor>.driver.mode` | `daemonset` | (job 모드는 legacy) |
 | `driverInstallPolicies.<vendor>.driver.kernelImageBuildRevision` | `""` (빈 값) | 커널별 사전 컴파일 이미지 태그의 빌드 개정(`…-vN`). 값을 주면 노드 커널로 태그를 조립해 당긴다(`mode=job` 전용). 비우면 조립하지 않고 `driver.image` 를 쓴다 |
@@ -411,7 +414,7 @@ helm install kcloud-operator oci://<reg>/charts/kcloud-operator --version <v> \
   (`kcloud/furiosa-device-plugin-mi`)로 함께 바꿔야 한다. 공개 이미지는 `--policy` 를 거부해 CrashLoop.
 - **driver DS 수명주기**(v0.5.22+): driver DaemonSet 은 DriverInstallPolicy 에 ownerReference 가 걸려
   DIP 삭제 시 K8s GC 가 cascade 삭제.
-- **설치 정책은 릴리스 자원**: 벤더별 `DriverInstallPolicy` 네 개는 helm hook 이 아니라 릴리스
+- **설치 정책은 릴리스 자원**: 벤더별 `DriverInstallPolicy` 다섯 개는 helm hook 이 아니라 릴리스
   자원으로 관리한다. hook 으로 관리하면 업그레이드마다 삭제·재생성되어 uid 가 바뀌고, 정책을
   소유자로 참조하는 toolkit DaemonSet 이 연쇄로 재생성되며 정책에 직접 넣은 값도 다음
   업그레이드에서 사라진다. 릴리스 자원이 되면서 `helm uninstall` 의 삭제 대상에 들어가지만, 실제

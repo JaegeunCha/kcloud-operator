@@ -2,7 +2,7 @@
 // chart_values_schema_test.go: values.schema.json 이 모르는 키를 막는지 고정한다.
 // 상세: helm 은 스키마가 없으면 오타 키를 받고 조용히 버린다. 닫은 블록은 거절하고, 사이트마다
 // 키가 달라 열어 둔 블록은 통과해야 한다 — 둘을 같이 고정해야 엄격함이 의도대로 걸렸음이 남는다.
-// 생성일: 2026-10-04 | 수정일: 2026-10-24
+// 생성일: 2026-10-04 | 수정일: 2026-10-27
 // ============================================================
 package controller
 
@@ -80,7 +80,7 @@ func TestChartValuesSchemaKeepsSiteKeyedBlocksOpen(t *testing.T) {
 	}
 }
 
-// 벤더 항목은 그 벤더 템플릿이 읽는 키만 받아야 한다. 공유 정의 한 벌을 네 벤더가 쓰므로
+// 벤더 항목은 그 벤더 템플릿이 읽는 키만 받아야 한다. 공유 정의 한 벌을 다섯 벤더가 쓰므로
 // 합집합으로 두면 읽히지 않는 키가 통과하고 렌더에서 조용히 사라진다. 거절과 통과를 쌍으로 고정한다.
 func TestChartValuesSchemaScopesVendorOnlyKeys(t *testing.T) {
 	for _, tc := range []struct {
@@ -92,7 +92,12 @@ func TestChartValuesSchemaScopesVendorOnlyKeys(t *testing.T) {
 		{"toolkit, furiosa", "driverInstallPolicies.furiosa.toolkit.enabled=true", false},
 		{"toolkit, rngd", "driverInstallPolicies.rngd.toolkit.enabled=true", false},
 		{"toolkit, tenstorrent", "driverInstallPolicies.tenstorrent.toolkit.enabled=true", false},
-		{"trackOnly 는 tenstorrent 만", "driverInstallPolicies.tenstorrent.driver.trackOnly=true", true},
+		{"trackOnly 는 tenstorrent·rebellions 만", "driverInstallPolicies.tenstorrent.driver.trackOnly=true", true},
+		// rebellions 는 설치기가 없는 추적 전용이라 trackOnly 는 true 로만 받고 설치 경로 전용 키는 막는다.
+		{"trackOnly, rebellions(고정 true)", "driverInstallPolicies.rebellions.driver.trackOnly=true", true},
+		{"toolkit, rebellions", "driverInstallPolicies.rebellions.toolkit.enabled=true", false},
+		{"설치 이미지 키, rebellions", "driverInstallPolicies.rebellions.driver.repository=x", false},
+		{"kernelImageBuildRevision, rebellions", "driverInstallPolicies.rebellions.driver.kernelImageBuildRevision=v4", false},
 		{"trackOnly, furiosa", "driverInstallPolicies.furiosa.driver.trackOnly=true", false},
 		{"trackOnly, nvidia", "driverInstallPolicies.nvidia.driver.trackOnly=true", false},
 		{"trackOnly, rngd", "driverInstallPolicies.rngd.driver.trackOnly=true", false},

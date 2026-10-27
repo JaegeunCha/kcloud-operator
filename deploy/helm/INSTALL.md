@@ -1,4 +1,4 @@
-<!-- INSTALL.md: kcloud-operator Helm 설치와 확인 절차 | 생성일: 2026-09-14 | 수정일: 2026-10-24 -->
+<!-- INSTALL.md: kcloud-operator Helm 설치와 확인 절차 | 생성일: 2026-09-14 | 수정일: 2026-10-27 -->
 
 # kcloud-operator 설치 · 확인 절차
 
@@ -29,19 +29,19 @@ serverVersion:
 
 | Service K8s | 차트 | 프리셋 | 설치용 values 주소 |
 |---|---|---|---|
-| 1.31~1.34 | 0.8.2 | `values-k8s1.34.yaml` | `release.yaml` 의 `1.31-1.34` 프로필 `valuesURL` |
-| 1.26~1.30 | 0.6.2 | `values-k8s1.28.yaml` | `release.yaml` 의 `1.26-1.30` 프로필 `valuesURL` |
+| 1.31~1.34 | 0.8.3 | `values-k8s1.34.yaml` | `release.yaml` 의 `1.31-1.34` 프로필 `valuesURL` |
+| 1.26~1.30 | 0.6.3 | `values-k8s1.28.yaml` | `release.yaml` 의 `1.26-1.30` 프로필 `valuesURL` |
 
 브랜치 주소(`release.yaml` 의 `valuesBrowseURL`)는 최신 내용을 사람이 확인할 때만 씁니다. 브랜치는 새 커밋이 들어오면 같은 주소가 다른 내용을 돌려주므로 설치에는 쓰지 않습니다.
 
 values 주소는 이 문서에 적지 않고 `release.yaml` 에서 그대로 옮깁니다. 주소를 문서에 다시 적으면 프리셋을 고칠 때 문서만 옛 커밋에 남습니다.
 
 ```bash
-export CHART_VERSION=0.8.2
+export CHART_VERSION=0.8.3
 export VALUES_URL='<release.yaml 1.31-1.34 프로필의 valuesURL>'
 ```
 
-1.26~1.30 클러스터라면 `CHART_VERSION=0.6.2` 와 `1.26-1.30` 프로필의 `valuesURL` 을 쓰고, 프리셋 파일 이름은 `values-k8s1.28.yaml` 입니다. 그 프리셋은 차트 `0.6.2` 를 담은 `release/k8s-1.28` 브랜치에 있고 차트 `0.8.1` 의 소스 트리에는 없습니다 — 위 표의 values 주소는 그 브랜치 커밋을 가리키므로 설치 절차는 같습니다. 차트 `0.8.1` 을 1.26~1.30 클러스터에 설치하려 하면 `kubeVersion` 선언 때문에 helm 이 거절합니다.
+1.26~1.30 클러스터라면 `CHART_VERSION=0.6.3` 과 `1.26-1.30` 프로필의 `valuesURL` 을 쓰고, 프리셋 파일 이름은 `values-k8s1.28.yaml` 입니다. 그 프리셋은 차트 `0.6.3` 을 담은 `release/k8s-1.28` 브랜치에 있고 차트 `0.8.1` 의 소스 트리에는 없습니다 — 위 표의 values 주소는 그 브랜치 커밋을 가리키므로 설치 절차는 같습니다. 차트 `0.8.1` 을 1.26~1.30 클러스터에 설치하려 하면 `kubeVersion` 선언 때문에 helm 이 거절합니다.
 
 ## 3. site-values.yaml 작성
 
@@ -71,7 +71,7 @@ kubectl -n kcloud delete job -l npu.ai/vendor=furiosa,npu.ai/node=<노드>
 kubectl delete driverupgradestate <노드>-furiosa
 ```
 
-0.8.2 부터는 Secret 이 없으면 Warboy 설치 사이클을 시작하지 않고 기다립니다. DriverUpgradeState 는 `Idle` 에 머물고 사유와 이벤트 `InstallSecretMissing` 을 남기며, 노드 cordon 과 슬롯을 잡지 않습니다. Secret 을 만들면 1분 안팎에 설치가 시작되고, 다른 드라이버 설치(같은 노드의 다른 벤더 포함)가 슬롯을 쓰는 중이면 그 설치가 끝난 뒤에 시작됩니다. 차트가 만드는 Secret 확인용 Role 이 없는 배포(`rbac.create=false` 등)는 확인을 건너뛰고 0.8.1 처럼 동작합니다.
+0.8.3 부터는 Secret 이 없으면 Warboy 설치 사이클을 시작하지 않고 기다립니다. DriverUpgradeState 는 `Idle` 에 머물고 사유와 이벤트 `InstallSecretMissing` 을 남기며, 노드 cordon 과 슬롯을 잡지 않습니다. Secret 을 만들면 1분 안팎에 설치가 시작되고, 다른 드라이버 설치(같은 노드의 다른 벤더 포함)가 슬롯을 쓰는 중이면 그 설치가 끝난 뒤에 시작됩니다. 차트가 만드는 Secret 확인용 Role 이 없는 배포(`rbac.create=false` 등)는 확인을 건너뛰고 0.8.1 처럼 동작합니다.
 
 Rebellions ATOM+ 노드는 공식 device plugin 두 판을 모두 쓸 수 있습니다. 기본은 `v0.3.6` 이고, 신판을 쓰려면 `rebellions.devicePluginTag` 를 `v0.4.3` 으로 바꿉니다. 판은 태그로 판별합니다. digest 로 고정해 태그가 없으면 `rebellions.devicePluginGeneration` 에 `v0.3` 또는 `v0.4` 를 적습니다. 사설 미러를 쓰면 `rebellions/k8s-device-plugin:v0.4.3` 을 미리 미러에 올립니다.
 
@@ -82,6 +82,8 @@ Rebellions ATOM+ 노드는 공식 device plugin 두 판을 모두 쓸 수 있습
 ```bash
 kubectl get npuclusterpolicy -A -o jsonpath='{.items[*].status.conditions[?(@.type=="RebellionsDevicePluginReady")]}'
 ```
+
+`kubectl npu status` 의 NPUClusterPolicy 절에서도 같은 조건이 `rebellions  device-plugin  True  Prepared  판: …` 줄로 보입니다. 같은 절의 `operator` 줄은 외부 벤더 operator 감지 결과라 kcloud 가 직접 배포하는 환경에서는 `NotDetected` 가 정상입니다.
 
 ## 4. 설치 전 렌더링 점검
 
@@ -94,7 +96,7 @@ helm template kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-operator \
   | grep -E "image:|kind:" | sort -u
 ```
 
-operator 이미지가 `ghcr.io/openkcloud/kcloud-operator:v0.8.2` 으로 나오는지 봅니다. 목록에 DRA 드라이버 이미지 두 개가 함께 보이는데, 기본값이 꺼져 있어 실제로 배포되지는 않습니다. `kcloud-host-exec` 과 Tenstorrent device-plugin 은 차트가 아니라 operator 가 실행 중에 만들기 때문에 이 목록에 나오지 않습니다.
+operator 이미지가 `ghcr.io/openkcloud/kcloud-operator:v0.8.3` 으로 나오는지 봅니다. 목록에 DRA 드라이버 이미지 두 개가 함께 보이는데, 기본값이 꺼져 있어 실제로 배포되지는 않습니다. `kcloud-host-exec` 과 Tenstorrent device-plugin 은 차트가 아니라 operator 가 실행 중에 만들기 때문에 이 목록에 나오지 않습니다.
 
 ## 5. 설치
 
@@ -132,7 +134,7 @@ kubectl -n kcloud get npuclusterpolicy npuclusterpolicy-sample \
 kubectl get dip -o custom-columns='NAME:.metadata.name,VENDOR:.spec.vendor,MODE:.spec.driver.mode'
 ```
 
-CRD 는 13종입니다. 정책 CR 이름은 `npuclusterpolicy-sample` 이고 네임스페이스는 `kcloud` 이며, `get` 출력에는 READY 열이 없으므로 조건 값을 직접 읽습니다. DriverInstallPolicy 는 클러스터 범위이고 기본 이름은 `nvidia-gpu-ds`, `furiosa-warboy-ds`, `furiosa-rngd-ds`, `tenstorrent-blackhole-ds` 입니다.
+CRD 는 13종입니다. 정책 CR 이름은 `npuclusterpolicy-sample` 이고 네임스페이스는 `kcloud` 이며, `get` 출력에는 READY 열이 없으므로 조건 값을 직접 읽습니다. DriverInstallPolicy 는 클러스터 범위이고 기본 이름은 `nvidia-gpu-ds`, `furiosa-warboy-ds`, `furiosa-rngd-ds`, `tenstorrent-blackhole-ds`, `rebellions-atom-ds` 입니다. `rebellions-atom-ds` 는 설치 경로가 없는 추적 전용(`trackOnly`) 정책입니다. Rebellions 드라이버 패키지는 벤더 포털 인증이 필요해 호스트 관리자가 설치하고, operator 는 노드별 버전만 DriverUpgradeState 로 기록합니다. 1.31~1.34 프리셋(`values-k8s1.34.yaml`)은 Rebellions 를 공개 범위 밖으로 두어 이 정책도 끕니다. 켜려면 사이트 값으로 `driverInstallPolicies.rebellions.enabled=true` 를 줍니다.
 
 ## 8. 확인 3 — 노드 라벨과 DaemonSet
 

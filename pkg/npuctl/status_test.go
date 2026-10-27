@@ -1,6 +1,6 @@
 // status_test.go: CollectStatus 단위 테스트(fake client, envtest 불필요)
 // 상세: NCP/DIP(+rngd 서브벤더)/NDR/DUS/Node를 섞어 넣고 ClusterStatus 집약 결과를 검증한다.
-// 생성일: 2026-07-16 | 수정일: 2026-10-13
+// 생성일: 2026-07-16 | 수정일: 2026-10-27
 package npuctl
 
 import (
@@ -419,5 +419,71 @@ func TestClusterPolicyStatus_JSON_VendorOperatorsOmittedWhenEmpty(t *testing.T) 
 		if !strings.Contains(got, field) {
 			t.Errorf("기존 필드 %s 가 없어짐: %s", field, got)
 		}
+	}
+}
+
+// TrackOnly 정책은 DIPStatus 에 그 성격이 실려야 한다 — CLI 가 DIP 표에서 설치 정책과 구분한다.
+func TestAttachDIPs_CarriesTrackOnly(t *testing.T) {
+	idx := map[string]*VendorStatus{}
+	dips := []npuv1alpha1.DriverInstallPolicy{{
+		ObjectMeta: metav1.ObjectMeta{Name: "rebellions-atom-ds"},
+		Spec: npuv1alpha1.DriverInstallPolicySpec{
+			Vendor: "rebellions", Model: "atom",
+			Driver: npuv1alpha1.DriverSpec{Mode: "job", TrackOnly: true, VersionSource: "Host"},
+		},
+	}}
+	attachDIPs(idx, dips)
+	entry, ok := idx["rebellions"]
+	if !ok || len(entry.DriverInstallPolicies) != 1 {
+		t.Fatalf("rebellions 항목이 없다: %+v", idx)
+	}
+	got := entry.DriverInstallPolicies[0]
+	if !got.TrackOnly || got.VersionSource != "Host" || got.DesiredVersion != "" {
+		t.Errorf("DIPStatus 가 다르다: %+v", got)
+	}
+}
+
+// device plugin 조건도 집계에 포함된다 — OperatorReady 접미만 읽으면 kcloud 가 직접 배포하는 플러그인의
+// 준비 상태(RebellionsDevicePluginReady)가 출력에서 빠진다.
+func TestBuildClusterPolicyStatuses_IncludesDevicePluginConditions(t *testing.T) {
+	ncp := npuv1alpha1.NPUClusterPolicy{}
+	ncp.Name = "default"
+	ncp.Status.Conditions = []metav1.Condition{
+		{Type: "Ready", Status: metav1.ConditionTrue, Reason: "AllResourcesReady"},
+		{Type: "RebellionsOperatorReady", Status: metav1.ConditionUnknown, Reason: "NotDetected"},
+		{Type: "RebellionsDevicePluginReady", Status: metav1.ConditionTrue, Reason: "Prepared",
+			Message: "판: v0.3 형식(태그 v0.3.6)"},
+	}
+
+	out := buildClusterPolicyStatuses([]npuv1alpha1.NPUClusterPolicy{ncp})
+
+	if len(out) != 1 || len(out[0].DevicePlugins) != 1 {
+		t.Fatalf("device plugin 조건 집계가 다르다: %+v", out)
+	}
+	dp := out[0].DevicePlugins[0]
+	if dp.Vendor != "rebellions" || dp.Status != "True" || dp.Reason != "Prepared" ||
+		dp.Message != "판: v0.3 형식(태그 v0.3.6)" {
+		t.Errorf("device plugin 항목이 다르다: %+v", dp)
+	}
+	if len(out[0].VendorOperators) != 1 || out[0].VendorOperators[0].Vendor != "rebellions" {
+		t.Errorf("operator 조건 집계가 바뀌었다: %+v", out[0].VendorOperators)
+	}
+}
+
+func TestClusterPolicyStatus_JSON_DevicePluginsOmittedWhenEmpty(t *testing.T) {
+	raw, err := json.Marshal(ClusterPolicyStatus{Namespace: "kcloud", Name: "cluster-policy", Ready: "True"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "devicePlugins") {
+		t.Errorf("조건이 없는데 devicePlugins 키가 출력됨: %s", raw)
+	}
+	raw, err = json.Marshal(ClusterPolicyStatus{Name: "p",
+		DevicePlugins: []VendorConditionStatus{{Vendor: "rebellions", Status: "True"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"devicePlugins":[{"vendor":"rebellions","status":"True"}]`) {
+		t.Errorf("devicePlugins JSON 이 다르다: %s", raw)
 	}
 }

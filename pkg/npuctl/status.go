@@ -2,7 +2,7 @@
 // 상세: NPUClusterPolicy/DriverInstallPolicy/NodeDeviceReport/DriverUpgradeState(CR)와
 // core/v1 Node(allocatable)를 한 번에 조회해 ClusterStatus로 합친다. kubectl-npu
 // status --json 및 사람용 텍스트 출력이 공통으로 사용하는 단일 진입점이다.
-// 생성일: 2026-07-16 | 수정일: 2026-10-13
+// 생성일: 2026-07-16 | 수정일: 2026-10-27
 package npuctl
 
 import (
@@ -131,6 +131,7 @@ func attachDIPs(idx map[string]*VendorStatus, dips []npuv1alpha1.DriverInstallPo
 			VersionSource:    dip.Spec.Driver.VersionSource,
 			AutoUpgrade:      up.AutoUpgrade,
 			DrainEnabled:     up.DrainEnabled,
+			TrackOnly:        dip.Spec.Driver.TrackOnly,
 		})
 	}
 }
@@ -155,8 +156,9 @@ func flattenVendorIndex(idx map[string]*VendorStatus) []VendorStatus {
 
 func buildClusterPolicyStatuses(ncps []npuv1alpha1.NPUClusterPolicy) []ClusterPolicyStatus {
 	const (
-		vendorOperatorCondSuffix = "OperatorReady"
-		readyCondType            = "Ready"
+		vendorOperatorCondSuffix     = "OperatorReady"
+		vendorDevicePluginCondSuffix = "DevicePluginReady"
+		readyCondType                = "Ready"
 	)
 	out := make([]ClusterPolicyStatus, 0, len(ncps))
 	for i := range ncps {
@@ -173,6 +175,15 @@ func buildClusterPolicyStatuses(ncps []npuv1alpha1.NPUClusterPolicy) []ClusterPo
 				cp.ReadyMessage = cond.Message
 				continue
 			}
+			if strings.HasSuffix(cond.Type, vendorDevicePluginCondSuffix) {
+				cp.DevicePlugins = append(cp.DevicePlugins, VendorConditionStatus{
+					Vendor:  strings.ToLower(strings.TrimSuffix(cond.Type, vendorDevicePluginCondSuffix)),
+					Status:  string(cond.Status),
+					Reason:  cond.Reason,
+					Message: cond.Message,
+				})
+				continue
+			}
 			if strings.HasSuffix(cond.Type, vendorOperatorCondSuffix) {
 				cp.VendorOperators = append(cp.VendorOperators, VendorOperatorStatus{
 					Vendor:  strings.ToLower(strings.TrimSuffix(cond.Type, vendorOperatorCondSuffix)),
@@ -184,6 +195,9 @@ func buildClusterPolicyStatuses(ncps []npuv1alpha1.NPUClusterPolicy) []ClusterPo
 		}
 		sort.Slice(cp.VendorOperators, func(i, j int) bool {
 			return cp.VendorOperators[i].Vendor < cp.VendorOperators[j].Vendor
+		})
+		sort.Slice(cp.DevicePlugins, func(i, j int) bool {
+			return cp.DevicePlugins[i].Vendor < cp.DevicePlugins[j].Vendor
 		})
 		out = append(out, cp)
 	}

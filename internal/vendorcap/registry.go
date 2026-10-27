@@ -3,7 +3,7 @@
 // 상세: "벤더가 무엇을 할 수 있다고 선언했는가"만 담는다 — 실측(성적표 층)은 pkg/npuctl
 // 이 evidence 를 조인해 따로 낸다. 새 CRD 없이 이 Go 리터럴이 정본이고, 호환성 매트릭스
 // 문서는 여기서 생성된다. Reason/Source 필수 제약은 아래 생성자 주석 참고.
-// 생성일: 2026-09-19 | 수정일: 2026-10-11
+// 생성일: 2026-09-19 | 수정일: 2026-10-27
 // ============================================================
 package vendorcap
 
@@ -164,8 +164,10 @@ var registry = map[Key]map[Capability]Support{
 		CapReset:            unsupported("공개 인터페이스(furiosa-smi CLI 2026.1·furiosa-smi-go SDK C API v2026.1.1)에 장치 리셋 수단 미발견 — drain 은 장치 활성/비활성 표시이지 HW 리셋 아님", "test/live/device-reset/run.sh"),
 	},
 	{"rebellions", ""}: {
-		CapDiscovery:        native("NodeDeviceReport rebellions(node5 ATOM)"),
-		CapDriver:           unsupported("설계상 host-managed — DriverInstallPolicy 미생성", "internal/controller/driver_daemonset_controller.go"),
+		CapDiscovery: native("NodeDeviceReport rebellions(node5 ATOM)"),
+		CapDriver: unsupported("TrackOnly DriverInstallPolicy(rebellions-atom-ds) — 버전 관측만, 설치 경로 없음. "+
+			"드라이버 패키지(rebellions-dkms)는 벤더 포털 인증이 필요해 호스트 관리자가 설치",
+			"deploy/helm/templates/driverinstallpolicy.yaml"),
 		CapFirmware:         unsupported("펌웨어 관리 미구현", ""),
 		CapRuntime:          unsupported("런타임(rebel-compiler·optimum-rbln·vllm-rbln)은 컨테이너에 pip wheel 로 담기고 드라이버·펌웨어는 host-managed — operator 가 노드에 설치·관리할 런타임 없음", ""),
 		CapContainerToolkit: unsupported("해당 없음", ""),

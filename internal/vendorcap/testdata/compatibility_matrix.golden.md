@@ -57,7 +57,7 @@ doc_id: operator-compatibility-matrix
 | nvidia |  | health | Native | none | AcceleratorHealth 컨트롤러 |
 | nvidia |  | reset | Native | none | nvidia-smi -r/--gpu-reset 로 장치 HW·SW 상태 초기화(root·소비자 없음 조건, MIG vGPU guest 미지원) 문서 확인 — 실측(2026-09-28, k8s-worker1 A30) 시도, device-plugin·dcgm-exporter 의 상시 NVML 핸들로 매번 "In use by another client"(exit=255) 거부, cordon+DS 파드 삭제(승인 조치)로 점유 해제 실패; kill·taint·operator 라벨 재사용 세 건은 승인 범위 밖 수동 조치로 시도됐고 전부 되돌림 |
 | rebellions |  | discovery | Native | none | NodeDeviceReport rebellions(node5 ATOM) |
-| rebellions |  | driver | Unsupported | none | 설계상 host-managed — DriverInstallPolicy 미생성 (internal/controller/driver_daemonset_controller.go) |
+| rebellions |  | driver | Unsupported | none | TrackOnly DriverInstallPolicy(rebellions-atom-ds) — 버전 관측만, 설치 경로 없음. 드라이버 패키지(rebellions-dkms)는 벤더 포털 인증이 필요해 호스트 관리자가 설치 (deploy/helm/templates/driverinstallpolicy.yaml) |
 | rebellions |  | firmware | Unsupported | none | 펌웨어 관리 미구현 |
 | rebellions |  | runtime | Unsupported | none | 런타임(rebel-compiler·optimum-rbln·vllm-rbln)은 컨테이너에 pip wheel 로 담기고 드라이버·펌웨어는 host-managed — operator 가 노드에 설치·관리할 런타임 없음 |
 | rebellions |  | containerToolkit | Unsupported | none | 해당 없음 |

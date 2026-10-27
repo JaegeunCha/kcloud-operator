@@ -2,7 +2,7 @@
 // 상세: kubectl npu status[--json]/driver-version/upgrade/toggle/describe 등을 제공한다.
 // 조회·제어는 pkg/npuctl(kcloud-operator 모듈, replace 로 로컬 참조)에 위임하고, 이
 // 파일은 CLI 인자 파싱과 사람용/JSON 출력 서식만 맡는다.
-// 생성일: 2026-03-25 | 수정일: 2026-10-13
+// 생성일: 2026-03-25 | 수정일: 2026-10-27
 package main
 
 import (
@@ -172,7 +172,7 @@ Usage:
   kubectl npu sharing get                          노드×벤더 공유 방식(AcceleratorPartitionPolicy.spec.sharing) 현황
   kubectl npu sharing apply --node n --vendor v --mode timeSliced|mps|exclusive [--replicas n] [--force]
                                                     공유 정책 적용(있으면 sharing만 patch, 없으면 생성)
-  kubectl npu diagnose                             health·driver·allocation·capabilities 중 문제 있는 항목만 모아 냄
+  kubectl npu diagnose                             health·driver·allocation·capabilities·device-plugin 중 문제 있는 항목만 모아 냄
 
 Vendors: nvidia, furiosa, rngd(furiosa RNGD 서브벤더), rebellions, tenstorrent
 
@@ -289,22 +289,7 @@ func printStatusText(status *npuctl.ClusterStatus) {
 		} else {
 			fmt.Printf("  %s/%s: Ready=%s (%s)\n", cp.Namespace, cp.Name, cp.Ready, cp.ReadyReason)
 		}
-		// 벤더별 <Vendor>OperatorReady 조건 — 항목이 없으면 줄을 내지 않는다. 폭은
-		// printTable 과 같은 원칙으로 데이터에서 잰다 — 고정폭(예 %-12s)은 벤더
-		// 이름이 그 폭을 넘으면 그 줄만 밀려 printTable 주석이 적어 둔 바로 그
-		// 증상(열이 어긋나 표를 못 훑음)이 재현된다.
-		vendorWidth, statusWidth := 0, 0
-		for _, vo := range cp.VendorOperators {
-			vendorWidth = maxInt(vendorWidth, utf8.RuneCountInString(vo.Vendor))
-			statusWidth = maxInt(statusWidth, utf8.RuneCountInString(vo.Status))
-		}
-		for _, vo := range cp.VendorOperators {
-			reason := vo.Reason
-			if reason == "" {
-				reason = "-"
-			}
-			fmt.Printf("    %-*s %-*s %s\n", vendorWidth, vo.Vendor, statusWidth, vo.Status, reason)
-		}
+		printVendorConditionLines(cp)
 	}
 
 	fmt.Println("\n=== DriverUpgradeState ===")
@@ -317,6 +302,49 @@ func printStatusText(status *npuctl.ClusterStatus) {
 		}
 	}
 	printTable([]string{"NODE", "VENDOR", "MODEL", "STATE", "CURRENT", "DESIRED"}, upRows)
+}
+
+// vendorConditionLine 은 NPUClusterPolicy 절의 벤더 조건 한 줄이다. kind 는 조건의 종류다 —
+// "operator" 는 외부 벤더 operator 감지(<Vendor>OperatorReady), "device-plugin" 은 kcloud 가 배포한
+// device plugin 의 준비 상태(<Vendor>DevicePluginReady). 종류를 적지 않으면 operator 의 NotDetected 가
+// "장치 미감지" 로 읽힌다.
+type vendorConditionLine struct {
+	vendor, kind, status, reason, message string
+}
+
+// printVendorConditionLines 는 벤더 조건을 operator, device-plugin 순으로 낸다 — 항목이 없으면 줄을 내지 않는다.
+// 폭은 printTable 과 같은 원칙으로 데이터에서 잰다(고정폭은 이름이 길어지면 그 줄만 밀린다). 메시지는
+// device-plugin 줄에만 붙인다 — 판 형식·실패 노드가 메시지에만 있고, operator 메시지는 긴 설명 문장이다.
+func printVendorConditionLines(cp npuctl.ClusterPolicyStatus) {
+	lines := make([]vendorConditionLine, 0, len(cp.VendorOperators)+len(cp.DevicePlugins))
+	for _, vo := range cp.VendorOperators {
+		lines = append(lines, vendorConditionLine{
+			vendor: vo.Vendor, kind: "operator", status: vo.Status, reason: vo.Reason,
+		})
+	}
+	for _, dp := range cp.DevicePlugins {
+		lines = append(lines, vendorConditionLine{
+			vendor: dp.Vendor, kind: "device-plugin", status: dp.Status, reason: dp.Reason, message: dp.Message,
+		})
+	}
+	vendorWidth, kindWidth, statusWidth := 0, 0, 0
+	for _, l := range lines {
+		vendorWidth = maxInt(vendorWidth, utf8.RuneCountInString(l.vendor))
+		kindWidth = maxInt(kindWidth, utf8.RuneCountInString(l.kind))
+		statusWidth = maxInt(statusWidth, utf8.RuneCountInString(l.status))
+	}
+	for _, l := range lines {
+		reason := l.reason
+		if reason == "" {
+			reason = "-"
+		}
+		row := fmt.Sprintf("    %-*s %-*s %-*s %s",
+			vendorWidth, l.vendor, kindWidth, l.kind, statusWidth, l.status, reason)
+		if l.message != "" {
+			row += "  " + l.message
+		}
+		fmt.Println(row)
+	}
 }
 
 // modelCell 은 DUS 의 model 열이다 — 대표값이 generic(모름)이면 관측 목록을 괄호에 보인다.
@@ -969,9 +997,13 @@ func printVendorsText(status *npuctl.ClusterStatus) {
 	printTable([]string{"NAME", "SUBVENDOR_OF", "ENABLED", "VERSION"}, rows)
 }
 
-// dipVersionCell 은 DIP 표의 VERSION 칸이다. versionSource=Host 면 정책 버전은 호스트 무드라이버
-// 노드에만 쓰이는 값이라 그 사실을 함께 적는다.
+// dipVersionCell 은 DIP 표의 VERSION 칸이다. TrackOnly 면 설치 경로가 없다는 성격을 적는다(목표 버전이
+// 비면 versionSource=Host 로 호스트 버전이 곧 목표다). versionSource=Host 인 설치 정책은 정책 버전이 호스트
+// 무드라이버 노드에만 쓰이는 값이라 그 사실을 함께 적는다.
 func dipVersionCell(dip npuctl.DIPStatus) string {
+	if dip.TrackOnly {
+		return dashIfEmpty(dip.DesiredVersion) + " (trackOnly)"
+	}
 	if strings.EqualFold(dip.VersionSource, "Host") && dip.DesiredVersion != "" {
 		return dip.DesiredVersion + " (versionSource=Host)"
 	}
@@ -1697,6 +1729,18 @@ func buildDiagnoseRows(
 							u.State, u.RolledBackVersion, dashIfEmpty(u.CurrentVersion)),
 					})
 				}
+			}
+		}
+		for _, cp := range status.ClusterPolicies {
+			for _, dp := range cp.DevicePlugins {
+				if dp.Status == "True" {
+					continue
+				}
+				rows = append(rows, diagnoseRow{
+					category: "device-plugin", vendor: dp.Vendor,
+					detail: fmt.Sprintf("policy=%s/%s status=%s reason=%s %s", cp.Namespace, cp.Name, dp.Status,
+						dashIfEmpty(dp.Reason), dp.Message),
+				})
 			}
 		}
 	}

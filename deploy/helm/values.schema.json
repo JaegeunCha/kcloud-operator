@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$comment": "values.schema.json: 차트 값의 허용 키 목록. 상세: helm 은 모르는 키를 조용히 버린다 — 오타 키나 소비 코드가 없는 키가 쌓이지 않도록 블록마다 허용 키를 적는다. 키 이름을 고정하고, 타입은 bool 자리에, 허용값은 rebellions.devicePluginGeneration 에만 건다(그 밖의 값 범위 검사는 CRD 와 컨트롤러의 몫). JSON 은 주석을 쓸 수 없어 파일 머리 설명을 이 $comment 로 적는다. 생성일: 2026-10-04 | 수정일: 2026-10-24",
+  "$comment": "values.schema.json: 차트 값의 허용 키 목록. 상세: helm 은 모르는 키를 조용히 버린다 — 오타 키나 소비 코드가 없는 키가 쌓이지 않도록 블록마다 허용 키를 적는다. 키 이름을 고정하고, 타입은 bool 자리에, 허용값은 rebellions.devicePluginGeneration 에만 건다(그 밖의 값 범위 검사는 CRD 와 컨트롤러의 몫). JSON 은 주석을 쓸 수 없어 파일 머리 설명을 이 $comment 로 적는다. 생성일: 2026-10-04 | 수정일: 2026-10-27",
   "title": "kcloud-operator chart values",
   "type": "object",
   "additionalProperties": false,
@@ -294,7 +294,7 @@
     "driverInstallPolicies": {
       "type": "object",
       "additionalProperties": false,
-      "$comment": "벤더마다 읽지 않는 키를 그 벤더 항목에서만 막는다. 정의를 네 벌로 펼치지 않으려고 allOf 로 감쌌다 — 대가는 거절 문구가 'allOf' failed 로 뭉개지는 것이다.",
+      "$comment": "벤더마다 읽지 않는 키를 그 벤더 항목에서만 막는다. 정의를 다섯 벌로 펼치지 않으려고 allOf 로 감쌌다 — 대가는 거절 문구가 'allOf' failed 로 뭉개지는 것이다.",
       "properties": {
         "furiosa": {
           "allOf": [
@@ -320,6 +320,13 @@
           "allOf": [
             { "$ref": "#/$defs/driverInstallPolicy" },
             { "$ref": "#/$defs/dipWithoutToolkit" }
+          ]
+        },
+        "rebellions": {
+          "allOf": [
+            { "$ref": "#/$defs/driverInstallPolicy" },
+            { "$ref": "#/$defs/dipWithoutToolkit" },
+            { "$ref": "#/$defs/dipTrackOnlyVendor" }
           ]
         }
       }
@@ -395,10 +402,36 @@
       "properties": { "toolkit": false }
     },
     "dipWithoutTenstorrentDriverKeys": {
-      "$comment": "driver.trackOnly·driver.imageVersionBaked 는 tenstorrent 템플릿만 읽는다. 다른 벤더에 적으면 렌더에서 사라지므로 그 자리에서 막는다.",
+      "$comment": "driver.trackOnly·driver.imageVersionBaked 는 tenstorrent·rebellions 템플릿만 읽는다. 다른 벤더에 적으면 렌더에서 사라지므로 그 자리에서 막는다.",
       "properties": {
         "driver": {
           "properties": { "trackOnly": false, "imageVersionBaked": false }
+        }
+      }
+    },
+    "dipTrackOnlyVendor": {
+      "$comment": "설치기 이미지가 없는 벤더(rebellions)의 정책. trackOnly 는 true 로 고정하고 설치 경로 전용 키는 막는다 — 적어도 템플릿이 읽지 않아 조용히 사라진다.",
+      "properties": {
+        "rebootStrategy": false,
+        "kernelAllowlist": false,
+        "upgradePolicy": false,
+        "jobOverrides": false,
+        "workloadProbe": false,
+        "driver": {
+          "properties": {
+            "trackOnly": { "const": true },
+            "mode": { "const": "job" },
+            "repository": false,
+            "tag": false,
+            "installer": false,
+            "imageVersionBaked": false,
+            "allowDowngrade": false,
+            "skipOnPassthrough": false,
+            "env": false,
+            "kernelImages": false,
+            "kernelImageBuildRevision": false,
+            "kernelImageVariant": false
+          }
         }
       }
     },
@@ -425,7 +458,7 @@
       "description": "열어 둔다: 키가 노드 라벨 이름이다. 사이트마다 다르므로 차트가 미리 적을 수 없다."
     },
     "driverInstallPolicy": {
-      "$comment": "네 벤더가 같은 정의를 쓴다. 벤더별로 쓰이는 키가 조금 다르다 — toolkit 은 nvidia 템플릿만 읽고 driver.trackOnly·driver.imageVersionBaked 는 tenstorrent 템플릿만 읽는다. 합집합으로 두는 쪽을 골랐다(정의 네 벌이 서로 어긋나는 비용이 더 크다).",
+      "$comment": "다섯 벤더가 같은 정의를 쓴다. 벤더별로 쓰이는 키가 조금 다르다 — toolkit 은 nvidia 템플릿만 읽고 driver.trackOnly·driver.imageVersionBaked 는 tenstorrent·rebellions 템플릿만 읽는다. 합집합으로 두는 쪽을 골랐다(정의 다섯 벌이 서로 어긋나는 비용이 더 크다).",
       "type": "object",
       "additionalProperties": false,
       "properties": {

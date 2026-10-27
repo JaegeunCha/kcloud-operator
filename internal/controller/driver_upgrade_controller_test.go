@@ -2,7 +2,7 @@
 // driver_upgrade_controller_test.go: DriverUpgradeReconciler 단위 테스트
 // 상세: ensureUpgradeStates()의 currentVersion 동기화 및 findPolicy fallback 로직 검증
 //       fake client 기반 — envtest 불필요
-// 생성일: 2026-04-21 | 수정일: 2026-10-22
+// 생성일: 2026-04-21 | 수정일: 2026-10-27
 // ============================================================
 
 package controller
@@ -2350,5 +2350,189 @@ func TestEnsureUpgradeStates_MixedModelsRecordsObservedModels(t *testing.T) {
 	}
 	if strings.Join(dus.Status.ObservedModels, ",") != "a2,a30" {
 		t.Fatalf("status.observedModels = %v, want [a2 a30]", dus.Status.ObservedModels)
+	}
+}
+
+// rebellionsTrackOnlyFixture 는 설치기 없는 벤더의 TrackOnly 정책과 ATOM+ 2장 노드다.
+// versionSource·정책 버전·호스트 버전만 케이스별로 바꾼다.
+func rebellionsTrackOnlyFixture(versionSource, policyVersion, hostVersion string) (
+	*corev1.Node, *v1alpha1.NodeDeviceReport, *v1alpha1.DriverInstallPolicy,
+) {
+	node := workerNode("worker4")
+	node.Labels["kcloud.ai/rebellions.present"] = labelValueTrue
+	ndr := &v1alpha1.NodeDeviceReport{
+		ObjectMeta: metav1.ObjectMeta{Name: "worker4"},
+		Spec:       v1alpha1.NodeDeviceReportSpec{NodeName: "worker4"},
+		Status: v1alpha1.NodeDeviceReportStatus{Devices: []v1alpha1.DeviceEntry{
+			{Vendor: "rebellions", Model: "atom", PCIeAddress: "0000:c3:00.0",
+				DriverLoaded: hostVersion != "", DriverVersion: hostVersion},
+			{Vendor: "rebellions", Model: "atom", PCIeAddress: "0000:c4:00.0",
+				DriverLoaded: hostVersion != "", DriverVersion: hostVersion},
+		}},
+	}
+	dip := &v1alpha1.DriverInstallPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "rebellions-atom-ds"},
+		Spec: v1alpha1.DriverInstallPolicySpec{
+			Vendor: "rebellions", Model: "atom",
+			NodeSelector: map[string]string{"kcloud.ai/rebellions.present": labelValueTrue},
+			Driver: v1alpha1.DriverSpec{
+				Mode: "job", TrackOnly: true, Version: policyVersion, VersionSource: versionSource,
+			},
+		},
+	}
+	return node, ndr, dip
+}
+
+func getTrackOnlyDUS(t *testing.T, r *DriverUpgradeReconciler, name string) v1alpha1.DriverUpgradeState {
+	t.Helper()
+	var dus v1alpha1.DriverUpgradeState
+	if err := r.Get(context.Background(), types.NamespacedName{Name: name}, &dus); err != nil {
+		t.Fatalf("DUS %s 조회 실패: %v", name, err)
+	}
+	return dus
+}
+
+// TrackOnly + versionSource=Host: 정책에 버전이 없어도 desired 가 호스트 버전을 따라가
+// Idle/3.0.0/3.0.0 으로 수렴하고, 두 번째 pass 에서 다시 쓰지 않는다.
+func TestEnsureUpgradeStates_TrackOnlyHostSourceFollowsHostVersion(t *testing.T) {
+	const hostVersion = "3.0.0"
+	node, ndr, dip := rebellionsTrackOnlyFixture("Host", "", hostVersion)
+	r := newReconciler(node, ndr, dip)
+	ctx := context.Background()
+
+	if err := r.ensureUpgradeStates(ctx); err != nil {
+		t.Fatalf("1차 ensureUpgradeStates: %v", err)
+	}
+	first := getTrackOnlyDUS(t, r, driverUpgradeStateName("worker4", "rebellions"))
+	if first.Status.State != v1alpha1.UpgradeStateIdle {
+		t.Errorf("state=%q, want Idle", first.Status.State)
+	}
+	if first.Status.CurrentVersion != hostVersion || first.Status.DesiredVersion != hostVersion {
+		t.Errorf("current=%q desired=%q, want 3.0.0/3.0.0 (versionSource=Host 는 호스트 버전을 desired 로 쓴다)",
+			first.Status.CurrentVersion, first.Status.DesiredVersion)
+	}
+	if first.Spec.Model != "atom" {
+		t.Errorf("spec.model=%q, want atom", first.Spec.Model)
+	}
+
+	if err := r.ensureUpgradeStates(ctx); err != nil {
+		t.Fatalf("2차 ensureUpgradeStates: %v", err)
+	}
+	second := getTrackOnlyDUS(t, r, first.Name)
+	if second.ResourceVersion != first.ResourceVersion {
+		t.Errorf("변화가 없는데 두 번째 pass 가 또 썼다: ResourceVersion %s → %s",
+			first.ResourceVersion, second.ResourceVersion)
+	}
+}
+
+// 드라이버가 올라오지 않은 노드(버전 빈 값)에서는 Host 소스가 정책 버전으로 물러난다.
+// 정책 버전도 비면 둘 다 빈 값이고 오류는 없다.
+func TestEnsureUpgradeStates_TrackOnlyHostSourceWithoutLoadedDriver(t *testing.T) {
+	node, ndr, dip := rebellionsTrackOnlyFixture("Host", "", "")
+	r := newReconciler(node, ndr, dip)
+	if err := r.ensureUpgradeStates(context.Background()); err != nil {
+		t.Fatalf("ensureUpgradeStates: %v", err)
+	}
+	dus := getTrackOnlyDUS(t, r, driverUpgradeStateName("worker4", "rebellions"))
+	if dus.Status.State != v1alpha1.UpgradeStateIdle || dus.Status.CurrentVersion != "" ||
+		dus.Status.DesiredVersion != "" {
+		t.Errorf("state=%q current=%q desired=%q, want Idle/빈 값/빈 값",
+			dus.Status.State, dus.Status.CurrentVersion, dus.Status.DesiredVersion)
+	}
+}
+
+// versionSource=Policy 는 종전과 같다 — 정책 버전이 desired 로 남고 호스트와 달라도 Idle 이다.
+func TestEnsureUpgradeStates_TrackOnlyPolicySourceKeepsPolicyVersion(t *testing.T) {
+	const hostVersion = "3.0.0"
+	node, ndr, dip := rebellionsTrackOnlyFixture("Policy", "2.9.0", hostVersion)
+	r := newReconciler(node, ndr, dip)
+	if err := r.ensureUpgradeStates(context.Background()); err != nil {
+		t.Fatalf("ensureUpgradeStates: %v", err)
+	}
+	dus := getTrackOnlyDUS(t, r, driverUpgradeStateName("worker4", "rebellions"))
+	if dus.Status.State != v1alpha1.UpgradeStateIdle || dus.Status.CurrentVersion != hostVersion ||
+		dus.Status.DesiredVersion != "2.9.0" {
+		t.Errorf("state=%q current=%q desired=%q, want Idle/3.0.0/2.9.0",
+			dus.Status.State, dus.Status.CurrentVersion, dus.Status.DesiredVersion)
+	}
+}
+
+// nodeSelector 밖 노드(Rebellions 라벨 없음)에는 DUS 가 생기지 않는다 — DIP 를 기본으로 켜도
+// 다른 노드에 행이 번지지 않는다.
+func TestEnsureUpgradeStates_TrackOnlySkipsNodesOutsideSelector(t *testing.T) {
+	node, ndr, dip := rebellionsTrackOnlyFixture("Host", "", "3.0.0")
+	delete(node.Labels, "kcloud.ai/rebellions.present")
+	r := newReconciler(node, ndr, dip)
+	if err := r.ensureUpgradeStates(context.Background()); err != nil {
+		t.Fatalf("ensureUpgradeStates: %v", err)
+	}
+	var dus v1alpha1.DriverUpgradeState
+	err := r.Get(context.Background(), types.NamespacedName{Name: driverUpgradeStateName("worker4", "rebellions")}, &dus)
+	if err == nil {
+		t.Fatalf("셀렉터 밖 노드에 DUS 가 생겼다: %+v", dus.Status)
+	}
+}
+
+// 실제 API 서버는 Create 때 status 를 버려 두 번째 pass 의 patch 가 desired 를 채운다. fake client 는 그 경로를
+// 타지 않으므로 빈 status 의 DUS 를 미리 두고, Idle/호스트 버전으로 채운 뒤 다시 쓰지 않는지 본다.
+func TestEnsureUpgradeStates_TrackOnlyHostSourcePatchesEmptyStatus(t *testing.T) {
+	const hostVersion = "3.0.0"
+	node, ndr, dip := rebellionsTrackOnlyFixture("Host", "", hostVersion)
+	seed := &v1alpha1.DriverUpgradeState{
+		ObjectMeta: metav1.ObjectMeta{Name: driverUpgradeStateName("worker4", "rebellions")},
+		Spec:       v1alpha1.DriverUpgradeStateSpec{NodeName: "worker4", Vendor: "rebellions", Model: "atom"},
+	}
+	r := newReconciler(node, ndr, dip, seed)
+	ctx := context.Background()
+
+	if err := r.ensureUpgradeStates(ctx); err != nil {
+		t.Fatalf("1차 ensureUpgradeStates: %v", err)
+	}
+	first := getTrackOnlyDUS(t, r, seed.Name)
+	if first.Status.State != v1alpha1.UpgradeStateIdle || first.Status.CurrentVersion != hostVersion ||
+		first.Status.DesiredVersion != hostVersion {
+		t.Errorf("state=%q current=%q desired=%q, want Idle/3.0.0/3.0.0",
+			first.Status.State, first.Status.CurrentVersion, first.Status.DesiredVersion)
+	}
+
+	if err := r.ensureUpgradeStates(ctx); err != nil {
+		t.Fatalf("2차 ensureUpgradeStates: %v", err)
+	}
+	second := getTrackOnlyDUS(t, r, seed.Name)
+	if second.ResourceVersion != first.ResourceVersion {
+		t.Errorf("수렴한 뒤에 다시 썼다: ResourceVersion %s → %s", first.ResourceVersion, second.ResourceVersion)
+	}
+}
+
+// 이미 Idle 이고 current 가 맞아도 desired 가 낡았으면 patch 로 바로잡는다. 정책 버전을 올리거나
+// versionSource 를 Policy 에서 Host 로 바꾼 뒤 기존 DUS 가 따라가는 경로다.
+func TestEnsureUpgradeStates_TrackOnlyHostSourceRefreshesStaleDesired(t *testing.T) {
+	const hostVersion = "3.0.0"
+	node, ndr, dip := rebellionsTrackOnlyFixture("Host", "2.9.0", hostVersion)
+	seed := &v1alpha1.DriverUpgradeState{
+		ObjectMeta: metav1.ObjectMeta{Name: driverUpgradeStateName("worker4", "rebellions")},
+		Spec:       v1alpha1.DriverUpgradeStateSpec{NodeName: "worker4", Vendor: "rebellions", Model: "atom"},
+		Status: v1alpha1.DriverUpgradeStateStatus{
+			State: v1alpha1.UpgradeStateIdle, CurrentVersion: hostVersion, DesiredVersion: "2.9.0",
+		},
+	}
+	r := newReconciler(node, ndr, dip, seed)
+	ctx := context.Background()
+
+	if err := r.ensureUpgradeStates(ctx); err != nil {
+		t.Fatalf("1차 ensureUpgradeStates: %v", err)
+	}
+	first := getTrackOnlyDUS(t, r, seed.Name)
+	if first.Status.DesiredVersion != hostVersion {
+		t.Errorf("desired=%q, want %s (낡은 desired 를 호스트 버전으로 갱신해야 한다)",
+			first.Status.DesiredVersion, hostVersion)
+	}
+
+	if err := r.ensureUpgradeStates(ctx); err != nil {
+		t.Fatalf("2차 ensureUpgradeStates: %v", err)
+	}
+	second := getTrackOnlyDUS(t, r, seed.Name)
+	if second.ResourceVersion != first.ResourceVersion {
+		t.Errorf("갱신한 뒤에 다시 썼다: ResourceVersion %s → %s", first.ResourceVersion, second.ResourceVersion)
 	}
 }

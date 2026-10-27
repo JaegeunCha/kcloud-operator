@@ -2,7 +2,7 @@
 // driverinstallpolicy_types.go: DriverInstallPolicy CRD 타입
 // 상세: 벤더 하나의 드라이버를 어떤 이미지·버전·방식으로 깔지 선언한다.
 // 노드별 전이는 DriverUpgradeState 가 맡고 이 타입은 그 전이가 따를 정책이다.
-// 생성일: 2026-04-10 | 수정일: 2026-10-13
+// 생성일: 2026-04-10 | 수정일: 2026-10-27
 // ============================================================
 package v1alpha1
 
@@ -146,6 +146,7 @@ type KernelImageRef string
 // +kubebuilder:validation:XValidation:rule="!has(self.kernelImageBuildRevision) || size(self.kernelImageBuildRevision) == 0 || self.mode == 'job'",message="driver.kernelImageBuildRevision requires driver.mode=job"
 // +kubebuilder:validation:XValidation:rule="!has(self.kernelImageBuildRevision) || size(self.kernelImageBuildRevision) == 0 || (has(self.version) && size(self.version) > 0)",message="driver.kernelImageBuildRevision requires a non-empty driver.version"
 // +kubebuilder:validation:XValidation:rule="!has(self.kernelImageVariant) || size(self.kernelImageVariant) == 0 || self.mode == 'job'",message="driver.kernelImageVariant requires driver.mode=job"
+// +kubebuilder:validation:XValidation:rule="(has(self.trackOnly) && self.trackOnly) || (has(self.image) && size(self.image) > 0)",message="driver.image is required unless driver.trackOnly=true"
 type DriverSpec struct {
 	// 예: "1.7.8" (Furiosa) 또는 "575.64.03"(NVIDIA)
 	// 비워두면 인스톨러 스크립트가 "권장 버전"으로 자동 선택하도록 구현 가능
@@ -154,8 +155,10 @@ type DriverSpec struct {
 	// Image 는 인스톨러 컨테이너 이미지입니다(예: "registry.example.com:5000/furiosa-driver-installer:1.7.8").
 	// registry/host:port/repo 부와 tag 부로 구성되며, tag 부는 alphanumerics·`.`·`_`·`+`·`-` 만
 	// 허용합니다(sub-version 예: "580.142-v17.1"). 구문만 검증하며 의미론적 검증은 별도입니다.
+	// trackOnly=true 인 정책은 설치 경로가 없어 비울 수 있습니다(그 외에는 DriverSpec 의 CEL 규칙이 필수로 요구).
+	// +optional
 	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9._:/-]+:[a-zA-Z0-9._+-]+$`
-	Image string `json:"image"`
+	Image string `json:"image,omitempty"`
 
 	// KernelImages 는 노드 커널 버전(node.status.nodeInfo.kernelVersion)마다 쓸 사전 컴파일
 	// 설치 이미지다. 노드 커널에 매칭되는 항목이 없으면 image(DKMS 컴파일)를 쓴다. 값은 image 와
@@ -219,9 +222,10 @@ type DriverSpec struct {
 	// +kubebuilder:default=true
 	SkipOnPassthrough bool `json:"skipOnPassthrough,omitempty"`
 
-	// TrackOnly 는 true 면 DUS 추적(버전 관측 + verifiedVersions 게이트)만 하고 설치 경로(driver
-	// DaemonSet/install Job)는 만들지 않습니다. installer 이미지가 아직 없는 벤더를 버전 관리
-	// 체계에 임시 편입할 때 씁니다(예: Tenstorrent Blackhole). 기본 false(설치 경로 활성).
+	// TrackOnly 는 true 면 DriverUpgradeState 로 노드별 드라이버 버전만 추적하고 설치 경로(driver
+	// DaemonSet/install Job)는 만들지 않습니다. 설치기 이미지를 만들 수 없는 벤더(Rebellions: 드라이버
+	// 패키지가 벤더 포털 인증 뒤에만 받아진다)를 버전 관리 체계에 편입할 때 씁니다. image 는 비울 수
+	// 있고 verifiedVersions 는 적용되지 않습니다. 기본 false(설치 경로 활성).
 	// +kubebuilder:default=false
 	TrackOnly bool `json:"trackOnly,omitempty"`
 }

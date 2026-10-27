@@ -71,6 +71,7 @@ spec:
                       Image 는 인스톨러 컨테이너 이미지입니다(예: "registry.example.com:5000/furiosa-driver-installer:1.7.8").
                       registry/host:port/repo 부와 tag 부로 구성되며, tag 부는 alphanumerics·`.`·`_`·`+`·`-` 만
                       허용합니다(sub-version 예: "580.142-v17.1"). 구문만 검증하며 의미론적 검증은 별도입니다.
+                      trackOnly=true 인 정책은 설치 경로가 없어 비울 수 있습니다(그 외에는 DriverSpec 의 CEL 규칙이 필수로 요구).
                     pattern: ^[a-zA-Z0-9._:/-]+:[a-zA-Z0-9._+-]+$
                     type: string
                   imageVersionBaked:
@@ -136,9 +137,10 @@ spec:
                   trackOnly:
                     default: false
                     description: |-
-                      TrackOnly 는 true 면 DUS 추적(버전 관측 + verifiedVersions 게이트)만 하고 설치 경로(driver
-                      DaemonSet/install Job)는 만들지 않습니다. installer 이미지가 아직 없는 벤더를 버전 관리
-                      체계에 임시 편입할 때 씁니다(예: Tenstorrent Blackhole). 기본 false(설치 경로 활성).
+                      TrackOnly 는 true 면 DriverUpgradeState 로 노드별 드라이버 버전만 추적하고 설치 경로(driver
+                      DaemonSet/install Job)는 만들지 않습니다. 설치기 이미지를 만들 수 없는 벤더(Rebellions: 드라이버
+                      패키지가 벤더 포털 인증 뒤에만 받아진다)를 버전 관리 체계에 편입할 때 씁니다. image 는 비울 수
+                      있고 verifiedVersions 는 적용되지 않습니다. 기본 false(설치 경로 활성).
                     type: boolean
                   version:
                     description: |-
@@ -155,8 +157,6 @@ spec:
                     - Policy
                     - Host
                     type: string
-                required:
-                - image
                 type: object
                 x-kubernetes-validations:
                 - message: driver.kernelImages requires driver.mode=job
@@ -173,6 +173,9 @@ spec:
                 - message: driver.kernelImageVariant requires driver.mode=job
                   rule: '!has(self.kernelImageVariant) || size(self.kernelImageVariant)
                     == 0 || self.mode == ''job'''
+                - message: driver.image is required unless driver.trackOnly=true
+                  rule: (has(self.trackOnly) && self.trackOnly) || (has(self.image)
+                    && size(self.image) > 0)
               imagePullSecrets:
                 description: |-
                   ImagePullSecrets 는 operator 가 생성하는 driver DaemonSet pod spec 에 부착되는

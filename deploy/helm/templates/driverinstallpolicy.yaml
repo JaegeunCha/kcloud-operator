@@ -2,7 +2,7 @@
 # driverinstallpolicy.yaml: DriverInstallPolicy CR 자동 생성
 # 상세: driverInstallPolicies.<vendor>.enabled=true 인 벤더마다 DIP CR 을 만든다. helm hook 이
 #       아니라 릴리스 자원이라 업그레이드로 uid 가 바뀌어도 소유 DaemonSet 이 연쇄 재생성되지 않는다.
-# 생성일: 2026-04-10 | 수정일: 2026-10-11
+# 생성일: 2026-04-10 | 수정일: 2026-10-27
 # ============================================================
 {{- if .Values.driverInstallPolicies.furiosa.enabled }}
 apiVersion: npu.ai/v1alpha1
@@ -254,6 +254,32 @@ spec:
   {{- end }}
   {{- with .Values.driverInstallPolicies.tenstorrent.workloadProbe }}
   workloadProbe:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+{{- if .Values.driverInstallPolicies.rebellions.enabled }}
+---
+apiVersion: npu.ai/v1alpha1
+kind: DriverInstallPolicy
+metadata:
+  name: {{ .Values.driverInstallPolicies.rebellions.name }}
+spec:
+  vendor: {{ .Values.driverInstallPolicies.rebellions.vendor }}
+  model: {{ .Values.driverInstallPolicies.rebellions.model }}
+  rebootStrategy: Never
+  driver:
+    mode: {{ .Values.driverInstallPolicies.rebellions.driver.mode }}
+    trackOnly: {{ .Values.driverInstallPolicies.rebellions.driver.trackOnly }}
+    {{- with .Values.driverInstallPolicies.rebellions.driver.version }}
+    version: {{ . | quote }}
+    {{- end }}
+    versionSource: {{ .Values.driverInstallPolicies.rebellions.driver.versionSource | quote }}
+  {{- with .Values.driverInstallPolicies.rebellions.verifiedVersions }}
+  verifiedVersions:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.driverInstallPolicies.rebellions.nodeSelector }}
+  nodeSelector:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 {{- end }}

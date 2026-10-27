@@ -1,7 +1,7 @@
 // main_test.go: kubectl-npu 사람용 텍스트 출력 포맷 테스트
 // 상세: 같은 노드에 붙은 장치 여러 대가 표에서 서로 구분되는지 본다(벤더·모델·버전이
 // 같고 PCI 만 다른 경우). describe 명령의 렌더·인자 파싱도 여기서 시험한다.
-// 생성일: 2026-08-11 | 수정일: 2026-10-13
+// 생성일: 2026-08-11 | 수정일: 2026-10-27
 package main
 
 import (
@@ -1685,5 +1685,69 @@ func TestBuildDiagnoseRows_Failed에롤백기록(t *testing.T) {
 	rows := buildDiagnoseRows(status, nil, nil, nil)
 	if len(rows) != 1 || !strings.Contains(rows[0].detail, "state=Failed") || strings.Contains(rows[0].detail, "재시도 보류") {
 		t.Errorf("Failed 는 Failed 행 하나여야 한다(보류 행 아님): %+v", rows)
+	}
+}
+
+func TestDipVersionCell_TrackOnly(t *testing.T) {
+	want := dashIfEmpty("") + " (trackOnly)"
+	if got := dipVersionCell(npuctl.DIPStatus{TrackOnly: true, VersionSource: "Host"}); got != want {
+		t.Errorf("빈 목표 버전의 TrackOnly 칸 = %q, want %q", got, want)
+	}
+	if got := dipVersionCell(npuctl.DIPStatus{TrackOnly: true, DesiredVersion: "3.0.0"}); got != "3.0.0 (trackOnly)" {
+		t.Errorf("TrackOnly 칸 = %q, want %q", got, "3.0.0 (trackOnly)")
+	}
+	if got := dipVersionCell(npuctl.DIPStatus{DesiredVersion: "2.11.0", VersionSource: "Policy"}); got != "2.11.0" {
+		t.Errorf("설치 정책 칸이 바뀌었다: %q", got)
+	}
+}
+
+// device-plugin 조건은 operator 줄 뒤에 종류 열(device-plugin)과 메시지를 달고 나온다 — operator 의
+// NotDetected(외부 operator 미감지)와 kcloud 가 배포한 플러그인의 준비 상태를 한 절에서 구분해 읽게 한다.
+func TestPrintStatusText_ClusterPolicyShowsDevicePluginLinesWithKindAndMessage(t *testing.T) {
+	status := &npuctl.ClusterStatus{ClusterPolicies: []npuctl.ClusterPolicyStatus{{
+		Namespace: "kcloud", Name: "default", Ready: "True", ReadyReason: "AllResourcesReady",
+		VendorOperators: []npuctl.VendorOperatorStatus{
+			{Vendor: "rebellions", Status: "Unknown", Reason: "NotDetected"},
+		},
+		DevicePlugins: []npuctl.VendorConditionStatus{
+			{Vendor: "rebellions", Status: "True", Reason: "Prepared", Message: "판: v0.3 형식(태그 v0.3.6)"},
+		},
+	}}}
+	out := captureStdout(t, func() { printStatusText(status) })
+
+	section := out[strings.Index(out, "=== NPUClusterPolicy ==="):]
+	section = section[:strings.Index(section, "\n\n=== DriverUpgradeState ===")]
+	lines := strings.Split(strings.TrimRight(section, "\n"), "\n")
+	if len(lines) != 4 {
+		t.Fatalf("헤더+Ready+operator 1줄+device-plugin 1줄=4줄이어야 하는데 %d줄: %q", len(lines), lines)
+	}
+	if !strings.Contains(lines[2], "operator") || !strings.Contains(lines[2], "NotDetected") {
+		t.Errorf("operator 줄에 종류 표시가 없다: %q", lines[2])
+	}
+	if !strings.Contains(lines[3], "device-plugin") || !strings.Contains(lines[3], "True") ||
+		!strings.Contains(lines[3], "Prepared") || !strings.Contains(lines[3], "판: v0.3 형식(태그 v0.3.6)") {
+		t.Errorf("device-plugin 줄이 다르다: %q", lines[3])
+	}
+	if runeColStart(t, lines[2], "Unknown") != runeColStart(t, lines[3], "True") {
+		t.Errorf("STATUS 열이 두 종류 사이에서 어긋난다: %q vs %q", lines[2], lines[3])
+	}
+}
+
+// diagnose 는 준비되지 않은 device plugin 을 문제 행으로 낸다. True 인 벤더는 내지 않는다.
+func TestBuildDiagnoseRows_DevicePluginNotReady(t *testing.T) {
+	status := &npuctl.ClusterStatus{ClusterPolicies: []npuctl.ClusterPolicyStatus{{
+		Namespace: "kcloud", Name: "default", Ready: "True",
+		DevicePlugins: []npuctl.VendorConditionStatus{
+			{Vendor: "rebellions", Status: "False", Reason: "RblnSmiMissing", Message: "RblnSmiMissing: worker4"},
+			{Vendor: "furiosa", Status: "True", Reason: "Prepared"},
+		},
+	}}}
+	rows := buildDiagnoseRows(status, nil, nil, nil)
+	if len(rows) != 1 {
+		t.Fatalf("문제 행 %d개 (1 기대): %+v", len(rows), rows)
+	}
+	if rows[0].category != "device-plugin" || rows[0].vendor != "rebellions" ||
+		!strings.Contains(rows[0].detail, "RblnSmiMissing") || !strings.Contains(rows[0].detail, "kcloud/default") {
+		t.Errorf("device-plugin 행이 다르다: %+v", rows[0])
 	}
 }

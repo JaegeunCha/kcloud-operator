@@ -2,7 +2,7 @@
 # release.yaml: Magnum CAPI Add-on 이 kcloud-operator 를 설치할 때 고정하는 상수
 # 상세: 차트 주소·버전·Release 이름·namespace·지원 K8s 범위. B(kcloud-magnum-capi-helm)는
 #       이 값을 Add-on 설정에 그대로 옮긴다. 버전은 릴리스 태그마다 갱신된다.
-# 생성일: 2026-09-10 | 수정일: 2026-10-26
+# 생성일: 2026-09-10 | 수정일: 2026-10-27
 # ============================================================
 chart:
   ref: oci://ghcr.io/openkcloud/charts/kcloud-operator
@@ -23,17 +23,17 @@ kubernetesProfiles:
   # 넣는 방식이면 valuesURL 내용을 그대로 옮긴다). 프리셋을 고칠 때는 먼저 push 하고 그 커밋
   # SHA 로 valuesURL 을 갱신한다 — 차트 버전도 함께 올려 같은 버전이 다른 프리셋과 안 섞이게.
   - range: "1.31-1.34"
-    chartVersion: "0.8.2"
+    chartVersion: "0.8.3"
     valuesFile: values-k8s1.34.yaml
-    valuesURL: https://raw.githubusercontent.com/openkcloud/kcloud-operator/99a4adf855e87340f632d36b0d758c24e0263c99/deploy/helm/values-k8s1.34.yaml
+    valuesURL: https://raw.githubusercontent.com/openkcloud/kcloud-operator/6efe8a0706f62b56697def671ddc8b23a0eb07df/deploy/helm/values-k8s1.34.yaml
     valuesBrowseURL: https://raw.githubusercontent.com/openkcloud/kcloud-operator/main/deploy/helm/values-k8s1.34.yaml
-    operatorTag: v0.8.2
+    operatorTag: v0.8.3
   - range: "1.26-1.30"
-    chartVersion: "0.6.2"   # DRA 를 뺀 라인
+    chartVersion: "0.6.3"   # DRA 를 뺀 라인
     valuesFile: values-k8s1.28.yaml
-    valuesURL: https://raw.githubusercontent.com/openkcloud/kcloud-operator/9397ea30fe494120877d65cb27053a2a3eb09340/deploy/helm/values-k8s1.28.yaml
+    valuesURL: https://raw.githubusercontent.com/openkcloud/kcloud-operator/2770a11a6df6d7c6ac0980ea5286ef6b13745260/deploy/helm/values-k8s1.28.yaml
     valuesBrowseURL: https://raw.githubusercontent.com/openkcloud/kcloud-operator/release/k8s-1.28/deploy/helm/values-k8s1.28.yaml
-    operatorTag: v0.6.2-k8s1.28
+    operatorTag: v0.6.3-k8s1.28
 inputs:
   # Magnum label 은 하나다. 벤더는 operator 가 노드 장치를 감지해 자동 배치한다.
   - name: kcloud_operator_enabled
