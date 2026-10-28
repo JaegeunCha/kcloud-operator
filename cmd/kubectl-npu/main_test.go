@@ -993,19 +993,25 @@ func TestPrintDriverStatusText_빈값은대시(t *testing.T) {
 	}
 }
 
-// TestPrintDriverStatusText_Failed상세 는 Failed 행의 사유가 표 아래 상세 절에 나오는지 본다.
+// TestPrintDriverStatusText_Failed상세 는 Failed 행의 사유만 표 아래 상세 절에 나오는지 본다. 사유가 있어도 Idle·HostAhead
+// 행의 것은 나오지 않는다.
 func TestPrintDriverStatusText_Failed상세(t *testing.T) {
 	msg := "설치 전 점검 실패(노드 cordon 하지 않음): hold 된 패키지(libx11-6)가 드라이버 설치를 막는다"
+	hostAheadMsg := "호스트 드라이버 590.48.01 가 정책 버전 580.126.09 보다 높다"
 	status := &npuctl.ClusterStatus{Nodes: []npuctl.NodeStatus{
 		{Name: "worker1", Upgrades: []npuctl.UpgradeStatus{{Vendor: "nvidia", State: "Failed", Message: msg}}},
 		{Name: "worker2", Upgrades: []npuctl.UpgradeStatus{{Vendor: "nvidia", State: "Idle", Message: "검증 성공(job)"}}},
+		{Name: "worker3", Upgrades: []npuctl.UpgradeStatus{{Vendor: "nvidia", State: "HostAhead", Message: hostAheadMsg}}},
 	}}
 	out := captureStdout(t, func() { printDriverStatusText(status) })
-	if !strings.Contains(out, "\nFailed 상세:\n  worker1/nvidia: "+msg+"\n") {
+	if !strings.Contains(out, "\n\nFailed 상세:\n  worker1/nvidia: "+msg+"\n") {
 		t.Errorf("Failed 상세 줄 없음: %q", out)
 	}
 	if strings.Contains(out, "검증 성공(job)") {
 		t.Errorf("Idle 행의 메시지가 상세에 나왔다: %q", out)
+	}
+	if strings.Contains(out, hostAheadMsg) {
+		t.Errorf("HostAhead 행의 메시지가 상세에 나왔다: %q", out)
 	}
 }
 
@@ -1020,9 +1026,36 @@ func TestPrintDriverStatusText_Failed메시지없으면상세없음(t *testing.T
 	}
 }
 
+// TestPrintStatusText_DUS절에도Failed상세 는 status 명령의 DriverUpgradeState 절에도
+// Failed 행의 사유를 표 아래 상세 절에 나타내는지 본다.
+func TestPrintStatusText_DUS절에도Failed상세(t *testing.T) {
+	msg := "설치 전 점검 실패(노드 cordon 하지 않음): hold 된 패키지(libx11-6)가 드라이버 설치를 막는다"
+	status := &npuctl.ClusterStatus{Nodes: []npuctl.NodeStatus{
+		{Name: "worker1", Upgrades: []npuctl.UpgradeStatus{{Vendor: "nvidia", State: "Failed", Message: msg}}},
+	}}
+	out := captureStdout(t, func() { printStatusText(status) })
+	if !strings.Contains(out, "\n\nFailed 상세:\n  worker1/nvidia: "+msg+"\n") {
+		t.Errorf("status 의 Failed 상세 없음: %q", out)
+	}
+}
+
+// TestBuildDiagnoseRows_HostAhead에는사유미부착 는 diagnose 의 HostAhead 행에 사유가 붙지
+// 않는지 본다 — HostAhead 는 호스트 드라이버가 목표보다 높은 상태이고 실패가 아니므로
+// 실패 사유를 붙이지 않는다.
+func TestBuildDiagnoseRows_HostAhead에는사유미부착(t *testing.T) {
+	status := &npuctl.ClusterStatus{Nodes: []npuctl.NodeStatus{
+		{Name: "worker1", Upgrades: []npuctl.UpgradeStatus{{Vendor: "nvidia", State: "HostAhead", Message: "호스트가 더 높다"}}},
+	}}
+	for _, r := range buildDiagnoseRows(status, nil, nil, nil) {
+		if r.category == "upgrade" && strings.Contains(r.detail, "호스트가 더 높다") {
+			t.Errorf("HostAhead 행에 사유가 붙었다: %q", r.detail)
+		}
+	}
+}
+
 // TestBuildDiagnoseRows_Failed사유포함 은 diagnose 의 Failed upgrade 행에 DUS 사유가 붙는지 본다.
 func TestBuildDiagnoseRows_Failed사유포함(t *testing.T) {
-	msg := "첫 설치 실패(job): 되돌릴 이전 버전이 없어 롤백하지 않는다"
+	msg := "설치 실패(job): 되돌릴 이전 버전이 없어 롤백하지 않는다"
 	status := &npuctl.ClusterStatus{Nodes: []npuctl.NodeStatus{
 		{Name: "worker1", Upgrades: []npuctl.UpgradeStatus{{Vendor: "nvidia", State: "Failed", Message: msg}}},
 	}}

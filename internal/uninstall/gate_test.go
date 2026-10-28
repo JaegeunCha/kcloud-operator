@@ -4,7 +4,7 @@
 //
 //	보류해서 삭제가 끝나지 않거나. 두 방향을 각각 시험한다.
 //
-// 생성일: 2026-09-10 | 수정일: 2026-10-27
+// 생성일: 2026-09-10 | 수정일: 2026-10-28
 // ============================================================
 package uninstall
 
@@ -154,14 +154,18 @@ func TestGateDeletesEverythingWhenIdle(t *testing.T) {
 	// 남의 오브젝트. 표시가 없으므로 건드리면 안 된다.
 	foreignCM := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
 		Namespace: naming.KubeSystemNamespace, Name: "kube-root-ca.crt"}}
-	// operator 가 만드는 Job 에는 ownerReference 가 없어 CR 을 지워도 남는다.
+	// mig-observe Job 에는 ownerReference 가 없어 CR 을 지워도 남는다. 점검 Job 은 정책이 owner 라 실제 클러스터에서는
+	// GC 가 걷지만, fake client 에는 GC 가 없으므로 deleteJobs 가 component 라벨로 직접 지우는지를 본다.
 	job := &batchv1.Job{ObjectMeta: metav1.ObjectMeta{
 		Namespace: naming.KubeSystemNamespace, Name: "acpp-mig-observe-standing-0",
 		Labels: map[string]string{componentLabel: "mig-observe"}}}
+	preflightJob := &batchv1.Job{ObjectMeta: metav1.ObjectMeta{
+		Namespace: naming.KubeSystemNamespace, Name: "kcloud-nvidia-preflight-34aa1081",
+		Labels: map[string]string{componentLabel: "driver-preflight"}}}
 	idle := gpuPod("team-a", "cpu-only")
 	idle.Spec.Containers[0].Resources = corev1.ResourceRequirements{}
 
-	objs := append(policyObjects(), byName, byLabel, job, idle, vendorCR, vendorSA, vendorCM, foreignCM)
+	objs := append(policyObjects(), byName, byLabel, job, preflightJob, idle, vendorCR, vendorSA, vendorCM, foreignCM)
 	c := fake.NewClientBuilder().WithScheme(testScheme(t)).WithObjects(objs...).Build()
 
 	var out bytes.Buffer

@@ -3,7 +3,7 @@
 // 상세: 가속기를 쓰는 Pod 가 하나라도 있으면 아무것도 지우지 않고 보류한다(Execute 참고).
 // 없으면 npu.ai CR·DaemonSet·Job 등을 정리한다. 호스트 드라이버 패키지·커널 모듈은
 // 건드리지 않는다 — 이 게이트는 Kubernetes 오브젝트만 다룬다.
-// 생성일: 2026-09-10 | 수정일: 2026-10-27
+// 생성일: 2026-09-10 | 수정일: 2026-10-28
 // ============================================================
 package uninstall
 
@@ -68,9 +68,11 @@ var managedComponents = []string{
 func logf(out io.Writer, format string, a ...any) { _, _ = fmt.Fprintf(out, format, a...) }
 func logln(out io.Writer, a ...any)               { _, _ = fmt.Fprintln(out, a...) }
 
-// managedJobComponents 는 operator 가 만든 Job 이 다는 component 라벨이다. 이 Job 들에는
-// ownerReference 가 없어서(라이브 kind 확인) CR 을 지워도 GC 가 걷지 않는다 — 여기서 지우지
-// 않으면 릴리스를 지운 뒤에도 네임스페이스에 Job 과 그 Pod 가 남는다.
+// managedJobComponents 는 operator 가 만든 Job 이 다는 component 라벨이다. driver-install·driver-preflight Job 은
+// DriverInstallPolicy 가 owner 라 정책을 지우면 GC 가 걷는다. mig-observe·mig-apply·device-reset Job 은 owner 가
+// 없고, node-reboot 은 위임 경로만 owner 가 없다(드라이버 업그레이드·ACPP 경로는 각 정책이 owner). owner 가 없는
+// Job 은 CR 을 지워도 남으므로 GC 시점에 기대지 않고 모두 여기서 지운다 — 남기면 릴리스를 지운 뒤에도 네임스페이스에
+// Job 과 그 Pod 가 남는다.
 var managedJobComponents = []string{
 	"mig-observe",
 	"mig-apply",

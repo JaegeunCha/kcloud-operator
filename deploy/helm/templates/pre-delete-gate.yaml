@@ -41,7 +41,8 @@ rules:
   - apiGroups: ["apps"]
     resources: ["daemonsets"]
     verbs: ["get", "list", "delete"]
-  # operator 가 만든 Job 정리. 이 Job 들에는 ownerReference 가 없어 CR 을 지워도 남는다.
+  # operator 가 만든 Job 정리. install·preflight Job 은 정책이 owner 라 GC 가 걷지만, owner 가 없는 Job
+  # (mig-observe·mig-apply·device-reset, 위임 경로의 node-reboot)은 CR 을 지워도 남는다.
   - apiGroups: ["batch"]
     resources: ["jobs"]
     verbs: ["get", "list", "delete"]

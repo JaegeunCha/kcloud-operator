@@ -467,9 +467,9 @@ api:
 # ─────────────────────────────────────────────────────────────────────────────
 driverInstallPolicies:
   # ─────────────────────────────────────────────────────────────────────
-  # Furiosa Warboy (mode=daemonset). 이름을 `furiosa-warboy-ds` 로 고정해 이전 배포와의
-  # 충돌을 막는다. mode=job 으로 되돌리려면 values override 로 enabled=false 후 수동으로
-  # CR 을 만든다.
+  # Furiosa Warboy (mode=job). 이름을 `furiosa-warboy-ds` 로 고정해 이전 배포와의
+  # 충돌을 막는다. mode=daemonset 으로 되돌리려면 values override 로 driver.mode 를 바꾸거나
+  # enabled=false 후 수동으로 CR 을 만든다.
   # ─────────────────────────────────────────────────────────────────────
   furiosa:
     enabled: true
@@ -501,7 +501,7 @@ driverInstallPolicies:
       installer: apt
       # 다운그레이드 허용 여부 (false=버전 낮추기 금지, 안전장치)
       allowDowngrade: false
-      # 버전 출처: Policy(CR 명세 사용) | Node(노드 자동 감지)
+      # 버전 출처: Policy(CR 명세 사용) | Host(노드에 로드된 드라이버 버전 채택)
       versionSource: "Policy"
       # Passthrough 모드 노드에서 드라이버 설치 건너뜀
       skipOnPassthrough: true
@@ -539,7 +539,7 @@ driverInstallPolicies:
       validationTimeout: "10m"
       rollbackOnFailure: true
   # ─────────────────────────────────────────────────────────────────────
-  # NVIDIA generic (mode=daemonset)
+  # NVIDIA generic (mode=job)
   # ─────────────────────────────────────────────────────────────────────
   nvidia:
     enabled: true
@@ -593,7 +593,7 @@ driverInstallPolicies:
       installer: apt
       # 다운그레이드 허용 여부 (false=버전 낮추기 금지, 안전장치)
       allowDowngrade: false
-      # 버전 출처: Policy(CR 명세 사용) | Node(노드 자동 감지)
+      # 버전 출처: Policy(CR 명세 사용) | Host(노드에 로드된 드라이버 버전 채택)
       versionSource: "Policy"
       # Passthrough 모드 노드에서 드라이버 설치 건너뜀
       skipOnPassthrough: true
@@ -652,7 +652,7 @@ driverInstallPolicies:
       # driver.rebootExecutor 는 CRD 기본 Job(operator 가 privileged reboot Job 생성). kured 는 1차 미구현.
 
   # ─────────────────────────────────────────────────────────────────────
-  # Furiosa RNGD (mode=daemonset). rngd-1 노드가 준비돼 있어 기본값은 enabled=true 다.
+  # Furiosa RNGD (mode=job). rngd-1 노드가 준비돼 있어 기본값은 enabled=true 다.
   # ─────────────────────────────────────────────────────────────────────
   rngd:
     enabled: true
@@ -682,7 +682,7 @@ driverInstallPolicies:
       installer: apt
       # 다운그레이드 허용 여부 (false=버전 낮추기 금지, 안전장치)
       allowDowngrade: false
-      # 버전 출처: Policy(CR 명세 사용) | Node(노드 자동 감지)
+      # 버전 출처: Policy(CR 명세 사용) | Host(노드에 로드된 드라이버 버전 채택)
       versionSource: "Policy"
       # Passthrough 모드 노드에서 드라이버 설치 건너뜀
       skipOnPassthrough: true

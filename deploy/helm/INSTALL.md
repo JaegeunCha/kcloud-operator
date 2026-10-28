@@ -181,7 +181,7 @@ kubectl get pods -A | grep -vE "Running|Completed"
 
 ### NVIDIA 드라이버 설치가 hold 된 패키지에 막힐 때
 
-노드 이미지가 `apt-mark hold` 로 묶어 둔 패키지를 드라이버 설치가 올려야 하면 apt 가 설치를 거절합니다. 차트 0.8.4 이상의 operator 는 설치기 `nvidia-driver-ds:v9` 이상을 쓰는 NVIDIA 정책(`driver.mode: job`, `driver.installer: apt`)에서, 노드를 cordon 하기 전에 설치 전 점검 Job 을 만들어 이 충돌을 먼저 찾습니다. 차트 0.8.4 의 설치기 기본 태그는 `v9` 입니다. 점검은 apt 목록만 갱신하고, 패키지를 설치·제거하거나 hold 를 바꾸지 않습니다. 충돌이 있으면 DriverUpgradeState 가 재시도 없이 `Failed` 로 끝나고, 사유에 hold 된 패키지 이름과 apt 의 거절 줄이 남습니다.
+노드 이미지가 `apt-mark hold` 로 묶어 둔 패키지를 드라이버 설치가 올려야 하면 apt 가 설치를 거절합니다. 차트 0.8.4 이상의 operator 는 설치기 `nvidia-driver-ds:v9` 이상을 쓰는 NVIDIA 정책(`driver.mode: job`, `driver.installer: apt`)에서, 노드를 cordon 하기 전에 설치 전 점검 Job 을 만들어 이 충돌을 먼저 찾습니다. 차트 0.8.4 의 설치기 기본 태그는 `v9` 입니다. 점검은 드라이버 패키지와, DKMS 빌드에 필요한 커널 헤더·빌드 도구(`build-essential`·`dkms`·`gcc`·`make`)를 함께 모의 설치합니다. 점검은 apt 목록만 갱신하고, 패키지를 설치·제거하거나 hold 를 바꾸지 않습니다. 충돌이 있으면 DriverUpgradeState 가 재시도 없이 `Failed` 로 끝나고, 사유에 hold 된 패키지 이름과 apt 의 거절 줄이 남습니다.
 
 ```bash
 kubectl npu driver status
@@ -199,6 +199,8 @@ kubectl delete driverupgradestate <노드>-nvidia
 ```
 
 hold 를 유지해야 하는 노드라면 드라이버가 이미 설치된 노드 이미지를 쓰고 `driverInstallPolicies.nvidia.driver.versionSource: Host` 로 그 버전을 따르게 합니다. 첫 설치가 다른 이유로 실패해도 되돌릴 이전 버전이 없으므로 롤백을 거치지 않고, 설치 컨테이너가 남긴 사유와 함께 `Failed` 가 됩니다. DriverUpgradeState 를 지우면 새 사이클이 남아 있는 실패한 설치 Job 을 지우고 다시 만듭니다.
+
+`upgradePolicy.autoUpgrade=false` 정책에서는 드라이버가 로드된 노드의 DriverUpgradeState 를 지워도 사이클이 열리지 않습니다. 새 DriverUpgradeState 가 로드된 버전을 채택하고 `UpgradeAvailable` 경고만 남깁니다. 다시 설치하려면 `kubectl npu driver upgrade`(트리거) 또는 `upgradePolicy.forceUpgrade` 를 씁니다. 직전 사이클이 cordon 한 채 `Failed` 로 끝났다면 operator 가 `Idle` 로 돌아올 때 자기 cordon 을 풉니다. 다른 주체가 건 cordon 은 그대로 두므로 직접 `kubectl uncordon <노드>` 로 풉니다.
 
 설치기 `v8` 이하는 점검 스크립트가 없어 점검 Job 이 `StartError` 로 끝나고, operator 는 경고 이벤트(`DriverPreflightInconclusive`)만 남긴 채 예전처럼 설치를 시도합니다. apt 목록 갱신 실패처럼 점검이 판정하지 못할 때도 같습니다.
 

@@ -2,7 +2,7 @@
 // driver_upgrade_controller_test.go: DriverUpgradeReconciler 단위 테스트
 // 상세: ensureUpgradeStates()의 currentVersion 동기화 및 findPolicy fallback 로직 검증
 //       fake client 기반 — envtest 불필요
-// 생성일: 2026-04-21 | 수정일: 2026-10-27
+// 생성일: 2026-04-21 | 수정일: 2026-10-28
 // ============================================================
 
 package controller
@@ -2534,5 +2534,15 @@ func TestEnsureUpgradeStates_TrackOnlyHostSourceRefreshesStaleDesired(t *testing
 	second := getTrackOnlyDUS(t, r, seed.Name)
 	if second.ResourceVersion != first.ResourceVersion {
 		t.Errorf("갱신한 뒤에 다시 썼다: ResourceVersion %s → %s", first.ResourceVersion, second.ResourceVersion)
+	}
+}
+
+// 이전 목표 버전이 비어 있으면 화살표 문구 대신 기록 문구를 쓴다.
+func TestDesiredVersionChangeMessage(t *testing.T) {
+	if got := desiredVersionChangeMessage("", "580.1"); got != "목표 버전 580.1 기록(새 DriverUpgradeState)" {
+		t.Errorf("빈 이전 값: %q", got)
+	}
+	if got := desiredVersionChangeMessage("570.1", "580.1"); got != "정책 버전 변경: 570.1 → 580.1" {
+		t.Errorf("이전 값 있음: %q", got)
 	}
 }

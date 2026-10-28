@@ -2,7 +2,7 @@
 // naming_test.go: DriverDSName 단위 테스트
 // 상세: 드라이버 DaemonSet 이름 생성 규칙 — 벤더/모델 매핑 테이블, 빈 모델 안전성,
 //       대소문자 정규화(내부 lower-case 처리) 검증
-// 생성일: 2026-06-02 | 수정일: 2026-10-27
+// 생성일: 2026-06-02 | 수정일: 2026-10-28
 // ============================================================
 
 package naming
@@ -188,6 +188,17 @@ func TestInstallJobName_Deterministic(t *testing.T) {
 	b := InstallJobName("nvidia", "generic", "worker2")
 	if a1 == b {
 		t.Errorf("노드별로 이름이 분리되지 않음: worker1=%q worker2=%q", a1, b)
+	}
+}
+
+// TestJobNames_PinnedHash 는 노드 해시 값을 고정한다. 해시 계산을 어디로 옮겨도 이미 만들어진 Job 의 이름과
+// 같아야 한다(이름이 곧 중복 생성을 막는 lease 다). worker1 의 sha256 앞 8자는 34aa1081 이다.
+func TestJobNames_PinnedHash(t *testing.T) {
+	if got, want := InstallJobName("nvidia", "generic", "worker1"), "kcloud-nvidia-install-34aa1081"; got != want {
+		t.Errorf("InstallJobName = %q, want %q", got, want)
+	}
+	if got, want := RebootJobName("worker1"), "kcloud-node-reboot-34aa1081"; got != want {
+		t.Errorf("RebootJobName = %q, want %q", got, want)
 	}
 }
 

@@ -2,7 +2,7 @@
 // state_machine.go: Driver Upgrade 상태 머신
 // 상세: 노드별 드라이버 업그레이드 상태 전이를 관리한다. Idle → UpgradeRequired → PreFlight →
 //       Cordoning → Draining → Upgrading → Validating → Uncordoning → Idle(실패 시 Rollback).
-// 생성일: 2026-04-13 | 수정일: 2026-10-27
+// 생성일: 2026-04-13 | 수정일: 2026-10-28
 // ============================================================
 
 package upgrade
@@ -360,6 +360,21 @@ func (m *UpgradeStateMachine) openCycle(ctx context.Context, state *v1alpha1.Dri
 	return m.transitionTo(state, v1alpha1.UpgradeStateRequired, message, 0)
 }
 
+// adoptLoadedVersion 은 새로 만든 DUS 의 currentVersion 이 비어 있고 노드에 드라이버가 로드돼 있으면
+// (loaded) 그 버전을 현재 버전으로 기록한다. 빈 현재 버전 때문에 정상 노드에서 복구 사이클(cordon·drain)이
+// 열리는 것을 막는 처리이고, 사이클을 열지 않는다는 보장은 아니다. 기록한 뒤에도 버전이 다르면 업그레이드
+// 게이트를, 일부 장치가 로드되지 않았으면 복구 판정을 기존대로 거친다. 돌려주는 값은 호출 뒤의
+// currentVersion 이다. 기록된 값이 있으면 덮어쓰지 않는다. Job 모드 블록에서만 호출한다(데몬셋·TrackOnly·
+// HostAhead 판정 뒤).
+func (m *UpgradeStateMachine) adoptLoadedVersion(state *v1alpha1.DriverUpgradeState, loaded string) string {
+	if state.Status.CurrentVersion == "" && loaded != "" {
+		state.Status.CurrentVersion = loaded
+		m.Recorder.Eventf(state, corev1.EventTypeNormal, "CurrentVersionAdopted",
+			"노드 %s 에 로드된 드라이버 %s 를 현재 버전으로 기록(새 DriverUpgradeState)", state.Spec.NodeName, loaded)
+	}
+	return state.Status.CurrentVersion
+}
+
 // handleIdle: 버전 불일치 감지 시 UpgradeRequired로 전이
 func (m *UpgradeStateMachine) handleIdle(
 	ctx context.Context,
@@ -408,11 +423,12 @@ func (m *UpgradeStateMachine) handleIdle(
 
 	// Job 모드는 상주 DS 가 없어 driverLoaded=false(초기 미설치 / 재부팅·수동 rmmod
 	// 로 모듈 언로드 / 드라이버 crash) 상태를 스스로 복구할 수 없다. 따라서 desired 버전이 지정돼
-	// 있고 (a) 아직 아무 버전도 없거나(currentVersion=="") (b) NDR 이 driverLoaded=false 를 보고하면,
+	// 있고 (a) 아직 아무 버전도 없고 로드된 드라이버도 없거나 (b) NDR 이 driverLoaded=false 를 보고하면,
 	// 버전 일치 여부와 무관하게 install Job 을 트리거한다. autoUpgrade 무관(설치/복구는 기대된
 	// 동작) — daemonset 의 DS pod 가 항상 modprobe 로 재로딩하는 것과 동등성을 맞춘다.
 	// 버전 변경 업그레이드(driver 는 로드됐고 desired 만 상이)는 아래 autoUpgrade 게이트를 존중한다.
 	if isJobMode(policy) && desiredVersion != "" {
+		currentVersion = m.adoptLoadedVersion(state, loaded)
 		needInstall := currentVersion == ""
 		if !needInstall {
 			notLoaded, err := m.driverNotLoaded(ctx, state.Spec.NodeName, state.Spec.Vendor, state.Spec.Model)
@@ -453,11 +469,7 @@ func (m *UpgradeStateMachine) handleIdle(
 		// 거치지 않으므로 status.state 가 빈 문자열로 남는다. 여기서 1회 Idle 로 정규화하여
 		// `kubectl get dus` STATE 와 메트릭이 Idle 을 명확히 보고하도록 한다.
 		// 이미 Idle 이면 재기록하지 않아 LastTransitionTime/IdleCooldown churn 을 피한다.
-		if state.Status.State == "" {
-			return m.transitionTo(state, v1alpha1.UpgradeStateIdle,
-				"초기 상태 정규화 (버전 일치)", 60*time.Second)
-		}
-		return true, 60 * time.Second, nil
+		return m.settleIdle(ctx, state, desiredVersion, "초기 상태 정규화 (버전 일치)")
 	}
 
 	// verifiedVersions 화이트리스트 검사는 autoUpgrade 게이트보다 앞이다 — 허용 목록 밖 버전은
@@ -481,7 +493,7 @@ func (m *UpgradeStateMachine) handleIdle(
 	if policy.Spec.UpgradePolicy == nil || !policy.Spec.UpgradePolicy.AutoUpgrade {
 		m.Recorder.Eventf(state, corev1.EventTypeWarning, "UpgradeAvailable",
 			"드라이버 버전 불일치: current=%s desired=%s (autoUpgrade 비활성화)", currentVersion, desiredVersion)
-		return true, 60 * time.Second, nil
+		return m.settleIdle(ctx, state, desiredVersion, "초기 상태 정규화 (autoUpgrade 비활성화)")
 	}
 
 	if m.holdAfterRollback(state, policy, desiredVersion, currentVersion) {
@@ -649,55 +661,67 @@ func (m *UpgradeStateMachine) handlePreFlight(
 	// 전이의 status 저장에 함께 실어 영속한다.
 	resolvedImage, imageSkipReason, imageSkipEvent := resolveDriverImage(policy, kernelVersion)
 	state.Status.ResolvedImage = resolvedImage
-	// 정책이 이 커널용 사전 컴파일 이미지를 선언했지만 쓰지 않았다면 그 이유를 드러낸다. 기본
-	// 이미지(DKMS 컴파일)로 되돌아가므로 설치는 올바른 버전으로 진행되지만, 운영자가 정책의 태그를
-	// 바로잡을 수 있도록 경고 이벤트와 로그를 남긴다.
-	if imageSkipReason != "" {
-		logf.FromContext(ctx).Info("사전 컴파일 커널 이미지를 쓰지 않고 기본 이미지로 되돌아감",
-			"kernel", kernelVersion, "reason", imageSkipReason)
-		m.Recorder.Eventf(state, corev1.EventTypeWarning, imageSkipEvent, "%s", imageSkipReason)
-	}
-	// DIP spec 을 제3 관리자(kubectl patch/edit, ArgoCD·Flux 등)가 함께 쥐고 있으면 다음 helm
-	// upgrade 가 Server-Side Apply 충돌로 멈출 수 있다 — PreFlight 마다 드러내 운영자가 helm
-	// 값으로만 바꾸도록 유도한다. 기존 imageSkipReason 경고와 같은 자리·같은 빈도.
-	// 제품 자신의 제어 경로(CLI·관리 REST·helm)는 foreignSpecManagers 가 이름으로 제외한다.
-	// 문구는 지목된 관리자에 대한 조치만 적는다 — 제외된 이름은 %v 에 나오지 않으므로 그쪽 안내를
-	// 섞으면 경고와 조치가 어긋난다. 소유 회수까지 적는 이유는 재발 방지만으로는 선 경고가 지워지지 않기 때문이다.
-	if foreign := foreignSpecManagers(policy.ManagedFields); len(foreign) > 0 {
-		m.Recorder.Eventf(state, corev1.EventTypeWarning, eventPolicySharedOwnership,
-			"DriverInstallPolicy %s 의 spec 을 제3 관리자 %v 가 함께 소유한다 — 값은 helm 값 파일로만 바꿀 것(다음 helm upgrade 의 SSA 충돌 예방). 이미 생긴 소유 항목은 helm 이 같은 필드를 같은 값으로 다시 적용해 소유를 회수할 때까지 남고, 그동안 이 경고도 PreFlight 마다 선다",
-			policy.Name, foreign)
-	}
-	// probe 제한시간이 Validating 전체 예산보다 길면 그 probe 는 결론을 낼 수 없다 — 바깥
-	// 예산(handleValidating 의 validationTimeout)이 먼저 만료해 Rollback·Failed 로 전이하고
-	// WorkloadValidator.Run 은 다시 불리지 않는다. 생성된 probe 파드는 kubelet 의
-	// activeDeadlineSeconds(= 이 TimeoutSeconds)까지 남아 그동안 장치 점유자로 집계된다.
-	// 거절하지 않고 경고만 낸다 — 기존 객체를 admission 에서 막으면 운영 중 정책이 갱신 불가가 된다.
-	// 예산 파싱은 handleValidating 이 이미 쓰는 parseDuration 을 재사용(새 헬퍼 미추가).
-	if wp := policy.Spec.WorkloadProbe; wp != nil && wp.Enabled {
-		var rawTimeout string
-		if policy.Spec.UpgradePolicy != nil {
-			rawTimeout = policy.Spec.UpgradePolicy.ValidationTimeout
+	// 경고 셋은 점검 Job 이 없는 회차에만 낸다. Job 이 이미 있는 회차는 점검을 기다리는 중이거나 지난 사이클의 Job 이
+	// 남은 경우다. 대기 회차마다 10초 간격으로 되풀이하면 client-go 이벤트 스팸 필터(같은 객체·Type 당 burst 25,
+	// 5분에 1건)가 뒤따르는 DriverPreflightBlocked·DriverPreflightInconclusive 를 버릴 수 있다.
+	waiting := false
+	if preflightApplicable(policy) {
+		var err error
+		if waiting, err = m.preflightInProgress(ctx, state); err != nil {
+			return false, 0, err
 		}
-		validationTimeout := parseDuration(rawTimeout, 15*time.Minute)
-		// 예산 출처를 함께 싣는다 — 빈 값이나 파싱 실패면 parseDuration 이 기본값을 돌려주므로,
-		// 그 값을 그대로 쓰면 운영자가 DIP 에서 찾을 수 없는 필드값을 보게 된다.
-		budget := fmt.Sprintf("%s(기본값, upgradePolicy.validationTimeout 미설정)", validationTimeout)
-		if rawTimeout != "" {
-			budget = fmt.Sprintf("%s(upgradePolicy.validationTimeout=%q)", validationTimeout, rawTimeout)
+	}
+	if !waiting {
+		// 정책이 이 커널용 사전 컴파일 이미지를 선언했지만 쓰지 않았다면 그 이유를 드러낸다. 기본
+		// 이미지(DKMS 컴파일)로 되돌아가므로 설치는 올바른 버전으로 진행되지만, 운영자가 정책의 태그를
+		// 바로잡을 수 있도록 경고 이벤트와 로그를 남긴다.
+		if imageSkipReason != "" {
+			logf.FromContext(ctx).Info("사전 컴파일 커널 이미지를 쓰지 않고 기본 이미지로 되돌아감",
+				"kernel", kernelVersion, "reason", imageSkipReason)
+			m.Recorder.Eventf(state, corev1.EventTypeWarning, imageSkipEvent, "%s", imageSkipReason)
 		}
-		// timeoutSeconds 가 비면 Timeout() 이 기본값(120s)을 돌려준다 — 실제로 쓰이는 그 값을
-		// 비교해야 기본 설정의 모순도 드러난다.
-		probeTimeout := (&validator.WorkloadValidator{Probe: *wp}).Timeout()
-		if probeTimeout > validationTimeout {
-			probeSrc := probeTimeout.String()
-			if wp.TimeoutSeconds == 0 {
-				probeSrc += "(timeoutSeconds 미설정 기본값)"
+		// DIP spec 을 제3 관리자(kubectl patch/edit, ArgoCD·Flux 등)가 함께 쥐고 있으면 다음 helm
+		// upgrade 가 Server-Side Apply 충돌로 멈출 수 있다 — PreFlight 마다 드러내 운영자가 helm
+		// 값으로만 바꾸도록 유도한다. 기존 imageSkipReason 경고와 같은 자리·같은 빈도.
+		// 제품 자신의 제어 경로(CLI·관리 REST·helm)는 foreignSpecManagers 가 이름으로 제외한다.
+		// 문구는 지목된 관리자에 대한 조치만 적는다 — 제외된 이름은 %v 에 나오지 않으므로 그쪽 안내를
+		// 섞으면 경고와 조치가 어긋난다. 소유 회수까지 적는 이유는 재발 방지만으로는 선 경고가 지워지지 않기 때문이다.
+		if foreign := foreignSpecManagers(policy.ManagedFields); len(foreign) > 0 {
+			m.Recorder.Eventf(state, corev1.EventTypeWarning, eventPolicySharedOwnership,
+				"DriverInstallPolicy %s 의 spec 을 제3 관리자 %v 가 함께 소유한다 — 값은 helm 값 파일로만 바꿀 것(다음 helm upgrade 의 SSA 충돌 예방). 이미 생긴 소유 항목은 helm 이 같은 필드를 같은 값으로 다시 적용해 소유를 회수할 때까지 남고, 그동안 이 경고도 PreFlight 마다 선다",
+				policy.Name, foreign)
+		}
+		// probe 제한시간이 Validating 전체 예산보다 길면 그 probe 는 결론을 낼 수 없다 — 바깥
+		// 예산(handleValidating 의 validationTimeout)이 먼저 만료해 Rollback·Failed 로 전이하고
+		// WorkloadValidator.Run 은 다시 불리지 않는다. 생성된 probe 파드는 kubelet 의
+		// activeDeadlineSeconds(= 이 TimeoutSeconds)까지 남아 그동안 장치 점유자로 집계된다.
+		// 거절하지 않고 경고만 낸다 — 기존 객체를 admission 에서 막으면 운영 중 정책이 갱신 불가가 된다.
+		// 예산 파싱은 handleValidating 이 이미 쓰는 parseDuration 을 재사용(새 헬퍼 미추가).
+		if wp := policy.Spec.WorkloadProbe; wp != nil && wp.Enabled {
+			var rawTimeout string
+			if policy.Spec.UpgradePolicy != nil {
+				rawTimeout = policy.Spec.UpgradePolicy.ValidationTimeout
 			}
-			m.Recorder.Eventf(state, corev1.EventTypeWarning, "WorkloadProbeTimeoutExceedsBudget",
-				"workloadProbe 제한시간 %s 가 검증 예산 %s 보다 길다 — "+
-					"probe 결과가 쓰이지 않고 파드가 그 차이만큼 장치를 점유한다. 둘 중 하나를 고칠 것",
-				probeSrc, budget)
+			validationTimeout := parseDuration(rawTimeout, 15*time.Minute)
+			// 예산 출처를 함께 싣는다 — 빈 값이나 파싱 실패면 parseDuration 이 기본값을 돌려주므로,
+			// 그 값을 그대로 쓰면 운영자가 DIP 에서 찾을 수 없는 필드값을 보게 된다.
+			budget := fmt.Sprintf("%s(기본값, upgradePolicy.validationTimeout 미설정)", validationTimeout)
+			if rawTimeout != "" {
+				budget = fmt.Sprintf("%s(upgradePolicy.validationTimeout=%q)", validationTimeout, rawTimeout)
+			}
+			// timeoutSeconds 가 비면 Timeout() 이 기본값(120s)을 돌려준다 — 실제로 쓰이는 그 값을
+			// 비교해야 기본 설정의 모순도 드러난다.
+			probeTimeout := (&validator.WorkloadValidator{Probe: *wp}).Timeout()
+			if probeTimeout > validationTimeout {
+				probeSrc := probeTimeout.String()
+				if wp.TimeoutSeconds == 0 {
+					probeSrc += "(timeoutSeconds 미설정 기본값)"
+				}
+				m.Recorder.Eventf(state, corev1.EventTypeWarning, "WorkloadProbeTimeoutExceedsBudget",
+					"workloadProbe 제한시간 %s 가 검증 예산 %s 보다 길다 — "+
+						"probe 결과가 쓰이지 않고 파드가 그 차이만큼 장치를 점유한다. 둘 중 하나를 고칠 것",
+					probeSrc, budget)
+			}
 		}
 	}
 	allowlist := policy.Spec.KernelAllowlist
@@ -960,6 +984,9 @@ func (m *UpgradeStateMachine) handleValidating(
 		if policy.Spec.UpgradePolicy != nil && policy.Spec.UpgradePolicy.RollbackOnFailure {
 			return m.transitionTo(state, v1alpha1.UpgradeStateRollback, "검증 타임아웃: 롤백 시작", 0)
 		}
+		const msg = "검증 타임아웃: 수동 조치 필요"
+		metrics.RecordUpgradeComplete(state.Spec.Vendor, "failure")
+		m.Recorder.Eventf(state, corev1.EventTypeWarning, "ValidationTimeout", "%s", msg)
 		if err := m.RestoreQuiescedDeployments(ctx, state); err != nil {
 			logger.Error(err, "Failed 전이 중 quiesce 복구 실패 (수동 조치 필요)", "node", state.Spec.NodeName)
 		}
@@ -968,7 +995,7 @@ func (m *UpgradeStateMachine) handleValidating(
 			m.Recorder.Eventf(state, corev1.EventTypeWarning, "UpgradeLabelCleanupFailed",
 				"Failed 전이 중 라벨 제거 실패 (수동 조치 필요): node=%s err=%v", state.Spec.NodeName, err)
 		}
-		return m.transitionTo(state, v1alpha1.UpgradeStateFailed, "검증 타임아웃: 수동 조치 필요", 0)
+		return m.transitionTo(state, v1alpha1.UpgradeStateFailed, msg, 0)
 	}
 
 	// ─── 2. CrashLoop 즉시 감지 (재시도 무의미한 hard failure) ───
@@ -1104,16 +1131,8 @@ func (m *UpgradeStateMachine) handleFailed(
 		// 우리가 건 cordon 이 있으면 푼다. ACPP quiesce(internal/partition/quiesce.go Cordon) 와
 		// 운영자의 수동 cordon 은 표식을 남기지 않으므로, 여기서 직접 소유권을 확인해야 한다.
 		// 표식이 없거나 남의 이름이면 그 cordon 은 남겨 둔다(파티션 적용 중 / 정비 중).
-		var node corev1.Node
-		if err := m.Get(ctx, types.NamespacedName{Name: state.Spec.NodeName}, &node); err == nil {
-			if err := m.reapStaleCordonClaim(ctx, &node, state); err != nil {
-				return false, 0, fmt.Errorf("stale cordon claim 정리 실패: %w", err)
-			}
-			if node.Spec.Unschedulable && node.Annotations[cordonOwnerAnnotationKey] == state.Name {
-				if err := m.uncordonNode(ctx, state.Spec.NodeName, state); err != nil {
-					return false, 0, fmt.Errorf("복구 탈출 중 노드 uncordon 실패: %w", err)
-				}
-			}
+		if err := m.releaseOwnCordon(ctx, state); err != nil {
+			return false, 0, fmt.Errorf("복구 탈출 중 노드 uncordon 실패: %w", err)
 		}
 
 		return m.transitionTo(state, v1alpha1.UpgradeStateIdle,
@@ -1760,6 +1779,36 @@ func (m *UpgradeStateMachine) uncordonNode(ctx context.Context, nodeName string,
 	}
 	m.Recorder.Eventf(state, corev1.EventTypeNormal, "NodeUpgradeLabelRemoved",
 		"노드 %s에서 npu.ai/driver-upgrading + driver-upgrading-blocking 라벨 모두 제거 (device-plugin 재스케줄 허용)", nodeName)
+	return nil
+}
+
+// settleIdle 은 사이클을 열지 않고 Idle 에 머무는 경로의 공통 마무리다. 직전 사이클이 cordon 한 채
+// Failed 로 끝난 노드의 자기 cordon 을 풀고, state=="" 인 새 DUS 는 목표 버전을 채워 Idle 로 1회 정규화한다.
+// 이미 Idle 이면 재기록하지 않아 LastTransitionTime/IdleCooldown churn 을 피한다.
+func (m *UpgradeStateMachine) settleIdle(ctx context.Context, state *v1alpha1.DriverUpgradeState, desiredVersion, reason string) (bool, time.Duration, error) {
+	if err := m.releaseOwnCordon(ctx, state); err != nil {
+		return false, 0, fmt.Errorf("idle 복귀 중 자기 cordon 해제 실패: %w", err)
+	}
+	if state.Status.State == "" {
+		state.Status.DesiredVersion = desiredVersion
+		return m.transitionTo(state, v1alpha1.UpgradeStateIdle, reason, 60*time.Second)
+	}
+	return true, 60 * time.Second, nil
+}
+
+// releaseOwnCordon 은 이 DUS 가 건 cordon 이 노드에 남아 있으면 푼다(handleFailed 복구 탈출과
+// handleIdle 이 공유). 소유 표식이 없거나 남의 이름이면 그 cordon 은 남겨 둔다. 노드가 없으면 할 일이 없다.
+func (m *UpgradeStateMachine) releaseOwnCordon(ctx context.Context, state *v1alpha1.DriverUpgradeState) error {
+	var node corev1.Node
+	if err := m.Get(ctx, types.NamespacedName{Name: state.Spec.NodeName}, &node); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+	if err := m.reapStaleCordonClaim(ctx, &node, state); err != nil {
+		return fmt.Errorf("stale cordon claim 정리 실패: %w", err)
+	}
+	if node.Spec.Unschedulable && node.Annotations[cordonOwnerAnnotationKey] == state.Name {
+		return m.uncordonNode(ctx, state.Spec.NodeName, state)
+	}
 	return nil
 }
 

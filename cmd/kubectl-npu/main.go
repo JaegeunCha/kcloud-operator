@@ -302,6 +302,7 @@ func printStatusText(status *npuctl.ClusterStatus) {
 		}
 	}
 	printTable([]string{"NODE", "VENDOR", "MODEL", "STATE", "CURRENT", "DESIRED"}, upRows)
+	printFailedDetails(failedUpgradeLines(status))
 }
 
 // vendorConditionLine 은 NPUClusterPolicy 절의 벤더 조건 한 줄이다. kind 는 조건의 종류다 —
@@ -1090,30 +1091,45 @@ func cmdDriverStatus() {
 	printDriverStatusText(status)
 }
 
+// failedUpgradeLines 는 Failed 인 업그레이드 행의 사유를 "  <노드>/<벤더>: <메시지>" 줄로 낸다(사유가 빈 행은 뺀다).
+func failedUpgradeLines(status *npuctl.ClusterStatus) []string {
+	var lines []string
+	for _, n := range status.Nodes {
+		for _, u := range n.Upgrades {
+			if u.State == npuv1alpha1.UpgradeStateFailed && u.Message != "" {
+				lines = append(lines, fmt.Sprintf("  %s/%s: %s", n.Name, u.Vendor, u.Message))
+			}
+		}
+	}
+	return lines
+}
+
+// printFailedDetails 는 표 아래에 "Failed 상세" 절을 덧붙인다. 줄이 없으면 아무것도 쓰지 않는다.
+func printFailedDetails(lines []string) {
+	if len(lines) == 0 {
+		return
+	}
+	fmt.Println()
+	fmt.Println("Failed 상세:")
+	for _, l := range lines {
+		fmt.Println(l)
+	}
+}
+
 // printDriverStatusText 는 ClusterStatus.Nodes[].Upgrades 를 노드×벤더 한 행으로 내고, Failed 인 행의
 // 사유를 표 아래 "Failed 상세" 절에 한 줄씩 덧붙인다(사유가 길어 표 열로 두지 않는다).
 func printDriverStatusText(status *npuctl.ClusterStatus) {
 	var rows [][]string
-	var failed []string
 	for _, n := range status.Nodes {
 		for _, u := range n.Upgrades {
 			rows = append(rows, []string{
 				n.Name, u.Vendor, modelCell(u.Model, u.Models), dashIfEmpty(upgradeStateCell(u)),
 				dashIfEmpty(u.CurrentVersion), dashIfEmpty(u.DesiredVersion),
 			})
-			if u.State == npuv1alpha1.UpgradeStateFailed && u.Message != "" {
-				failed = append(failed, fmt.Sprintf("  %s/%s: %s", n.Name, u.Vendor, u.Message))
-			}
 		}
 	}
 	printTable([]string{"NODE", "VENDOR", "MODEL", "STATE", "CURRENT", "DESIRED"}, rows)
-	if len(failed) > 0 {
-		fmt.Println()
-		fmt.Println("Failed 상세:")
-		for _, l := range failed {
-			fmt.Println(l)
-		}
-	}
+	printFailedDetails(failedUpgradeLines(status))
 }
 
 // driverRollbackArgs 는 "driver rollback" 인자 파싱 결과다.

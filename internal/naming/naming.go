@@ -3,7 +3,7 @@
 // 상세: driver_daemonset_controller(생성)와 upgrade/state_machine(조회)이
 //       동일한 DS 이름을 사용하도록 단일 헬퍼로 통일한다. 불일치 시
 //       업그레이드 상태머신이 드라이버 DS를 찾지 못한다.
-// 생성일: 2026-06-02 | 수정일: 2026-10-27
+// 생성일: 2026-06-02 | 수정일: 2026-10-28
 // ============================================================
 
 // Package naming centralizes Kubernetes resource naming rules shared across
@@ -109,8 +109,7 @@ func PreflightJobName(vendor, model, nodeName string) string {
 // RebootJobName 은 노드 재부팅 Job 의 결정론적 이름이다. node 해시로 중복 생성을
 // 방지(de-facto lease) — 벤더 무관(재부팅은 host 커널 문제라 노드 단위).
 func RebootJobName(nodeName string) string {
-	sum := sha256.Sum256([]byte(nodeName))
-	return "kcloud-node-reboot-" + hex.EncodeToString(sum[:])[:8]
+	return "kcloud-node-reboot-" + nodeHash8(nodeName)
 }
 
 // AcppRebootJobName 은 ACPP(MIG mode enable)가 요청하는 재부팅 Job 이름이다.

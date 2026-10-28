@@ -3,7 +3,7 @@
 // 상세: DriverUpgradeState CRD를 감시하고 UpgradeStateMachine을 호출하여
 //       노드별 드라이버 업그레이드 상태 전이를 수행합니다.
 //       ensureUpgradeStates()로 NodeDeviceReport 기반 DUS CR을 자동 생성합니다.
-// 생성일: 2026-04-13 | 수정일: 2026-10-27
+// 생성일: 2026-04-13 | 수정일: 2026-10-28
 // ============================================================
 
 package controller
@@ -172,6 +172,15 @@ func (r *DriverUpgradeReconciler) otherCycleOnNode(ctx context.Context, state *v
 		}
 	}
 	return false, nil
+}
+
+// desiredVersionChangeMessage 는 Idle DUS 의 목표 버전이 바뀔 때 status.message 를 만든다.
+// 이전 값이 비어 있으면(새 DUS 가 로드 버전을 처음 채택한 직후) 화살표 문구 대신 기록 문구를 쓴다.
+func desiredVersionChangeMessage(oldDesired, desired string) string {
+	if oldDesired == "" {
+		return fmt.Sprintf("목표 버전 %s 기록(새 DriverUpgradeState)", desired)
+	}
+	return fmt.Sprintf("정책 버전 변경: %s → %s", oldDesired, desired)
 }
 
 // ensureUpgradeStates는 NodeDeviceReport 기반으로 DriverUpgradeState CR을 자동 생성합니다.
@@ -462,7 +471,7 @@ func (r *DriverUpgradeReconciler) syncUpgradeState(ctx context.Context, nodeName
 		// 모듈 교체 재부팅 게이트(need && RebootAttempts==0)가 stale 값에 막히지 않게 한다.
 		resetRebootTracking(&existing.Status)
 		existing.Status.LastTransitionTime = metav1.Now()
-		existing.Status.Message = fmt.Sprintf("정책 버전 변경: %s → %s", oldDesired, desiredVersion)
+		existing.Status.Message = desiredVersionChangeMessage(oldDesired, desiredVersion)
 		if err := r.Status().Patch(ctx, &existing, patch); err != nil {
 			logger.Error(err, "DriverUpgradeState 상태 패치 실패 (desiredVersion 변경)", "name", dusName)
 		}

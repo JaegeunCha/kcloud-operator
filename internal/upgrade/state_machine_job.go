@@ -458,11 +458,10 @@ func (m *UpgradeStateMachine) handleRollbackJob(
 	// Job 부재 → rollback Job 을 새로 생성 = 1회 attempt.
 	state.Status.RollbackAttempts++
 	if state.Status.RollbackAttempts > maxRollbacks {
+		msg := withCause(fmt.Sprintf("롤백 %d회 초과: 수동 조치 필요", maxRollbacks), lastStatusCause(state))
 		metrics.RecordUpgradeComplete(state.Spec.Vendor, "failure")
-		m.Recorder.Eventf(state, corev1.EventTypeWarning, "RollbackExhausted",
-			"롤백 %d회 초과(max=%d): 수동 조치 필요 (node=%s)",
-			state.Status.RollbackAttempts-1, maxRollbacks, state.Spec.NodeName)
-		return m.jobTransitionToFailed(ctx, state, fmt.Sprintf("롤백 %d회 초과: 수동 조치 필요", maxRollbacks))
+		m.Recorder.Eventf(state, corev1.EventTypeWarning, "RollbackExhausted", "%s (node=%s)", msg, state.Spec.NodeName)
+		return m.jobTransitionToFailed(ctx, state, msg)
 	}
 
 	metrics.RecordRollback(state.Spec.Vendor)
@@ -541,9 +540,9 @@ func (m *UpgradeStateMachine) noteInstallRetry(state *v1alpha1.DriverUpgradeStat
 		withCause(fmt.Sprintf("%s(exit=%d)", installRetryPrefix, term.exitCode), term.message))
 }
 
-// installJobFailed 는 install Job 실패를 마무리한다. 되돌릴 이전 버전이 없으면(첫 설치) 롤백을 거치지
-// 않는다 — 롤백은 "이전 버전 없음" 으로 끝나며 설치 원인을 덮는다. 원인은 installFailureCause 가
-// 골라 상태 메시지와 이벤트에 싣는다.
+// installJobFailed 는 install Job 실패를 마무리한다. 되돌릴 이전 버전이 없으면(첫 설치, 이전 버전을 모르는
+// 복구 사이클) 롤백을 거치지 않는다 — 롤백은 "이전 버전 없음" 으로 끝나며 설치 원인을 덮는다. 원인은
+// installFailureCause 가 골라 상태 메시지와 이벤트에 싣는다.
 func (m *UpgradeStateMachine) installJobFailed(
 	ctx context.Context,
 	state *v1alpha1.DriverUpgradeState,
@@ -560,11 +559,12 @@ func (m *UpgradeStateMachine) installJobFailed(
 		"노드 %s install Job 실패(%s): %s", state.Spec.NodeName, exit, withCause("", cause))
 	if !hasRollbackTarget(state) {
 		metrics.RecordUpgradeComplete(state.Spec.Vendor, "failure")
-		return m.jobTransitionToFailed(ctx, state, firstInstallFailedMessage(state, cause))
+		return m.jobTransitionToFailed(ctx, state, noRollbackTargetFailedMessage(state, cause))
 	}
 	if policy.Spec.UpgradePolicy != nil && policy.Spec.UpgradePolicy.RollbackOnFailure {
 		return m.transitionTo(state, v1alpha1.UpgradeStateRollback, withCause("install Job 실패: 롤백 시작", cause), 0)
 	}
+	metrics.RecordUpgradeComplete(state.Spec.Vendor, "failure")
 	return m.jobTransitionToFailed(ctx, state, withCause("install Job 실패: 수동 조치 필요", cause))
 }
 
@@ -595,15 +595,15 @@ func installFailureCause(
 }
 
 // hasRollbackTarget 은 되돌릴 이전 버전이 있는지다. 사이클을 열 때 currentVersion 을 옮겨 두므로
-// 첫 설치는 빈 값이다. Validating 과 handleRollbackJob 이 이 판정 하나를 쓴다.
+// 첫 설치와 이전 버전을 모르는 복구 사이클은 빈 값이다. Validating 과 handleRollbackJob 이 이 판정 하나를 쓴다.
 func hasRollbackTarget(state *v1alpha1.DriverUpgradeState) bool {
 	return state.Status.PreviousVersion != ""
 }
 
-// firstInstallFailedMessage 는 첫 설치 실패의 상태 메시지다. Failed 는 정책을 다시 읽지 않으므로
-// 재시도 방법을 끝에 둔다.
-func firstInstallFailedMessage(state *v1alpha1.DriverUpgradeState, cause string) string {
-	return withCause("첫 설치 실패(job): 되돌릴 이전 버전이 없어 롤백하지 않는다", cause) +
+// noRollbackTargetFailedMessage 는 되돌릴 이전 버전이 없는 설치 실패(첫 설치, 이전 버전을 모르는 복구
+// 사이클)의 상태 메시지다. Failed 는 정책을 다시 읽지 않으므로 재시도 방법을 끝에 둔다.
+func noRollbackTargetFailedMessage(state *v1alpha1.DriverUpgradeState, cause string) string {
+	return withCause("설치 실패(job): 되돌릴 이전 버전이 없어 롤백하지 않는다", cause) +
 		fmt.Sprintf(" — 원인을 조치한 뒤 kubectl delete dus %s 로 다시 시도한다", state.Name)
 }
 
@@ -616,6 +616,14 @@ func withCause(msg, cause string) string {
 		return cause
 	}
 	return msg + " — " + cause
+}
+
+// lastStatusCause 는 롤백 소진 메시지에 이어 붙일 직전 상태 메시지다(롤백 전이에 실린 설치 원인). 비면 빈 값.
+func lastStatusCause(state *v1alpha1.DriverUpgradeState) string {
+	if state.Status.Message == "" {
+		return ""
+	}
+	return "직전 상태: " + state.Status.Message
 }
 
 // installTargetOf 는 install Job 이 기본으로 설치할 이미지·버전이다. 설치와 설치 전 점검이 같은
@@ -749,25 +757,57 @@ type containerTermination struct {
 	message  string
 }
 
+// jobPods 는 job 이 소유한 파드다. job-name 라벨로 고르고, job 에 UID 가 있으면 그 Job 이 controller 인
+// 파드만 남긴다. 같은 이름 Job 을 지우고 다시 만든 직후에는 지워지는 중인 옛 파드가 같은 라벨로 남기 때문이다.
+// UID 가 비어 있으면 소유 관계를 알 수 없어 라벨만 본다.
+func (m *UpgradeStateMachine) jobPods(ctx context.Context, job *batchv1.Job) ([]corev1.Pod, error) {
+	var pods corev1.PodList
+	if err := m.List(ctx, &pods, client.InNamespace(job.Namespace),
+		client.MatchingLabels{batchv1.JobNameLabel: job.Name}); err != nil {
+		return nil, err
+	}
+	out := make([]corev1.Pod, 0, len(pods.Items))
+	for i := range pods.Items {
+		if job.UID != "" && !metav1.IsControlledBy(&pods.Items[i], job) {
+			continue
+		}
+		out = append(out, pods.Items[i])
+	}
+	return out, nil
+}
+
+// jobPodWaiting 은 job 파드에서 container 가 기다리는 사유와 메시지다. 기다리는 컨테이너가 없으면 빈 값이다.
+// 메시지는 여러 줄일 수 있어(pull 오류 문구 등) 이벤트용 한 줄로 접는다.
+func (m *UpgradeStateMachine) jobPodWaiting(
+	ctx context.Context, job *batchv1.Job, container string,
+) (string, string, error) {
+	pods, err := m.jobPods(ctx, job)
+	if err != nil {
+		return "", "", err
+	}
+	for i := range pods {
+		for _, cs := range pods[i].Status.ContainerStatuses {
+			if cs.Name == container && cs.State.Waiting != nil {
+				return cs.State.Waiting.Reason, strings.Join(strings.Fields(cs.State.Waiting.Message), " "), nil
+			}
+		}
+	}
+	return "", "", nil
+}
+
 // jobTermination 은 job 파드들에서 container 이름의 가장 최근 종료 기록을 고른다. 현재 상태와
 // 직전 상태(OnFailure 재시작 전)를 함께 본다. 파드가 없으면(TTL 정리 등) found=false 다.
 func (m *UpgradeStateMachine) jobTermination(
 	ctx context.Context, job *batchv1.Job, container string,
 ) (containerTermination, error) {
-	var pods corev1.PodList
-	if err := m.List(ctx, &pods, client.InNamespace(job.Namespace),
-		client.MatchingLabels{batchv1.JobNameLabel: job.Name}); err != nil {
+	pods, err := m.jobPods(ctx, job)
+	if err != nil {
 		return containerTermination{}, err
 	}
 	var best containerTermination
 	var bestAt time.Time
-	for i := range pods.Items {
-		// 같은 이름 Job 을 지우고 다시 만든 직후에는 지워지는 중인 옛 파드가 같은 라벨로 남는다. UID 가 있는
-		// Job 이면 그 Job 이 소유한 파드만 본다. UID 가 비어 있으면 소유 관계를 알 수 없어 라벨만 본다.
-		if job.UID != "" && !metav1.IsControlledBy(&pods.Items[i], job) {
-			continue
-		}
-		for _, cs := range pods.Items[i].Status.ContainerStatuses {
+	for i := range pods {
+		for _, cs := range pods[i].Status.ContainerStatuses {
 			if cs.Name != container {
 				continue
 			}

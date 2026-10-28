@@ -212,7 +212,7 @@ Helm 은 설계상 `crds/` 디렉터리의 CRD 를 삭제하지 않습니다. `u
 | `driverInstallPolicies.<vendor>.enabled` | `true` | 벤더별 driver 설치 정책 CR 생성 |
 | `driverInstallPolicies.rebellions.driver.trackOnly` | `true`(고정) | Rebellions 는 설치기 이미지가 없어(드라이버 패키지가 벤더 포털 인증 필요) 버전 추적만 한다. `driver.versionSource: Host` 라 목표 버전은 호스트 설치 버전을 따른다 |
 | `driverInstallPolicies.<vendor>.driver.version` / `.image` | 벤더별 | 설치할 드라이버 버전·이미지 |
-| `driverInstallPolicies.<vendor>.driver.mode` | `daemonset` | (job 모드는 legacy) |
+| `driverInstallPolicies.<vendor>.driver.mode` | `job` | 드라이버 설치 방식. `job` 은 일회성 install Job 으로 설치하고 상주 pod 를 두지 않는다. `daemonset` 은 상시 DaemonSet 이다. CR 에서 mode 를 생략하면 CRD 기본값 `daemonset` 이 적용된다 |
 | `driverInstallPolicies.<vendor>.driver.kernelImageBuildRevision` | `""` (빈 값) | 커널별 사전 컴파일 이미지 태그의 빌드 개정(`…-vN`). 값을 주면 노드 커널로 태그를 조립해 당긴다(`mode=job` 전용). 비우면 조립하지 않고 `driver.image` 를 쓴다 |
 | `driverInstallPolicies.<vendor>.driver.kernelImageVariant` | `warboy`(furiosa) / `rngd` / 그 외 빈 값 | 조립할 태그의 variant 토막(버전과 커널 토막 사이). `kernelImageBuildRevision` 이 비면 효과 없음 |
 | `driverInstallPolicies.<vendor>.upgradePolicy.autoUpgrade` | `true` | 버전 불일치 시 자동 업그레이드 |
@@ -429,10 +429,10 @@ helm install kcloud-operator oci://<reg>/charts/kcloud-operator --version <v> \
   exporter 의 라벨이 `exported_pod` 같은 이름으로 바뀌지 않는다.
 - **NVIDIA 설치 전 점검**: 차트 0.8.4 이상의 operator 는 설치기 `nvidia-driver-ds:v9` 이상을 쓰는 NVIDIA
   정책(job·apt)에서 노드를 cordon 하기 전에 설치 전 점검 Job(`kcloud-nvidia-preflight-*`)을 만들어, 노드
-  이미지가 `apt-mark hold` 로 묶은 패키지가 설치를 막는지 본다. 막으면 cordon 없이 `Failed` 가 되고 사유에
-  패키지 이름이 남는다. 점검은 hold 를 바꾸지 않는다 — 확인·복구 절차는 [INSTALL.md](INSTALL.md) 11절에
-  있다. `v8` 이하 설치기는 점검 스크립트가 없어 점검 Job 이 `StartError` 로 끝나고, operator 는 경고
-  이벤트만 남긴 채 예전처럼 설치한다.
+  이미지가 `apt-mark hold` 로 묶은 패키지가 드라이버·DKMS 빌드 도구 설치를 막는지 본다. 막으면 cordon 없이
+  `Failed` 가 되고 사유에 패키지 이름이 남는다. 점검은 hold 를 바꾸지 않는다 — 확인·복구 절차는
+  [INSTALL.md](INSTALL.md) 11절에 있다. `v8` 이하 설치기는 점검 스크립트가 없어 점검 Job 이
+  `StartError` 로 끝나고, operator 는 경고 이벤트만 남긴 채 예전처럼 설치한다.
 - **레지스트리 도달성**: 다른 클러스터에 배포할 때 노드가 이미지 레지스트리에 도달 가능해야
   한다. 안 되면 파드가 `ImagePullBackOff` 로 멈춘다.
 - **CRD**: helm 자체는 `crds/` 의 CRD 를 삭제하지 않는다. 차트의 `post-delete` Job 이

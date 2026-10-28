@@ -2,7 +2,7 @@
 // preflightjob_test.go: 설치 전 점검 Job 렌더러 시험
 // 상세: 이름·라벨·재시도 0·시한·TTL·command·종료 메시지 정책을 고정하고, install Job 렌더 결과가
 //       바뀌지 않는지 함께 본다. 종료 코드 계약 값도 고정한다.
-// 생성일: 2026-10-27 | 수정일: 2026-10-27
+// 생성일: 2026-10-27 | 수정일: 2026-10-28
 // ============================================================
 
 package driverjob
@@ -33,15 +33,6 @@ func preflightPolicy() *npuv1alpha1.DriverInstallPolicy {
 	return pol
 }
 
-func preflightEnv(c corev1.Container, name string) string {
-	for _, e := range c.Env {
-		if e.Name == name {
-			return e.Value
-		}
-	}
-	return ""
-}
-
 func TestRenderPreflightJob_Shape(t *testing.T) {
 	job := RenderPreflightJob(preflightPolicy(), tPreflightNode, tPreflightImage, tPreflightVer)
 	if job.Name != naming.PreflightJobName(tNvidia, "generic", tPreflightNode) || job.Namespace != Namespace {
@@ -69,8 +60,8 @@ func TestRenderPreflightJob_Shape(t *testing.T) {
 	if c.SecurityContext == nil || c.SecurityContext.Privileged == nil || !*c.SecurityContext.Privileged {
 		t.Error("privileged 가 아니다")
 	}
-	if preflightEnv(c, "DRIVER_VERSION") != tPreflightVer {
-		t.Errorf("DRIVER_VERSION=%q", preflightEnv(c, "DRIVER_VERSION"))
+	if got := jobEnv(t, c.Env, "DRIVER_VERSION"); got != tPreflightVer {
+		t.Errorf("DRIVER_VERSION=%q", got)
 	}
 	if len(job.OwnerReferences) != 1 || job.OwnerReferences[0].Name != "nvidia-gpu-ds" {
 		t.Errorf("owner=%v", job.OwnerReferences)
