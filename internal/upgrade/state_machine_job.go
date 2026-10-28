@@ -2,7 +2,7 @@
 // state_machine_job.go: driver Job 모드 상태 핸들러 (Mode=job)
 // 상세: state_machine.go 의 handleUpgrading/handleValidating/handleRollback 의 Mode=job 대체
 //       경로다. DS patch 를 install Job 생성/재생성으로, Pod Ready 관찰을 Job 완료+NDR 일치로 재정의한다.
-// 생성일: 2026-07-16 | 수정일: 2026-10-14
+// 생성일: 2026-07-16 | 수정일: 2026-10-28
 // ============================================================
 
 package upgrade
@@ -127,14 +127,7 @@ func (m *UpgradeStateMachine) handleUpgradingJob(
 
 	// preflight 이 노드 커널로 고른 이미지를 우선 쓴다. 비어 있으면(구 DUS·커널맵 미선언) 정책
 	// 기본 이미지로 폴백한다.
-	desiredImage := state.Status.ResolvedImage
-	if desiredImage == "" {
-		desiredImage = policy.Spec.Driver.Image
-	}
-	desiredVersion := state.Status.DesiredVersion
-	if desiredVersion == "" {
-		desiredVersion = policy.Spec.Driver.Version
-	}
+	desiredImage, desiredVersion := installTargetOf(state, policy)
 
 	// 업그레이드 착수 시점에 rollback 대상(이전 버전 이미지)을 캡처한다. Job 모드는 상주
 	// DS 가 없어 이전 이미지를 읽을 소스가 없으므로, DIP image 의 variant 접미사 + PreviousVersion
@@ -184,6 +177,16 @@ func (m *UpgradeStateMachine) handleUpgradingJob(
 		return true, 5 * time.Second, nil
 	}
 
+	// 같은 목표라도 실패한 Job 은 지우고 다시 만든다. 재사용하면 새 사이클이 cordon·drain 뒤 곧바로 같은 실패로
+	// 끝난다(handleRollbackJob 이 실패한 rollback Job 에 하는 처리와 같다).
+	if jobFailed(&job) {
+		logger.Info("같은 목표의 install Job 이 실패 상태 — 삭제 후 재생성", "job", jobName)
+		if err := m.deleteInstallJob(ctx, &job); client.IgnoreNotFound(err) != nil {
+			return false, 0, fmt.Errorf("실패한 install Job 삭제 실패: %w", err)
+		}
+		return true, installJobRecheckDelay, nil
+	}
+
 	// 동일 이미지 Job 이 이미 존재(요청 중복/재진입) — Validating 으로 진행.
 	return m.transitionTo(state, v1alpha1.UpgradeStateValidating, "install Job 재사용", 20*time.Second)
 }
@@ -215,22 +218,15 @@ func (m *UpgradeStateMachine) handleValidatingJob(
 		return false, 0, fmt.Errorf("install Job 조회 실패: %w", err)
 	}
 
-	// hard failure: backoffLimit 소진(Failed condition) → CrashLoop 과 동일 취급.
-	// activeDeadlineSeconds 초과도 여기로 들어온다(DeadlineExceeded).
-	if jobFound && jobFailed(&job) {
-		if policy.Spec.UpgradePolicy != nil && policy.Spec.UpgradePolicy.RollbackOnFailure {
-			return m.transitionTo(state, v1alpha1.UpgradeStateRollback, "install Job 실패: 롤백 시작", 0)
+	// install Job 이 아직 끝나지 않았으면 검증 예산을 쓰지 않는다. Job 에는 자기 시한
+	// (activeDeadlineSeconds, 기본 30m)이 있고 초과하면 Failed 로 끝나 handleUnfinishedInstallJob 이
+	// 받는다. 여기서 별도 시계를 돌리면 정상 진행 중인 설치를 실패로 단정해, 그 롤백이 없는 이미지를
+	// 집어 노드가 굳는 결과로 이어진다.
+	if jobFound {
+		if !jobComplete(&job) {
+			return m.handleUnfinishedInstallJob(ctx, state, policy, &job)
 		}
-		return m.jobTransitionToFailed(ctx, state, "install Job 실패(backoffLimit 소진): 수동 조치 필요")
-	}
-
-	// install Job 이 아직 돌고 있으면 검증 예산을 쓰지 않는다. Job 에는 자기 시한
-	// (activeDeadlineSeconds, 기본 30m)이 있고 초과하면 위 실패 분기가 받는다. 여기서 별도
-	// 시계를 돌리면 정상 진행 중인 설치를 실패로 단정해, 그 롤백이 없는 이미지를 집어 노드가
-	// 굳는 결과로 이어진다.
-	if jobFound && !jobComplete(&job) {
-		logger.Info("install Job 진행 중 — 완료 대기", "job", jobName)
-		return true, 10 * time.Second, nil
+		m.clearInstallRetryNote(state)
 	}
 
 	// ─── 2. 검증 예산 가드 — Job 이 끝난 뒤(또는 사라진 뒤)부터 잰다 ───
@@ -243,10 +239,15 @@ func (m *UpgradeStateMachine) handleValidatingJob(
 		since = job.Status.CompletionTime.Time
 	}
 	if !since.IsZero() && time.Since(since) > validationTimeout {
-		if policy.Spec.UpgradePolicy != nil && policy.Spec.UpgradePolicy.RollbackOnFailure {
+		if hasRollbackTarget(state) && policy.Spec.UpgradePolicy != nil && policy.Spec.UpgradePolicy.RollbackOnFailure {
 			return m.transitionTo(state, v1alpha1.UpgradeStateRollback, "검증 타임아웃(job): 롤백 시작", 0)
 		}
-		return m.jobTransitionToFailed(ctx, state, validationTimeoutFailedMessage(state))
+		// 롤백 없이 Failed 로 가는 경로의 지표와 경고는 여기서 남긴다. 롤백 대상이 없는 첫 설치는 롤백 단계를
+		// 거치지 않으므로 그 단계가 남기던 기록이 없다.
+		msg := validationTimeoutFailedMessage(state)
+		metrics.RecordUpgradeComplete(state.Spec.Vendor, "failure")
+		m.Recorder.Eventf(state, corev1.EventTypeWarning, "ValidationTimeout", "%s", msg)
+		return m.jobTransitionToFailed(ctx, state, msg)
 	}
 
 	if !jobFound {
@@ -297,6 +298,40 @@ func (m *UpgradeStateMachine) handleValidatingJob(
 	m.Recorder.Eventf(state, corev1.EventTypeNormal, "UpgradeValidated",
 		"노드 %s 드라이버 검증 성공(job): %s", state.Spec.NodeName, state.Status.DesiredVersion)
 	return m.transitionTo(state, v1alpha1.UpgradeStateUncordoning, "검증 성공(job)", 0)
+}
+
+// handleUnfinishedInstallJob 은 끝나지 않은 install Job 을 본다. Failed 조건이면(backoffLimit 소진·
+// activeDeadlineSeconds 초과) 실패로 마무리한다. NVIDIA apt 설치기가 hold 충돌(종료 코드 3)로 끝냈으면 OnFailure
+// 재시작을 기다리지 않고 Job 을 지운 뒤 실패로 마무리한다 — 같은 hold 에 다시 막힌다. 그 밖에는 직전
+// 시도의 실패 사유를 남기고 완료를 기다린다. 끝난 Job 은 파드를 조회하지 않으므로 여기로 오지 않는다.
+func (m *UpgradeStateMachine) handleUnfinishedInstallJob(
+	ctx context.Context,
+	state *v1alpha1.DriverUpgradeState,
+	policy *v1alpha1.DriverInstallPolicy,
+	job *batchv1.Job,
+) (bool, time.Duration, error) {
+	term, err := m.jobTermination(ctx, job, driverjob.InstallContainerName)
+	if err != nil {
+		return false, 0, fmt.Errorf("install Job 파드 조회 실패: %w", err)
+	}
+	switch {
+	case jobFailed(job):
+		return m.installJobFailed(ctx, state, policy, job, term)
+	// 종료 코드 3 = hold 충돌은 NVIDIA apt 설치기(점검 대상 정책)만의 계약이다. 그 밖의 3 은 아래 일반 실패로 다룬다.
+	case term.found && term.exitCode == driverjob.ExitCodeHostPackageConflict && preflightApplicable(policy):
+		if err := m.deleteInstallJob(ctx, job); client.IgnoreNotFound(err) != nil {
+			return false, 0, fmt.Errorf("hold 충돌 install Job 삭제 실패: %w", err)
+		}
+		requeue, after, err := m.installJobFailed(ctx, state, policy, job, term)
+		// 지운 Job 이 캐시에 남아 있으면 롤백이 그것을 진행 중인 롤백 Job 으로 읽는다. 캐시가 따라올 시간을 준다.
+		if err == nil && state.Status.State == v1alpha1.UpgradeStateRollback {
+			after = installJobRecheckDelay
+		}
+		return requeue, after, err
+	}
+	m.noteInstallRetry(state, term)
+	logf.FromContext(ctx).Info("install Job 진행 중 — 완료 대기", "job", job.Name)
+	return true, 10 * time.Second, nil
 }
 
 // restartStaleDevicePluginPods 는 since(=install Job 완료 시각) 이전에 기동한 노드의
@@ -364,7 +399,7 @@ func (m *UpgradeStateMachine) handleRollbackJob(
 	}
 
 	prevVersion := state.Status.PreviousVersion
-	if prevVersion == "" {
+	if !hasRollbackTarget(state) {
 		metrics.RecordUpgradeComplete(state.Spec.Vendor, "failure")
 		m.Recorder.Eventf(state, corev1.EventTypeWarning, "RollbackFailed",
 			"롤백할 이전 버전 없음(job): 수동 조치 필요 (node=%s)", state.Spec.NodeName)
@@ -474,6 +509,129 @@ func (m *UpgradeStateMachine) deleteInstallJob(ctx context.Context, job *batchv1
 	return m.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground))
 }
 
+// installRetryPrefix 는 install Job 재시도 중 상태 메시지의 앞부분이다. 파드가 지워진 Failed 에서
+// 이 접두로 시작하는 상태 메시지를 마지막 실패의 원인으로 읽는다.
+const installRetryPrefix = "install Job 재시도 중"
+
+const (
+	// installJobDoneMessage 는 install Job 이 끝난 뒤 재시도 중 문구를 대신하는 상태 메시지다.
+	installJobDoneMessage = "install Job 완료 — 검증 중"
+	// holdConflictDefaultCause 는 종료 코드 3(hold 충돌)인데 종료 메시지가 비었을 때의 원인 문구다.
+	holdConflictDefaultCause = "hold 된 호스트 패키지가 드라이버 설치를 막는다(종료 메시지 없음)"
+	// installJobRecheckDelay 는 install Job 을 지운 뒤 다시 보기까지의 간격이다.
+	installJobRecheckDelay = 5 * time.Second
+)
+
+// clearInstallRetryNote 는 install Job 이 끝났는데 상태 메시지가 아직 재시도 중이면 검증 중으로 바꾼다.
+// 남겨 두면 검증을 기다리는 동안과 검증 시한 Failed 메시지의 "마지막 검증" 꼬리에서 설치 실패처럼 읽힌다.
+func (m *UpgradeStateMachine) clearInstallRetryNote(state *v1alpha1.DriverUpgradeState) {
+	if strings.HasPrefix(state.Status.Message, installRetryPrefix) {
+		m.noteWait(state, corev1.EventTypeNormal, "InstallJobCompleted", installJobDoneMessage)
+	}
+}
+
+// noteInstallRetry 는 재시도 중인 install Job 의 직전 시도가 실패했으면 그 사유를 상태 메시지와
+// 이벤트에 남긴다. Job 컨트롤러는 backoffLimit 에 닿으면 파드를 지우므로, 이 메시지가 Failed 전이
+// 때 읽을 수 있는 마지막 실패 기록이다. 메시지가 바뀔 때만 이벤트가 난다(noteWait).
+func (m *UpgradeStateMachine) noteInstallRetry(state *v1alpha1.DriverUpgradeState, term containerTermination) {
+	if !term.found || term.exitCode == 0 {
+		return
+	}
+	m.noteWait(state, corev1.EventTypeWarning, "InstallAttemptFailed",
+		withCause(fmt.Sprintf("%s(exit=%d)", installRetryPrefix, term.exitCode), term.message))
+}
+
+// installJobFailed 는 install Job 실패를 마무리한다. 되돌릴 이전 버전이 없으면(첫 설치) 롤백을 거치지
+// 않는다 — 롤백은 "이전 버전 없음" 으로 끝나며 설치 원인을 덮는다. 원인은 installFailureCause 가
+// 골라 상태 메시지와 이벤트에 싣는다.
+func (m *UpgradeStateMachine) installJobFailed(
+	ctx context.Context,
+	state *v1alpha1.DriverUpgradeState,
+	policy *v1alpha1.DriverInstallPolicy,
+	job *batchv1.Job,
+	term containerTermination,
+) (bool, time.Duration, error) {
+	cause := installFailureCause(state, policy, job, term)
+	exit := "파드 종료 기록 없음"
+	if term.found {
+		exit = fmt.Sprintf("exit=%d", term.exitCode)
+	}
+	m.Recorder.Eventf(state, corev1.EventTypeWarning, "InstallJobFailed",
+		"노드 %s install Job 실패(%s): %s", state.Spec.NodeName, exit, withCause("", cause))
+	if !hasRollbackTarget(state) {
+		metrics.RecordUpgradeComplete(state.Spec.Vendor, "failure")
+		return m.jobTransitionToFailed(ctx, state, firstInstallFailedMessage(state, cause))
+	}
+	if policy.Spec.UpgradePolicy != nil && policy.Spec.UpgradePolicy.RollbackOnFailure {
+		return m.transitionTo(state, v1alpha1.UpgradeStateRollback, withCause("install Job 실패: 롤백 시작", cause), 0)
+	}
+	return m.jobTransitionToFailed(ctx, state, withCause("install Job 실패: 수동 조치 필요", cause))
+}
+
+// installFailureCause 는 install Job 실패의 원인 문구다. 설치 컨테이너 종료 메시지가 먼저다. hold 충돌 계약이
+// 있는 정책(preflightApplicable)에서 종료 코드 3 인데 메시지가 비면 기본 사유를 쓴다. Job 컨트롤러는
+// backoffLimit·시한에 닿으면 실행 중 파드를 지워 종료 기록이 없으므로, 그때는 Job 의 Failed 조건 사유를 앞에
+// 두고 재시도 중에 상태 메시지에 남긴 마지막 실패를 뒤에 잇는다. 재시도가 있었어도 시한 초과 같은 Job 쪽
+// 사유가 가려지지 않는다.
+func installFailureCause(
+	state *v1alpha1.DriverUpgradeState,
+	policy *v1alpha1.DriverInstallPolicy,
+	job *batchv1.Job,
+	term containerTermination,
+) string {
+	if term.found {
+		switch {
+		case term.message != "":
+			return term.message
+		case term.exitCode == driverjob.ExitCodeHostPackageConflict && preflightApplicable(policy):
+			return holdConflictDefaultCause
+		}
+	}
+	cause := jobFailedReason(job)
+	if strings.HasPrefix(state.Status.Message, installRetryPrefix) {
+		cause = withCause(cause, state.Status.Message)
+	}
+	return cause
+}
+
+// hasRollbackTarget 은 되돌릴 이전 버전이 있는지다. 사이클을 열 때 currentVersion 을 옮겨 두므로
+// 첫 설치는 빈 값이다. Validating 과 handleRollbackJob 이 이 판정 하나를 쓴다.
+func hasRollbackTarget(state *v1alpha1.DriverUpgradeState) bool {
+	return state.Status.PreviousVersion != ""
+}
+
+// firstInstallFailedMessage 는 첫 설치 실패의 상태 메시지다. Failed 는 정책을 다시 읽지 않으므로
+// 재시도 방법을 끝에 둔다.
+func firstInstallFailedMessage(state *v1alpha1.DriverUpgradeState, cause string) string {
+	return withCause("첫 설치 실패(job): 되돌릴 이전 버전이 없어 롤백하지 않는다", cause) +
+		fmt.Sprintf(" — 원인을 조치한 뒤 kubectl delete dus %s 로 다시 시도한다", state.Name)
+}
+
+// withCause 는 msg 뒤에 설치 컨테이너가 남긴 원인을 붙인다. 원인이 없으면 msg 그대로다.
+func withCause(msg, cause string) string {
+	switch {
+	case cause == "":
+		return msg
+	case msg == "":
+		return cause
+	}
+	return msg + " — " + cause
+}
+
+// installTargetOf 는 install Job 이 기본으로 설치할 이미지·버전이다. 설치와 설치 전 점검이 같은
+// 대상을 보도록 한 곳에서 고른다.
+func installTargetOf(state *v1alpha1.DriverUpgradeState, policy *v1alpha1.DriverInstallPolicy) (image, version string) {
+	image = state.Status.ResolvedImage
+	if image == "" {
+		image = policy.Spec.Driver.Image
+	}
+	version = state.Status.DesiredVersion
+	if version == "" {
+		version = policy.Spec.Driver.Version
+	}
+	return image, version
+}
+
 // captureJobPreviousImage 는 업그레이드 착수 시 rollback 대상 이미지를 DUS status 에 캡처한다.
 // 이미 캡처됐거나 PreviousVersion 이 없으면 no-op. 재구성 결과가 검증된 build tag 일 때만 저장한다.
 // dipImage 는 policy.Spec.Driver.Image 다 — status.resolvedImage 를 주면 안 된다(reconstructPrevImage
@@ -581,6 +739,50 @@ func jobFailed(job *batchv1.Job) bool {
 		}
 	}
 	return false
+}
+
+// containerTermination 은 Job 파드 컨테이너가 남긴 마지막 종료 기록이다.
+type containerTermination struct {
+	found    bool
+	exitCode int32
+	reason   string
+	message  string
+}
+
+// jobTermination 은 job 파드들에서 container 이름의 가장 최근 종료 기록을 고른다. 현재 상태와
+// 직전 상태(OnFailure 재시작 전)를 함께 본다. 파드가 없으면(TTL 정리 등) found=false 다.
+func (m *UpgradeStateMachine) jobTermination(
+	ctx context.Context, job *batchv1.Job, container string,
+) (containerTermination, error) {
+	var pods corev1.PodList
+	if err := m.List(ctx, &pods, client.InNamespace(job.Namespace),
+		client.MatchingLabels{batchv1.JobNameLabel: job.Name}); err != nil {
+		return containerTermination{}, err
+	}
+	var best containerTermination
+	var bestAt time.Time
+	for i := range pods.Items {
+		// 같은 이름 Job 을 지우고 다시 만든 직후에는 지워지는 중인 옛 파드가 같은 라벨로 남는다. UID 가 있는
+		// Job 이면 그 Job 이 소유한 파드만 본다. UID 가 비어 있으면 소유 관계를 알 수 없어 라벨만 본다.
+		if job.UID != "" && !metav1.IsControlledBy(&pods.Items[i], job) {
+			continue
+		}
+		for _, cs := range pods.Items[i].Status.ContainerStatuses {
+			if cs.Name != container {
+				continue
+			}
+			for _, t := range []*corev1.ContainerStateTerminated{cs.State.Terminated, cs.LastTerminationState.Terminated} {
+				if t == nil || (best.found && !t.FinishedAt.After(bestAt)) {
+					continue
+				}
+				// 종료 메시지는 여러 줄일 수 있어(점검 Job 의 로그 꼬리 등) 상태 메시지·이벤트용 한 줄로 접는다.
+				best = containerTermination{found: true, exitCode: t.ExitCode, reason: t.Reason,
+					message: strings.Join(strings.Fields(t.Message), " ")}
+				bestAt = t.FinishedAt.Time
+			}
+		}
+	}
+	return best, nil
 }
 
 // validationTimeoutFailedMessage 는 검증 예산이 끝나 Failed 로 갈 때의 메시지다. 상태 전이는

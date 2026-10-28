@@ -2,7 +2,7 @@
 // state_machine.go: Driver Upgrade 상태 머신
 // 상세: 노드별 드라이버 업그레이드 상태 전이를 관리한다. Idle → UpgradeRequired → PreFlight →
 //       Cordoning → Draining → Upgrading → Validating → Uncordoning → Idle(실패 시 Rollback).
-// 생성일: 2026-04-13 | 수정일: 2026-10-22
+// 생성일: 2026-04-13 | 수정일: 2026-10-27
 // ============================================================
 
 package upgrade
@@ -631,7 +631,7 @@ func (m *UpgradeStateMachine) handleUpgradeRequired(
 	return m.transitionTo(state, v1alpha1.UpgradeStatePreFlight, "업그레이드 슬롯 확보", 0)
 }
 
-// handlePreFlight: 커널 버전 allowlist 검사 후 Cordoning으로 전이
+// handlePreFlight: 커널 allowlist·노드 Ready·설치 전 점검(NVIDIA job·apt) 뒤 Cordoning으로 전이
 func (m *UpgradeStateMachine) handlePreFlight(
 	ctx context.Context,
 	state *v1alpha1.DriverUpgradeState,
@@ -713,6 +713,23 @@ func (m *UpgradeStateMachine) handlePreFlight(
 	// 노드 Ready 상태 확인
 	if !isNodeReady(&node) {
 		return true, 10 * time.Second, nil
+	}
+
+	// 설치 전 점검(NVIDIA job·apt): hold 된 호스트 패키지가 설치를 막으면 cordon 전에 끝낸다.
+	if preflightApplicable(policy) {
+		verdict, cause, err := m.runDriverPreflight(ctx, state, policy)
+		if err != nil {
+			return false, 0, err
+		}
+		switch verdict {
+		case preflightRunning:
+			return true, 10 * time.Second, nil
+		case preflightBlocked:
+			metrics.RecordUpgradeComplete(state.Spec.Vendor, "failure")
+			m.Recorder.Eventf(state, corev1.EventTypeWarning, "DriverPreflightBlocked", "%s", cause)
+			// cordon 전이라 되돌릴 라벨·quiesce 가 없다. 정리를 부르면 같은 노드 다른 사이클의 라벨·quiesce 를 지우거나 되돌린다.
+			return m.transitionTo(state, v1alpha1.UpgradeStateFailed, preflightBlockedMessage(state, cause), 0)
+		}
 	}
 
 	return m.transitionTo(state, v1alpha1.UpgradeStateCordoning, "PreFlight 검사 통과", 0)

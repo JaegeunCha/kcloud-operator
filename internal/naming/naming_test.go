@@ -2,7 +2,7 @@
 // naming_test.go: DriverDSName 단위 테스트
 // 상세: 드라이버 DaemonSet 이름 생성 규칙 — 벤더/모델 매핑 테이블, 빈 모델 안전성,
 //       대소문자 정규화(내부 lower-case 처리) 검증
-// 생성일: 2026-06-02 | 수정일: 2026-10-11
+// 생성일: 2026-06-02 | 수정일: 2026-10-27
 // ============================================================
 
 package naming
@@ -251,5 +251,16 @@ func TestDeviceResetJobName(t *testing.T) {
 	// 같은 작업의 재진입은 같은 이름을 얻어야 한다(멱등).
 	if again := DeviceResetJobName("k8s-worker1", "nvidia", "tx-1"); again != a {
 		t.Fatalf("같은 작업은 같은 이름이어야 한다: %s != %s", again, a)
+	}
+}
+
+func TestPreflightJobName(t *testing.T) {
+	inst := InstallJobName("nvidia", "generic", "worker1")
+	got := PreflightJobName("nvidia", "generic", "worker1")
+	if want := strings.Replace(inst, "-install-", "-preflight-", 1); got != want {
+		t.Errorf("PreflightJobName = %q, want %q", got, want)
+	}
+	if long := PreflightJobName("furiosa", "warboy", strings.Repeat("n", 200)); len(long) > 63 {
+		t.Errorf("이름이 63자를 넘는다: %d", len(long))
 	}
 }

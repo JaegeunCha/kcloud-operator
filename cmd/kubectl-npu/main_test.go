@@ -1,7 +1,7 @@
 // main_test.go: kubectl-npu 사람용 텍스트 출력 포맷 테스트
 // 상세: 같은 노드에 붙은 장치 여러 대가 표에서 서로 구분되는지 본다(벤더·모델·버전이
 // 같고 PCI 만 다른 경우). describe 명령의 렌더·인자 파싱도 여기서 시험한다.
-// 생성일: 2026-08-11 | 수정일: 2026-10-27
+// 생성일: 2026-08-11 | 수정일: 2026-10-28
 package main
 
 import (
@@ -991,6 +991,50 @@ func TestPrintDriverStatusText_빈값은대시(t *testing.T) {
 	if n := strings.Count(lines[1], "—"); n != 4 {
 		t.Errorf("MODEL·STATE·CURRENT·DESIRED 네 칸이 대시여야 하는데 대시 %d개: %q", n, lines[1])
 	}
+}
+
+// TestPrintDriverStatusText_Failed상세 는 Failed 행의 사유가 표 아래 상세 절에 나오는지 본다.
+func TestPrintDriverStatusText_Failed상세(t *testing.T) {
+	msg := "설치 전 점검 실패(노드 cordon 하지 않음): hold 된 패키지(libx11-6)가 드라이버 설치를 막는다"
+	status := &npuctl.ClusterStatus{Nodes: []npuctl.NodeStatus{
+		{Name: "worker1", Upgrades: []npuctl.UpgradeStatus{{Vendor: "nvidia", State: "Failed", Message: msg}}},
+		{Name: "worker2", Upgrades: []npuctl.UpgradeStatus{{Vendor: "nvidia", State: "Idle", Message: "검증 성공(job)"}}},
+	}}
+	out := captureStdout(t, func() { printDriverStatusText(status) })
+	if !strings.Contains(out, "\nFailed 상세:\n  worker1/nvidia: "+msg+"\n") {
+		t.Errorf("Failed 상세 줄 없음: %q", out)
+	}
+	if strings.Contains(out, "검증 성공(job)") {
+		t.Errorf("Idle 행의 메시지가 상세에 나왔다: %q", out)
+	}
+}
+
+// TestPrintDriverStatusText_Failed메시지없으면상세없음 은 사유가 빈 Failed 행에 상세 절을 만들지 않는다.
+func TestPrintDriverStatusText_Failed메시지없으면상세없음(t *testing.T) {
+	status := &npuctl.ClusterStatus{Nodes: []npuctl.NodeStatus{
+		{Name: "worker1", Upgrades: []npuctl.UpgradeStatus{{Vendor: "nvidia", State: "Failed"}}},
+	}}
+	out := captureStdout(t, func() { printDriverStatusText(status) })
+	if strings.Contains(out, "Failed 상세") {
+		t.Errorf("사유 없는 Failed 에 상세 절: %q", out)
+	}
+}
+
+// TestBuildDiagnoseRows_Failed사유포함 은 diagnose 의 Failed upgrade 행에 DUS 사유가 붙는지 본다.
+func TestBuildDiagnoseRows_Failed사유포함(t *testing.T) {
+	msg := "첫 설치 실패(job): 되돌릴 이전 버전이 없어 롤백하지 않는다"
+	status := &npuctl.ClusterStatus{Nodes: []npuctl.NodeStatus{
+		{Name: "worker1", Upgrades: []npuctl.UpgradeStatus{{Vendor: "nvidia", State: "Failed", Message: msg}}},
+	}}
+	for _, r := range buildDiagnoseRows(status, nil, nil, nil) {
+		if r.category == "upgrade" && r.node == "worker1" {
+			if !strings.Contains(r.detail, "state=Failed") || !strings.Contains(r.detail, " — "+msg) {
+				t.Errorf("detail=%q", r.detail)
+			}
+			return
+		}
+	}
+	t.Error("Failed upgrade 행이 없다")
 }
 
 // TestPrintAllocationStatusText_헤더와열순서 는 allocation status 표의 머리 문자열과

@@ -3,7 +3,7 @@
 // 상세: 가속기를 쓰는 Pod 가 하나라도 있으면 아무것도 지우지 않고 보류한다(Execute 참고).
 // 없으면 npu.ai CR·DaemonSet·Job 등을 정리한다. 호스트 드라이버 패키지·커널 모듈은
 // 건드리지 않는다 — 이 게이트는 Kubernetes 오브젝트만 다룬다.
-// 생성일: 2026-09-10 | 수정일: 2026-10-11
+// 생성일: 2026-09-10 | 수정일: 2026-10-27
 // ============================================================
 package uninstall
 
@@ -75,6 +75,7 @@ var managedJobComponents = []string{
 	"mig-observe",
 	"mig-apply",
 	"driver-install",
+	"driver-preflight",
 	"node-reboot",
 	"device-reset",
 }

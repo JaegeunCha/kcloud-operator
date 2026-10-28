@@ -3,7 +3,7 @@
 // 상세: driver_daemonset_controller(생성)와 upgrade/state_machine(조회)이
 //       동일한 DS 이름을 사용하도록 단일 헬퍼로 통일한다. 불일치 시
 //       업그레이드 상태머신이 드라이버 DS를 찾지 못한다.
-// 생성일: 2026-06-02 | 수정일: 2026-10-11
+// 생성일: 2026-06-02 | 수정일: 2026-10-27
 // ============================================================
 
 // Package naming centralizes Kubernetes resource naming rules shared across
@@ -65,35 +65,45 @@ func DriverDSName(vendor, model string) string {
 	}
 }
 
+// driverJobPrefix 는 드라이버 Job 이름의 벤더·모델 접두다(InstallJobName·PreflightJobName 공용).
+func driverJobPrefix(vendor, model string) string {
+	v := strings.ToLower(vendor)
+	m := strings.ToLower(model)
+	switch v {
+	case vendorNvidia:
+		return "kcloud-nvidia"
+	case vendorFuriosa:
+		if m == "" {
+			return "kcloud-furiosa"
+		}
+		return "kcloud-furiosa-" + m
+	default:
+		if m == "" {
+			return "kcloud-" + v
+		}
+		return "kcloud-" + v + "-" + m
+	}
+}
+
+// nodeHash8 은 노드 이름 sha256 앞 8자다(DNS-1123 을 벗어난 노드명에도 안전한 접미사).
+func nodeHash8(nodeName string) string {
+	sum := sha256.Sum256([]byte(nodeName))
+	return hex.EncodeToString(sum[:])[:8]
+}
+
 // InstallJobName returns the driver install Job name for a given vendor/model/node.
 // 형식: "kcloud-<vendor>[-<model>]-install-<8hex>"(세그먼트 규칙은 DriverDSName 과 동일).
 // <8hex>는 sha256(nodeName) 앞 8자로, 노드명이 DNS-1123 label 제약을 벗어나도 안전한
 // 접미사를 보장한다. 동일 (vendor,model,node) 는 항상 같은 이름을 내 동시성 lease 역할을
 // 하며, 호출자의 Get-before-Create + AlreadyExists 처리와 합쳐 중복 Job 생성을 막는다.
 func InstallJobName(vendor, model, nodeName string) string {
-	v := strings.ToLower(vendor)
-	m := strings.ToLower(model)
-	sum := sha256.Sum256([]byte(nodeName))
-	short := hex.EncodeToString(sum[:])[:8]
+	return driverJobPrefix(vendor, model) + "-install-" + nodeHash8(nodeName)
+}
 
-	var prefix string
-	switch v {
-	case vendorNvidia:
-		prefix = "kcloud-nvidia"
-	case vendorFuriosa:
-		if m == "" {
-			prefix = "kcloud-furiosa"
-		} else {
-			prefix = "kcloud-furiosa-" + m
-		}
-	default:
-		if m == "" {
-			prefix = "kcloud-" + v
-		} else {
-			prefix = "kcloud-" + v + "-" + m
-		}
-	}
-	return prefix + "-install-" + short
+// PreflightJobName 은 설치 전 점검 Job 의 결정론적 이름이다. install Job 과 접두·노드 해시가 같고
+// 가운데 토막만 다르다 — 같은 (vendor,model,node) 에 점검 Job 은 하나만 생긴다.
+func PreflightJobName(vendor, model, nodeName string) string {
+	return driverJobPrefix(vendor, model) + "-preflight-" + nodeHash8(nodeName)
 }
 
 // RebootJobName 은 노드 재부팅 Job 의 결정론적 이름이다. node 해시로 중복 생성을

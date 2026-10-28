@@ -2,7 +2,7 @@
 // state_machine_job_test.go: Job 모드 상태 핸들러 단위 테스트
 // 상세: fake client 기반. handleIdle 초기설치, handleUpgradingJob/handleValidatingJob/
 //       handleRollbackJob 전이, daemonset 무영향(isJobMode)을 검증한다.
-// 생성일: 2026-07-16 | 수정일: 2026-10-13
+// 생성일: 2026-07-16 | 수정일: 2026-10-28
 // ============================================================
 
 package upgrade
@@ -14,13 +14,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	v1alpha1 "kcloud-operator/api/v1alpha1"
 	"kcloud-operator/internal/driverjob"
+	"kcloud-operator/internal/metrics"
 	"kcloud-operator/internal/naming"
 )
 
@@ -373,6 +380,7 @@ func TestHandleValidatingJob_NotComplete_Requeue(t *testing.T) {
 
 func TestHandleValidatingJob_Failed_RollbackOnFailure(t *testing.T) {
 	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, verOld, verNew)
+	dus.Status.PreviousVersion = verOld           // 업그레이드 — 사이클을 열 때 currentVersion 을 옮겨 둔다
 	dip := makeJobDIP(verNew, imgNew, true, true) // rollbackOnFailure=true
 	job := makeInstallJob(false, true)            // 실패
 	sm := newUpgradeSMWithRecorder(dus, dip, job)
@@ -387,6 +395,7 @@ func TestHandleValidatingJob_Failed_RollbackOnFailure(t *testing.T) {
 
 func TestHandleValidatingJob_Failed_NoRollback_Failed(t *testing.T) {
 	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, verOld, verNew)
+	dus.Status.PreviousVersion = verOld            // 업그레이드 — 사이클을 열 때 currentVersion 을 옮겨 둔다
 	dip := makeJobDIP(verNew, imgNew, true, false) // rollbackOnFailure=false
 	job := makeInstallJob(false, true)
 	sm := newUpgradeSMWithRecorder(dus, dip, job)
@@ -396,6 +405,428 @@ func TestHandleValidatingJob_Failed_NoRollback_Failed(t *testing.T) {
 	}
 	if dus.Status.State != v1alpha1.UpgradeStateFailed {
 		t.Errorf("state=%q, want Failed (Job 실패+rollback 비활성)", dus.Status.State)
+	}
+}
+
+// 첫 설치 실패는 롤백을 거치지 않고 설치 컨테이너 사유와 함께 Failed 로 간다.
+func TestHandleValidatingJob_FirstInstallFailure_SkipsRollbackWithCause(t *testing.T) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, "", verNew)
+	dip := makeAptJobDIP(verNew) // rollbackOnFailure=true
+	job := makeInstallJob(false, true)
+	pod := makeJobPod(job.Name, driverjob.InstallContainerName, 3, "Error", holdConflictMsg, false)
+	sm := newUpgradeSMWithRecorder(dus, dip, job, pod)
+	if _, _, err := sm.handleValidatingJob(context.Background(), dus, dip); err != nil {
+		t.Fatalf("handleValidatingJob: %v", err)
+	}
+	if dus.Status.State != v1alpha1.UpgradeStateFailed {
+		t.Fatalf("state=%s, want Failed(롤백 생략)", dus.Status.State)
+	}
+	for _, want := range []string{"첫 설치 실패(job)", holdConflictMsg, "kubectl delete dus " + jDUSNm} {
+		if !strings.Contains(dus.Status.Message, want) {
+			t.Errorf("message 에 %q 없음: %q", want, dus.Status.Message)
+		}
+	}
+	events := drainEvents(sm)
+	if !hasEvent(events, "InstallJobFailed") {
+		t.Error("InstallJobFailed 이벤트 없음")
+	}
+	if !hasEvent(events, "exit=3") {
+		t.Errorf("종료 기록이 있는 InstallJobFailed 이벤트에 종료 코드(exit=3)가 없다: %v", events)
+	}
+}
+
+// 종료 코드 3 으로 끝난 install 컨테이너는 backoffLimit 를 기다리지 않는다.
+func TestHandleValidatingJob_HoldConflictOnRunningJob_FailsFast(t *testing.T) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, "", verNew)
+	dip := makeAptJobDIP(verNew)
+	job := makeInstallJob(false, false) // 아직 Failed 아님(재시작 대기)
+	pod := makeJobPod(job.Name, driverjob.InstallContainerName, 3, "Error", holdConflictMsg, true)
+	sm := newUpgradeSMWithRecorder(dus, dip, job, pod)
+	if _, _, err := sm.handleValidatingJob(context.Background(), dus, dip); err != nil {
+		t.Fatalf("handleValidatingJob: %v", err)
+	}
+	if dus.Status.State != v1alpha1.UpgradeStateFailed {
+		t.Errorf("state=%s, want Failed", dus.Status.State)
+	}
+	key := types.NamespacedName{Name: job.Name, Namespace: job.Namespace}
+	if err := sm.Get(context.Background(), key, &batchv1.Job{}); !apierrors.IsNotFound(err) {
+		t.Errorf("재시작을 끊으려면 install Job 을 지워야 한다(err=%v)", err)
+	}
+}
+
+// 일반 실패(종료 코드 1)는 종전대로 재시작을 기다리되, 사유를 상태 메시지와 이벤트에 남긴다.
+func TestHandleValidatingJob_GenericExitOnRunningJob_KeepsWaiting(t *testing.T) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, "", verNew)
+	dip := makeAptJobDIP(verNew)
+	job := makeInstallJob(false, false)
+	pod := makeJobPod(job.Name, driverjob.InstallContainerName, 1, "Error", "드라이버 설치 실패", true)
+	sm := newUpgradeSMWithRecorder(dus, dip, job, pod)
+	requeue, _, err := sm.handleValidatingJob(context.Background(), dus, dip)
+	if err != nil || !requeue || dus.Status.State != v1alpha1.UpgradeStateValidating {
+		t.Fatalf("err=%v requeue=%v state=%s, want Validating 대기", err, requeue, dus.Status.State)
+	}
+	key := types.NamespacedName{Name: job.Name, Namespace: job.Namespace}
+	if err := sm.Get(context.Background(), key, &batchv1.Job{}); err != nil {
+		t.Errorf("일반 실패에서 install Job 이 지워졌다: %v", err)
+	}
+	for _, want := range []string{"install Job 재시도 중(exit=1)", "드라이버 설치 실패"} {
+		if !strings.Contains(dus.Status.Message, want) {
+			t.Errorf("message 에 %q 없음: %q", want, dus.Status.Message)
+		}
+	}
+	if !hasEvent(drainEvents(sm), "InstallAttemptFailed") {
+		t.Error("InstallAttemptFailed 이벤트 없음")
+	}
+	// 같은 실패를 다시 보면 메시지가 그대로라 이벤트가 쌓이지 않는다.
+	if _, _, err := sm.handleValidatingJob(context.Background(), dus, dip); err != nil {
+		t.Fatalf("handleValidatingJob(재확인): %v", err)
+	}
+	if hasEvent(drainEvents(sm), "InstallAttemptFailed") {
+		t.Error("같은 입력으로 다시 불렀는데 InstallAttemptFailed 이벤트가 또 났다")
+	}
+}
+
+// 이전 버전이 있는 업그레이드 실패는 종전대로 롤백하고, 전이 메시지에 사유를 싣는다.
+func TestHandleValidatingJob_UpgradeFailureWithCause_Rollback(t *testing.T) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, verOld, verNew)
+	dus.Status.PreviousVersion = verOld
+	dip := makeJobDIP(verNew, imgNew, true, true)
+	job := makeInstallJob(false, true)
+	cause := "드라이버 설치 실패 — install Job 로그의 apt·DKMS 출력을 확인한다"
+	pod := makeJobPod(job.Name, driverjob.InstallContainerName, 1, "Error", cause, false)
+	sm := newUpgradeSMWithRecorder(dus, dip, job, pod)
+	if _, _, err := sm.handleValidatingJob(context.Background(), dus, dip); err != nil {
+		t.Fatalf("handleValidatingJob: %v", err)
+	}
+	if dus.Status.State != v1alpha1.UpgradeStateRollback ||
+		!strings.Contains(dus.Status.Message, "install Job 실패: 롤백 시작") || !strings.Contains(dus.Status.Message, cause) {
+		t.Errorf("state=%s message=%q", dus.Status.State, dus.Status.Message)
+	}
+}
+
+// 검증 시한이 지나도 이전 버전이 없으면 롤백을 거치지 않는다(시한 초과 사유가 덮이지 않게).
+func TestHandleValidatingJob_FirstInstallTimeout_NoRollback(t *testing.T) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, "", verNew)
+	dus.Status.LastTransitionTime = metav1.NewTime(time.Now().Add(-30 * time.Minute))
+	dip := makeJobDIP(verNew, imgNew, true, true)
+	dip.Spec.UpgradePolicy.ValidationTimeout = val10m
+	done := makeInstallJob(true, false)
+	past := metav1.NewTime(time.Now().Add(-20 * time.Minute))
+	done.Status.CompletionTime = &past
+	sm := newUpgradeSMWithRecorder(dus, dip, done)
+	if _, _, err := sm.handleValidatingJob(context.Background(), dus, dip); err != nil {
+		t.Fatalf("handleValidatingJob: %v", err)
+	}
+	if dus.Status.State != v1alpha1.UpgradeStateFailed || !strings.Contains(dus.Status.Message, "검증 타임아웃(job)") {
+		t.Errorf("state=%s message=%q, want Failed·검증 타임아웃", dus.Status.State, dus.Status.Message)
+	}
+}
+
+// Job 컨트롤러는 backoffLimit 에 닿으면 실행 중 파드를 지운다. 종료 기록이 없는 Failed 는
+// 재시도 중에 상태 메시지에 남겨 둔 마지막 실패를 원인으로 쓴다.
+func TestHandleValidatingJob_FailedJobWithoutPod_UsesLastRetryMessage(t *testing.T) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, "", verNew)
+	dus.Status.Message = retryNote
+	dip := makeAptJobDIP(verNew)
+	job := makeInstallJob(false, true) // 파드 없음
+	sm := newUpgradeSMWithRecorder(dus, dip, job)
+	if _, _, err := sm.handleValidatingJob(context.Background(), dus, dip); err != nil {
+		t.Fatalf("handleValidatingJob: %v", err)
+	}
+	if dus.Status.State != v1alpha1.UpgradeStateFailed {
+		t.Fatalf("state=%s, want Failed(롤백 생략)", dus.Status.State)
+	}
+	for _, want := range []string{"첫 설치 실패(job)", retryNote, "kubectl delete dus " + jDUSNm} {
+		if !strings.Contains(dus.Status.Message, want) {
+			t.Errorf("message 에 %q 없음: %q", want, dus.Status.Message)
+		}
+	}
+}
+
+// 종료 기록도 재시도 메시지도 없으면 Job 의 Failed 조건 사유를 원인으로 쓰고, 기록이 없는데
+// 종료 코드를 0 으로 찍지 않는다.
+func TestHandleValidatingJob_FailedJobWithoutPodOrRetryMessage_UsesJobFailedReason(t *testing.T) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, "", verNew)
+	dip := makeAptJobDIP(verNew)
+	sm := newUpgradeSMWithRecorder(dus, dip, makeDeadlineExceededJob())
+	if _, _, err := sm.handleValidatingJob(context.Background(), dus, dip); err != nil {
+		t.Fatalf("handleValidatingJob: %v", err)
+	}
+	if dus.Status.State != v1alpha1.UpgradeStateFailed || !strings.Contains(dus.Status.Message, deadlineReason) {
+		t.Errorf("state=%s message=%q, want Failed·%s", dus.Status.State, dus.Status.Message, deadlineReason)
+	}
+	events := drainEvents(sm)
+	if !hasEvent(events, "InstallJobFailed") {
+		t.Fatalf("InstallJobFailed 이벤트 없음: %v", events)
+	}
+	if hasEvent(events, "exit=0") {
+		t.Errorf("종료 기록이 없는데 exit=0 을 찍었다: %v", events)
+	}
+	if !hasEvent(events, "파드 종료 기록 없음") {
+		t.Errorf("종료 코드 자리에 기록 없음 문구가 없다: %v", events)
+	}
+}
+
+// ── install 실패 진단 보강 ───────────────────────
+
+// 시한 초과로 Failed 가 된 Job 의 Failed 조건 값과, 재시도 중에 남은 상태 메시지다.
+const (
+	deadlineReason = "DeadlineExceeded"
+	deadlineMsg    = "Job was active longer than specified deadline"
+	deadlineCause  = deadlineReason + ": " + deadlineMsg
+	retryNote      = "install Job 재시도 중(exit=1) — X"
+)
+
+// makeDeadlineExceededJob 은 activeDeadlineSeconds 초과로 Failed 가 된 install Job 이다. 파드는 없다.
+func makeDeadlineExceededJob() *batchv1.Job {
+	job := makeInstallJob(false, false)
+	job.Status.Conditions = []batchv1.JobCondition{{Type: batchv1.JobFailed, Status: corev1.ConditionTrue,
+		Reason: deadlineReason, Message: deadlineMsg}}
+	return job
+}
+
+// timedOutValidating 은 검증 시한(10m)이 지난 Validating 의 DUS·DIP·완료 Job 이다. Job 은 20분 전에
+// 끝났다. previous 가 비면 첫 설치다.
+func timedOutValidating(previous string, rollbackOn bool) (
+	*v1alpha1.DriverUpgradeState, *v1alpha1.DriverInstallPolicy, *batchv1.Job,
+) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, previous, verNew)
+	dus.Status.PreviousVersion = previous
+	dus.Status.LastTransitionTime = metav1.NewTime(time.Now().Add(-30 * time.Minute))
+	dip := makeAptJobDIP(verNew)
+	dip.Spec.UpgradePolicy.RollbackOnFailure = rollbackOn
+	dip.Spec.UpgradePolicy.ValidationTimeout = val10m
+	done := makeInstallJob(true, false)
+	past := metav1.NewTime(time.Now().Add(-20 * time.Minute))
+	done.Status.CompletionTime = &past
+	return dus, dip, done
+}
+
+// newUpgradeSMCountingJobPodLists 는 jobName 의 파드 목록 조회(job-name 라벨 선택자) 횟수를 세는
+// 상태 기계를 만든다.
+func newUpgradeSMCountingJobPodLists(count *int, jobName string, objs ...client.Object) *UpgradeStateMachine {
+	c := fake.NewClientBuilder().
+		WithScheme(newUpgradeTestScheme()).
+		WithObjects(objs...).
+		WithStatusSubresource(&v1alpha1.DriverUpgradeState{}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+				lo := &client.ListOptions{}
+				lo.ApplyOptions(opts)
+				if _, ok := list.(*corev1.PodList); ok && lo.LabelSelector != nil &&
+					strings.Contains(lo.LabelSelector.String(), batchv1.JobNameLabel+"="+jobName) {
+					*count++
+				}
+				return c.List(ctx, list, opts...)
+			},
+		}).
+		Build()
+	return &UpgradeStateMachine{Client: c, Recorder: record.NewFakeRecorder(64)}
+}
+
+// install Job 이 끝나면 상태 메시지의 재시도 중 문구를 걷어낸다. 남겨 두면 검증을 기다리는 동안
+// 설치 실패처럼 읽힌다. 다른 문구는 건드리지 않는다.
+func TestHandleValidatingJob_CompleteJob_ReplacesRetryMessage(t *testing.T) {
+	for _, c := range []struct {
+		name, before, want string
+		wantEvent          bool
+	}{
+		{"재시도 중 문구", retryNote, "install Job 완료 — 검증 중", true},
+		{"다른 문구", "install Job 생성", "install Job 생성", false},
+	} {
+		dus := makeJobDUS(v1alpha1.UpgradeStateValidating, "", verNew)
+		dus.Status.Message = c.before
+		dip := makeAptJobDIP(verNew)
+		sm := newUpgradeSMWithRecorder(dus, dip, makeInstallJob(true, false))
+		if _, _, err := sm.handleValidatingJob(context.Background(), dus, dip); err != nil {
+			t.Fatalf("%s: handleValidatingJob: %v", c.name, err)
+		}
+		if dus.Status.Message != c.want {
+			t.Errorf("%s: message=%q, want %q", c.name, dus.Status.Message, c.want)
+		}
+		if got := hasEvent(drainEvents(sm), "Normal InstallJobCompleted"); got != c.wantEvent {
+			t.Errorf("%s: InstallJobCompleted 이벤트=%v, want %v", c.name, got, c.wantEvent)
+		}
+	}
+}
+
+// 검증 시한 Failed 메시지의 "마지막 검증" 꼬리에도 재시도 중 문구가 남지 않는다.
+func TestHandleValidatingJob_TimeoutTail_HasNoRetryMessage(t *testing.T) {
+	dus, dip, done := timedOutValidating(verOld, false)
+	dus.Status.Message = retryNote
+	sm := newUpgradeSMWithRecorder(dus, dip, done)
+	if _, _, err := sm.handleValidatingJob(context.Background(), dus, dip); err != nil {
+		t.Fatalf("handleValidatingJob: %v", err)
+	}
+	if dus.Status.State != v1alpha1.UpgradeStateFailed {
+		t.Fatalf("state=%s, want Failed", dus.Status.State)
+	}
+	if !strings.Contains(dus.Status.Message, "마지막 검증: install Job 완료 — 검증 중") ||
+		strings.Contains(dus.Status.Message, "재시도 중") {
+		t.Errorf("message=%q, want 마지막 검증 꼬리가 완료 문구", dus.Status.Message)
+	}
+}
+
+// 롤백이 꺼진 업그레이드의 실패 메시지는 원인만 싣는다. backoffLimit 소진은 종료 코드 3 즉시 실패나
+// 시한 초과에는 사실이 아니다.
+func TestHandleValidatingJob_UpgradeFailureRollbackOff_MessageWithoutBackoffLimit(t *testing.T) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, verOld, verNew)
+	dus.Status.PreviousVersion = verOld
+	dip := makeAptJobDIP(verNew)
+	dip.Spec.UpgradePolicy.RollbackOnFailure = false
+	sm := newUpgradeSMWithRecorder(dus, dip, makeDeadlineExceededJob())
+	if _, _, err := sm.handleValidatingJob(context.Background(), dus, dip); err != nil {
+		t.Fatalf("handleValidatingJob: %v", err)
+	}
+	want := "install Job 실패: 수동 조치 필요 — " + deadlineCause
+	if dus.Status.State != v1alpha1.UpgradeStateFailed || dus.Status.Message != want {
+		t.Errorf("state=%s message=%q, want Failed·%q", dus.Status.State, dus.Status.Message, want)
+	}
+}
+
+// 업그레이드 중 실행 중인 install Job 이 종료 코드 3 으로 끝나면 Job 을 지우고 롤백으로 간다. 지운 Job 이
+// 캐시에 남아 롤백이 그것을 진행 중인 롤백 Job 으로 읽지 않도록 5초 뒤 다시 본다.
+func TestHandleValidatingJob_HoldConflictOnRunningJob_UpgradeRollsBackAfterRecheck(t *testing.T) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, verOld, verNew)
+	dus.Status.PreviousVersion = verOld
+	dip := makeAptJobDIP(verNew) // rollbackOnFailure=true
+	job := makeInstallJob(false, false)
+	pod := makeJobPod(job.Name, driverjob.InstallContainerName, 3, "Error", holdConflictMsg, true)
+	sm := newUpgradeSMWithRecorder(dus, dip, job, pod)
+	requeue, after, err := sm.handleValidatingJob(context.Background(), dus, dip)
+	if err != nil || !requeue || after != 5*time.Second {
+		t.Errorf("err=%v requeue=%v after=%s, want 5s 뒤 재확인", err, requeue, after)
+	}
+	if dus.Status.State != v1alpha1.UpgradeStateRollback {
+		t.Fatalf("state=%s, want Rollback", dus.Status.State)
+	}
+	for _, want := range []string{"install Job 실패: 롤백 시작", holdConflictMsg} {
+		if !strings.Contains(dus.Status.Message, want) {
+			t.Errorf("message 에 %q 없음: %q", want, dus.Status.Message)
+		}
+	}
+	key := types.NamespacedName{Name: job.Name, Namespace: job.Namespace}
+	if err := sm.Get(context.Background(), key, &batchv1.Job{}); !apierrors.IsNotFound(err) {
+		t.Errorf("install Job 이 남았다(err=%v)", err)
+	}
+}
+
+// 종료 코드 3 인데 종료 메시지가 비면 설치 전 점검과 같은 기본 사유를 쓴다. 원인이 "기록 없음" 으로 읽히지 않는다.
+func TestHandleValidatingJob_HoldConflictWithoutMessage_UsesDefaultCause(t *testing.T) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, "", verNew)
+	dip := makeAptJobDIP(verNew)
+	job := makeInstallJob(false, false)
+	pod := makeJobPod(job.Name, driverjob.InstallContainerName, 3, "Error", "", true)
+	sm := newUpgradeSMWithRecorder(dus, dip, job, pod)
+	if _, _, err := sm.handleValidatingJob(context.Background(), dus, dip); err != nil {
+		t.Fatalf("handleValidatingJob: %v", err)
+	}
+	const want = "hold 된 호스트 패키지가 드라이버 설치를 막는다(종료 메시지 없음)"
+	if dus.Status.State != v1alpha1.UpgradeStateFailed || !strings.Contains(dus.Status.Message, want) {
+		t.Errorf("state=%s message=%q, want Failed·%q", dus.Status.State, dus.Status.Message, want)
+	}
+}
+
+// 종료 코드 3 = hold 충돌 계약은 NVIDIA apt 설치기에만 있다. 그 밖 정책(ngc)의 3 은 일반 실패처럼 재시작을 기다린다.
+func TestHandleValidatingJob_ExitThreeOutsideHoldContract_KeepsWaiting(t *testing.T) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, "", verNew)
+	dip := makeJobDIP(verNew, imgNew, true, true) // ngc — 점검 대상이 아니다
+	job := makeInstallJob(false, false)
+	pod := makeJobPod(job.Name, driverjob.InstallContainerName, 3, "Error", "", true)
+	sm := newUpgradeSMWithRecorder(dus, dip, job, pod)
+	requeue, _, err := sm.handleValidatingJob(context.Background(), dus, dip)
+	if err != nil || !requeue || dus.Status.State != v1alpha1.UpgradeStateValidating {
+		t.Fatalf("err=%v requeue=%v state=%s, want Validating 대기", err, requeue, dus.Status.State)
+	}
+	key := types.NamespacedName{Name: job.Name, Namespace: job.Namespace}
+	if err := sm.Get(context.Background(), key, &batchv1.Job{}); err != nil {
+		t.Errorf("계약 밖 종료 코드 3 에서 install Job 이 지워졌다: %v", err)
+	}
+	if !strings.Contains(dus.Status.Message, "install Job 재시도 중(exit=3)") || strings.Contains(dus.Status.Message, "hold") {
+		t.Errorf("message=%q, want 재시도 중(exit=3)·hold 문구 없음", dus.Status.Message)
+	}
+}
+
+// 계약 밖 정책의 Failed Job 이 종료 코드 3·빈 종료 메시지로 끝나도 원인을 hold 충돌로 적지 않는다.
+func TestHandleValidatingJob_FailedExitThreeOutsideHoldContract_NoHoldCause(t *testing.T) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, "", verNew)
+	dip := makeJobDIP(verNew, imgNew, true, true)
+	job := makeInstallJob(false, true)
+	pod := makeJobPod(job.Name, driverjob.InstallContainerName, 3, "Error", "", false)
+	sm := newUpgradeSMWithRecorder(dus, dip, job, pod)
+	if _, _, err := sm.handleValidatingJob(context.Background(), dus, dip); err != nil {
+		t.Fatalf("handleValidatingJob: %v", err)
+	}
+	if dus.Status.State != v1alpha1.UpgradeStateFailed || strings.Contains(dus.Status.Message, holdConflictDefaultCause) {
+		t.Errorf("state=%s message=%q, want Failed·hold 기본 사유 없음", dus.Status.State, dus.Status.Message)
+	}
+}
+
+// 재시도 중이던 Job 이 시한 초과로 Failed 가 돼도 시한 초과 사유가 재시도 메시지에 가려지지 않는다.
+func TestHandleValidatingJob_FailedJobWithRetryMessageAndDeadline_KeepsBoth(t *testing.T) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, "", verNew)
+	dus.Status.Message = retryNote
+	dip := makeAptJobDIP(verNew)
+	sm := newUpgradeSMWithRecorder(dus, dip, makeDeadlineExceededJob())
+	if _, _, err := sm.handleValidatingJob(context.Background(), dus, dip); err != nil {
+		t.Fatalf("handleValidatingJob: %v", err)
+	}
+	want := deadlineCause + " — " + retryNote
+	if dus.Status.State != v1alpha1.UpgradeStateFailed || !strings.Contains(dus.Status.Message, want) {
+		t.Errorf("state=%s message=%q, want Failed·%q", dus.Status.State, dus.Status.Message, want)
+	}
+}
+
+// 롤백 없이 Failed 로 가는 검증 시한 초과는 failure 지표와 경고 이벤트를 남긴다. 첫 설치는 종전에 롤백
+// 단계가 남기던 것이다.
+func TestHandleValidatingJob_TimeoutWithoutRollback_RecordsFailure(t *testing.T) {
+	for _, c := range []struct {
+		name, previous string
+		rollbackOn     bool
+	}{
+		{"첫 설치·롤백 켬", "", true},
+		{"업그레이드·롤백 끔", verOld, false},
+	} {
+		dus, dip, done := timedOutValidating(c.previous, c.rollbackOn)
+		sm := newUpgradeSMWithRecorder(dus, dip, done)
+		before := testutil.ToFloat64(metrics.UpgradeTotal.WithLabelValues(jVendor, "failure"))
+		if _, _, err := sm.handleValidatingJob(context.Background(), dus, dip); err != nil {
+			t.Fatalf("%s: handleValidatingJob: %v", c.name, err)
+		}
+		if dus.Status.State != v1alpha1.UpgradeStateFailed {
+			t.Fatalf("%s: state=%s, want Failed", c.name, dus.Status.State)
+		}
+		if d := testutil.ToFloat64(metrics.UpgradeTotal.WithLabelValues(jVendor, "failure")) - before; d != 1 {
+			t.Errorf("%s: failure 지표 +%v, want 1", c.name, d)
+		}
+		if events := drainEvents(sm); !hasEvent(events, "Warning ValidationTimeout "+dus.Status.Message) {
+			t.Errorf("%s: 전이 메시지와 같은 ValidationTimeout 경고 이벤트 없음: %v", c.name, events)
+		}
+	}
+}
+
+// 끝난 install Job 은 파드를 조회하지 않는다. 조회하면 파드 쪽의 낡은 종료 코드 3 기록을 hold 충돌로 읽어
+// 설치를 마친 Job 을 지우고 실패시킬 수 있다.
+func TestHandleValidatingJob_CompleteJob_SkipsPodLookup(t *testing.T) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, "", verNew)
+	dip := makeAptJobDIP(verNew)
+	job := makeInstallJob(true, false)
+	stale := makeJobPod(job.Name, driverjob.InstallContainerName, driverjob.ExitCodeHostPackageConflict,
+		"Error", holdConflictMsg, false)
+	lookups := 0
+	sm := newUpgradeSMCountingJobPodLists(&lookups, job.Name, dus, dip, job, stale)
+	if _, _, err := sm.handleValidatingJob(context.Background(), dus, dip); err != nil {
+		t.Fatalf("handleValidatingJob: %v", err)
+	}
+	if lookups != 0 {
+		t.Errorf("끝난 Job 의 파드를 %d번 조회했다", lookups)
+	}
+	if dus.Status.State != v1alpha1.UpgradeStateValidating {
+		t.Errorf("state=%s, want Validating(검증 대기) — 낡은 종료 코드 3 기록으로 실패했다", dus.Status.State)
+	}
+	key := types.NamespacedName{Name: job.Name, Namespace: job.Namespace}
+	if err := sm.Get(context.Background(), key, &batchv1.Job{}); err != nil {
+		t.Errorf("끝난 install Job 이 지워졌다: %v", err)
 	}
 }
 
@@ -466,9 +897,9 @@ func TestHandleRollbackJob_CreatesRollbackJob(t *testing.T) {
 // 완료된 Job 을 이번 사이클의 Job 으로 착각해, 새 설치 없이 앞 Job 의 결과로 검증이 끝나고
 // 검증 예산 만료→불필요한 rollback→불필요한 재부팅으로 이어진다.
 
-// makeAptJobDIP 는 apt 인스톨러 정책이다 — 모든 버전이 같은 이미지를 쓴다.
-func makeAptJobDIP(version, image string) *v1alpha1.DriverInstallPolicy {
-	dip := makeJobDIP(version, image, true, true)
+// makeAptJobDIP 는 apt 인스톨러 정책이다 — 모든 버전이 같은 이미지(imgNew)를 쓴다.
+func makeAptJobDIP(version string) *v1alpha1.DriverInstallPolicy {
+	dip := makeJobDIP(version, imgNew, true, true)
 	dip.Spec.Driver.Installer = v1alpha1.DriverInstallerAPT
 	return dip
 }
@@ -487,7 +918,7 @@ func makeVersionedInstallJob(image, version string, complete bool) *batchv1.Job 
 // 같은 이미지 + 다른 목표 버전인 잔여 Job 은 이번 사이클의 Job 이 아니다 — 삭제 후 재생성.
 func TestHandleUpgradingJob_StaleJobSameImageOtherVersion_Recreated(t *testing.T) {
 	dus := makeJobDUS(v1alpha1.UpgradeStateUpgrading, verNew, verOld)
-	dip := makeAptJobDIP(verOld, imgNew)
+	dip := makeAptJobDIP(verOld)
 	stale := makeVersionedInstallJob(imgNew, verNew, true) // 지난 사이클(verNew) 산물, 완료됨
 	sm := newUpgradeSMWithRecorder(dus, dip, stale)
 
@@ -507,7 +938,7 @@ func TestHandleUpgradingJob_StaleJobSameImageOtherVersion_Recreated(t *testing.T
 // 같은 이미지 + 같은 목표 버전이면 이번 사이클의 Job 이다 — 재사용(재생성 금지).
 func TestHandleUpgradingJob_SameImageSameVersion_Reused(t *testing.T) {
 	dus := makeJobDUS(v1alpha1.UpgradeStateUpgrading, verOld, verNew)
-	dip := makeAptJobDIP(verNew, imgNew)
+	dip := makeAptJobDIP(verNew)
 	mine := makeVersionedInstallJob(imgNew, verNew, false) // 이번 사이클, 진행 중
 	sm := newUpgradeSMWithRecorder(dus, dip, mine)
 
@@ -524,12 +955,50 @@ func TestHandleUpgradingJob_SameImageSameVersion_Reused(t *testing.T) {
 	}
 }
 
+// 같은 목표라도 실패한 install Job 은 재사용하지 않는다. 재사용하면 새 사이클이 cordon·drain 뒤 곧바로 같은 실패로
+// 끝난다. 지운 뒤 다음 호출이 새 Job 을 만든다.
+func TestHandleUpgradingJob_SameTargetFailedJob_Recreated(t *testing.T) {
+	ctx := context.Background()
+	dus := makeJobDUS(v1alpha1.UpgradeStateUpgrading, "", verNew)
+	dip := makeAptJobDIP(verNew)
+	failed := markJob(driverjob.RenderInstallJob(dip, jNode, imgNew, verNew), false, true)
+	sm := newUpgradeSMWithRecorder(dus, dip, failed)
+	requeue, after, err := sm.handleUpgradingJob(ctx, dus, dip)
+	if err != nil || !requeue || after != installJobRecheckDelay || dus.Status.State != v1alpha1.UpgradeStateUpgrading {
+		t.Fatalf("err=%v requeue=%v after=%s state=%s, want 5초 뒤 재확인·Upgrading 유지",
+			err, requeue, after, dus.Status.State)
+	}
+	key := types.NamespacedName{Name: failed.Name, Namespace: failed.Namespace}
+	if err := sm.Get(ctx, key, &batchv1.Job{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("실패한 install Job 이 남았다(err=%v)", err)
+	}
+	if _, _, err := sm.handleUpgradingJob(ctx, dus, dip); err != nil {
+		t.Fatalf("2차 handleUpgradingJob: %v", err)
+	}
+	if job := installJobOf(t, sm); jobFailed(job) || dus.Status.State != v1alpha1.UpgradeStateValidating {
+		t.Errorf("failed=%v state=%s, want 새 install Job·Validating", jobFailed(job), dus.Status.State)
+	}
+}
+
+// 같은 목표의 완료된 install Job 은 종전대로 재사용한다. 다시 만드는 것은 실패한 Job 뿐이다.
+func TestHandleUpgradingJob_SameTargetCompleteJob_Reused(t *testing.T) {
+	dus := makeJobDUS(v1alpha1.UpgradeStateUpgrading, verOld, verNew)
+	dip := makeAptJobDIP(verNew)
+	sm := newUpgradeSMWithRecorder(dus, dip, markJob(driverjob.RenderInstallJob(dip, jNode, imgNew, verNew), true, false))
+	if _, _, err := sm.handleUpgradingJob(context.Background(), dus, dip); err != nil {
+		t.Fatalf("handleUpgradingJob: %v", err)
+	}
+	if job := installJobOf(t, sm); !jobComplete(job) || dus.Status.State != v1alpha1.UpgradeStateValidating {
+		t.Errorf("complete=%v state=%s, want 완료 Job 재사용·Validating", jobComplete(job), dus.Status.State)
+	}
+}
+
 // rollback 도 같은 신원 규칙을 쓴다 — 실패한 desired 버전 Job 을 rollback Job 으로 오인하면
 // 되돌리기가 한 번도 실행되지 않는다.
 func TestHandleRollbackJob_StaleJobSameImageOtherVersion_Recreated(t *testing.T) {
 	dus := makeJobDUS(v1alpha1.UpgradeStateRollback, verOld, verNew)
 	dus.Status.PreviousVersion = verOld
-	dip := makeAptJobDIP(verNew, imgNew)
+	dip := makeAptJobDIP(verNew)
 	failedDesired := makeVersionedInstallJob(imgNew, verNew, true) // 되돌릴 대상이 아닌 Job
 	sm := newUpgradeSMWithRecorder(dus, dip, failedDesired)
 
@@ -683,6 +1152,7 @@ func TestHandleValidatingJob_RunningJobDoesNotConsumeBudget(t *testing.T) {
 // 흐르는 것을 고정한다. 완료 직후라면 Validating 진입이 아무리 오래됐어도 타임아웃이 아니다.
 func TestHandleValidatingJob_BudgetStartsAfterJobCompletion(t *testing.T) {
 	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, verOld, verNew)
+	dus.Status.PreviousVersion = verOld // 업그레이드 — 사이클을 열 때 currentVersion 을 옮겨 둔다
 	dus.Status.LastTransitionTime = metav1.NewTime(time.Now().Add(-30 * time.Minute))
 	dip := makeJobDIP(verNew, imgNew, true, true)
 	dip.Spec.UpgradePolicy.ValidationTimeout = val10m

@@ -2,7 +2,7 @@
 // 상세: kubectl npu status[--json]/driver-version/upgrade/toggle/describe 등을 제공한다.
 // 조회·제어는 pkg/npuctl(kcloud-operator 모듈, replace 로 로컬 참조)에 위임하고, 이
 // 파일은 CLI 인자 파싱과 사람용/JSON 출력 서식만 맡는다.
-// 생성일: 2026-03-25 | 수정일: 2026-10-27
+// 생성일: 2026-03-25 | 수정일: 2026-10-28
 package main
 
 import (
@@ -1090,18 +1090,30 @@ func cmdDriverStatus() {
 	printDriverStatusText(status)
 }
 
-// printDriverStatusText 는 ClusterStatus.Nodes[].Upgrades 를 노드×벤더 한 행으로 낸다.
+// printDriverStatusText 는 ClusterStatus.Nodes[].Upgrades 를 노드×벤더 한 행으로 내고, Failed 인 행의
+// 사유를 표 아래 "Failed 상세" 절에 한 줄씩 덧붙인다(사유가 길어 표 열로 두지 않는다).
 func printDriverStatusText(status *npuctl.ClusterStatus) {
 	var rows [][]string
+	var failed []string
 	for _, n := range status.Nodes {
 		for _, u := range n.Upgrades {
 			rows = append(rows, []string{
 				n.Name, u.Vendor, modelCell(u.Model, u.Models), dashIfEmpty(upgradeStateCell(u)),
 				dashIfEmpty(u.CurrentVersion), dashIfEmpty(u.DesiredVersion),
 			})
+			if u.State == npuv1alpha1.UpgradeStateFailed && u.Message != "" {
+				failed = append(failed, fmt.Sprintf("  %s/%s: %s", n.Name, u.Vendor, u.Message))
+			}
 		}
 	}
 	printTable([]string{"NODE", "VENDOR", "MODEL", "STATE", "CURRENT", "DESIRED"}, rows)
+	if len(failed) > 0 {
+		fmt.Println()
+		fmt.Println("Failed 상세:")
+		for _, l := range failed {
+			fmt.Println(l)
+		}
+	}
 }
 
 // driverRollbackArgs 는 "driver rollback" 인자 파싱 결과다.
@@ -1717,11 +1729,12 @@ func buildDiagnoseRows(
 				switch {
 				case u.State == npuv1alpha1.UpgradeStateFailed || u.State == npuv1alpha1.UpgradeStateHostAhead ||
 					u.State == npuv1alpha1.UpgradeStateUnverifiedVersion:
-					rows = append(rows, diagnoseRow{
-						category: "upgrade", node: n.Name, vendor: u.Vendor,
-						detail: fmt.Sprintf("state=%s current=%s desired=%s", u.State,
-							dashIfEmpty(u.CurrentVersion), dashIfEmpty(u.DesiredVersion)),
-					})
+					detail := fmt.Sprintf("state=%s current=%s desired=%s", u.State,
+						dashIfEmpty(u.CurrentVersion), dashIfEmpty(u.DesiredVersion))
+					if u.State == npuv1alpha1.UpgradeStateFailed && u.Message != "" {
+						detail += " — " + u.Message
+					}
+					rows = append(rows, diagnoseRow{category: "upgrade", node: n.Name, vendor: u.Vendor, detail: detail})
 				case u.State == npuv1alpha1.UpgradeStateIdle && u.RolledBackVersion != "":
 					rows = append(rows, diagnoseRow{
 						category: "upgrade", node: n.Name, vendor: u.Vendor,

@@ -4,13 +4,14 @@
 //
 //	보류해서 삭제가 끝나지 않거나. 두 방향을 각각 시험한다.
 //
-// 생성일: 2026-09-10 | 수정일: 2026-09-10
+// 생성일: 2026-09-10 | 수정일: 2026-10-27
 // ============================================================
 package uninstall
 
 import (
 	"bytes"
 	"context"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -369,5 +370,11 @@ func TestDeleteDaemonSetsLabelPathPreservesForeignComponent(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "(component=") {
 		t.Errorf("라벨 경로가 옛 로그 형식(component 접미)을 아직 찍는다 — sweep 을 거치지 않았다:\n%s", out.String())
+	}
+}
+
+func TestManagedJobComponentsIncludeDriverPreflight(t *testing.T) {
+	if !slices.Contains(managedJobComponents, "driver-preflight") {
+		t.Errorf("managedJobComponents 에 driver-preflight 가 없다: %v", managedJobComponents)
 	}
 }

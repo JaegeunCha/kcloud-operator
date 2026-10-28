@@ -1,5 +1,5 @@
 # values.yaml: NPU Operator 기본 설정값
-# 생성일: 2026-03-25 | 수정일: 2026-10-27
+# 생성일: 2026-03-25 | 수정일: 2026-10-28
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 레지스트리는 두 종류다. 어느 이미지가 어느 쪽인지는 deploy/helm/README.md 의 "레지스트리
@@ -47,7 +47,7 @@ metrics:
 # operator 이미지: registry 는 global.registry 로 조립됨 (repository 는 registry-relative path).
 image:
   repository: kcloud-operator
-  tag: v0.8.3
+  tag: v0.8.4
   pullPolicy: IfNotPresent
 
 # hostExec: operator 가 호스트에서 명령을 대신 실행할 때 띄우는 특권 hostPID Job 이미지
@@ -588,7 +588,8 @@ driverInstallPolicies:
       # 있으면 재부팅을 맡기지 않는다) — apt 잠금 대기 실패는 호출부로 전파한다.
       # v6 부터 이미지에 NVIDIA 바이너리를 담지 않는다 — 설치는 호스트 apt(또는 kernelImages 의 사전 컴파일 .deb)로만 한다.
       # v8 은 같은 계열 고정 설치에서 같은 소스 패키지의 사용자 공간 패키지도 함께 고정하고 apt 에 --allow-downgrades 를 준다.
-      tag: "v8"
+      # v9 는 설치 전 점검 진입점(preflight.sh)과 hold 충돌 종료 코드 3 을 더한다.
+      tag: "v9"
       installer: apt
       # 다운그레이드 허용 여부 (false=버전 낮추기 금지, 안전장치)
       allowDowngrade: false

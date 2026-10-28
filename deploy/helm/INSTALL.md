@@ -1,4 +1,4 @@
-<!-- INSTALL.md: kcloud-operator Helm 설치와 확인 절차 | 생성일: 2026-09-14 | 수정일: 2026-10-27 -->
+<!-- INSTALL.md: kcloud-operator Helm 설치와 확인 절차 | 생성일: 2026-09-14 | 수정일: 2026-10-28 -->
 
 # kcloud-operator 설치 · 확인 절차
 
@@ -29,7 +29,7 @@ serverVersion:
 
 | Service K8s | 차트 | 프리셋 | 설치용 values 주소 |
 |---|---|---|---|
-| 1.31~1.34 | 0.8.3 | `values-k8s1.34.yaml` | `release.yaml` 의 `1.31-1.34` 프로필 `valuesURL` |
+| 1.31~1.34 | 0.8.4 | `values-k8s1.34.yaml` | `release.yaml` 의 `1.31-1.34` 프로필 `valuesURL` |
 | 1.26~1.30 | 0.6.3 | `values-k8s1.28.yaml` | `release.yaml` 의 `1.26-1.30` 프로필 `valuesURL` |
 
 브랜치 주소(`release.yaml` 의 `valuesBrowseURL`)는 최신 내용을 사람이 확인할 때만 씁니다. 브랜치는 새 커밋이 들어오면 같은 주소가 다른 내용을 돌려주므로 설치에는 쓰지 않습니다.
@@ -37,11 +37,11 @@ serverVersion:
 values 주소는 이 문서에 적지 않고 `release.yaml` 에서 그대로 옮깁니다. 주소를 문서에 다시 적으면 프리셋을 고칠 때 문서만 옛 커밋에 남습니다.
 
 ```bash
-export CHART_VERSION=0.8.3
+export CHART_VERSION=0.8.4
 export VALUES_URL='<release.yaml 1.31-1.34 프로필의 valuesURL>'
 ```
 
-1.26~1.30 클러스터라면 `CHART_VERSION=0.6.3` 과 `1.26-1.30` 프로필의 `valuesURL` 을 쓰고, 프리셋 파일 이름은 `values-k8s1.28.yaml` 입니다. 그 프리셋은 차트 `0.6.3` 을 담은 `release/k8s-1.28` 브랜치에 있고 차트 `0.8.1` 의 소스 트리에는 없습니다 — 위 표의 values 주소는 그 브랜치 커밋을 가리키므로 설치 절차는 같습니다. 차트 `0.8.1` 을 1.26~1.30 클러스터에 설치하려 하면 `kubeVersion` 선언 때문에 helm 이 거절합니다.
+1.26~1.30 클러스터라면 `CHART_VERSION=0.6.3` 과 `1.26-1.30` 프로필의 `valuesURL` 을 쓰고, 프리셋 파일 이름은 `values-k8s1.28.yaml` 입니다. 그 프리셋은 차트 `0.6.3` 을 담은 `release/k8s-1.28` 브랜치에 있고 이 라인(1.31~1.34) 차트의 소스 트리에는 없습니다 — 위 표의 values 주소는 그 브랜치 커밋을 가리키므로 설치 절차는 같습니다. 이 라인의 차트를 1.26~1.30 클러스터에 설치하려 하면 `kubeVersion` 선언 때문에 helm 이 거절합니다.
 
 ## 3. site-values.yaml 작성
 
@@ -64,7 +64,7 @@ kubectl create namespace kcloud --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n kcloud create secret generic furiosa-apt-auth --from-file=furiosa.conf=./furiosa.conf
 ```
 
-0.8.1 은 이 Secret 이 없으면 Warboy 설치 파드가 볼륨 마운트에서 멈춘 채 최대 30분(드라이버 버전 변경이면 최대 약 2시간) 노드를 cordon 하고 드라이버 업그레이드 슬롯을 잡습니다. 슬롯은 벤더를 구분하지 않으므로 그동안 같은 노드의 NVIDIA 를 포함한 다른 드라이버 설치도 기다립니다. 멈춘 뒤라도 Secret 을 만들면 kubelet 이 마운트를 다시 시도해 설치가 이어집니다. 이 시한이 지나 Warboy 의 DriverUpgradeState 가 `Failed` 가 되었으면 Secret 을 만든 뒤 남은 설치 Job 과 DriverUpgradeState 를 지워 다시 시작합니다. 실패한 설치 Job 은 10분 동안 남아 있고, 지우지 않으면 새 사이클이 그 Job 을 다시 써서 곧바로 실패합니다.
+0.8.1 은 이 Secret 이 없으면 Warboy 설치 파드가 볼륨 마운트에서 멈춘 채 최대 30분(드라이버 버전 변경이면 최대 약 2시간) 노드를 cordon 하고 드라이버 업그레이드 슬롯을 잡습니다. 슬롯은 벤더를 구분하지 않으므로 그동안 같은 노드의 NVIDIA 를 포함한 다른 드라이버 설치도 기다립니다. 멈춘 뒤라도 Secret 을 만들면 kubelet 이 마운트를 다시 시도해 설치가 이어집니다. 이 시한이 지나 Warboy 의 DriverUpgradeState 가 `Failed` 가 되었으면 Secret 을 만든 뒤 DriverUpgradeState 를 지워 다시 시작합니다. 0.8.3 이하는 실패한 설치 Job 이 10분 동안 남아 새 사이클이 그 Job 을 다시 써서 곧바로 실패하므로, 남은 설치 Job 도 함께 지웁니다.
 
 ```bash
 kubectl -n kcloud delete job -l npu.ai/vendor=furiosa,npu.ai/node=<노드>
@@ -96,7 +96,7 @@ helm template kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-operator \
   | grep -E "image:|kind:" | sort -u
 ```
 
-operator 이미지가 `ghcr.io/openkcloud/kcloud-operator:v0.8.3` 으로 나오는지 봅니다. 목록에 DRA 드라이버 이미지 두 개가 함께 보이는데, 기본값이 꺼져 있어 실제로 배포되지는 않습니다. `kcloud-host-exec` 과 Tenstorrent device-plugin 은 차트가 아니라 operator 가 실행 중에 만들기 때문에 이 목록에 나오지 않습니다.
+operator 이미지가 `ghcr.io/openkcloud/kcloud-operator:v0.8.4` 로 나오는지 봅니다. 목록에 DRA 드라이버 이미지 두 개가 함께 보이는데, 기본값이 꺼져 있어 실제로 배포되지는 않습니다. `kcloud-host-exec` 과 Tenstorrent device-plugin 은 차트가 아니라 operator 가 실행 중에 만들기 때문에 이 목록에 나오지 않습니다.
 
 ## 5. 설치
 
@@ -156,6 +156,8 @@ kubectl -n kcloud get jobs
 
 이름은 `<노드>-<벤더>` 형식이고 열은 NODE, VENDOR, STATE, CURRENT, DESIRED 입니다. 설치 Job 이 끝나면 상태가 `Idle` 로 돌아옵니다. 드라이버 설치 Job 도 `kcloud` 네임스페이스에 생깁니다. `Installing` 이 오래 유지되면 그 Job 의 로그를 확인합니다. Warboy 설치 파드가 `ContainerCreating` 에 머물고 `kubectl -n kcloud describe pod <파드>` 이벤트에 `secret "furiosa-apt-auth" not found` 가 보이거나(0.8.1), Warboy 가 `Idle` 인데 드라이버가 없고 `kubectl describe driverupgradestate <노드>-furiosa` 의 사유가 `설치 Secret … 없음` 이면(0.8.1 다음 버전) 3단계의 Secret 을 만듭니다.
 
+`kubectl npu driver status` 는 `Failed` 인 행의 사유를 표 아래 `Failed 상세` 에 한 줄씩 보여 줍니다. 사유가 hold 된 패키지이면 11절의 "NVIDIA 드라이버 설치가 hold 된 패키지에 막힐 때" 를 봅니다.
+
 ## 10. 확인 5 — 노드 자원 광고
 
 ```bash
@@ -176,6 +178,29 @@ kubectl get pods -A | grep -vE "Running|Completed"
 ```
 
 `ImagePullBackOff` 이면 레지스트리부터 봅니다. 공개망인지 사설망인지, pull secret 이 필요한지, `global.registry` 와 전체 경로를 직접 지정한 항목이 맞는지 순서로 확인합니다.
+
+### NVIDIA 드라이버 설치가 hold 된 패키지에 막힐 때
+
+노드 이미지가 `apt-mark hold` 로 묶어 둔 패키지를 드라이버 설치가 올려야 하면 apt 가 설치를 거절합니다. 차트 0.8.4 이상의 operator 는 설치기 `nvidia-driver-ds:v9` 이상을 쓰는 NVIDIA 정책(`driver.mode: job`, `driver.installer: apt`)에서, 노드를 cordon 하기 전에 설치 전 점검 Job 을 만들어 이 충돌을 먼저 찾습니다. 차트 0.8.4 의 설치기 기본 태그는 `v9` 입니다. 점검은 apt 목록만 갱신하고, 패키지를 설치·제거하거나 hold 를 바꾸지 않습니다. 충돌이 있으면 DriverUpgradeState 가 재시도 없이 `Failed` 로 끝나고, 사유에 hold 된 패키지 이름과 apt 의 거절 줄이 남습니다.
+
+```bash
+kubectl npu driver status
+kubectl describe driverupgradestate <노드>-nvidia
+```
+
+hold 를 풀지는 노드 이미지 관리자가 정합니다. 풀기로 했다면 노드에서 해제한 뒤 DriverUpgradeState 를 지워 다시 시작합니다. `Failed` 는 정책을 다시 읽지 않으므로 지워야 다음 사이클이 시작됩니다.
+
+```bash
+# 노드에서
+apt-mark showhold
+sudo apt-mark unhold <패키지>
+# 클러스터에서
+kubectl delete driverupgradestate <노드>-nvidia
+```
+
+hold 를 유지해야 하는 노드라면 드라이버가 이미 설치된 노드 이미지를 쓰고 `driverInstallPolicies.nvidia.driver.versionSource: Host` 로 그 버전을 따르게 합니다. 첫 설치가 다른 이유로 실패해도 되돌릴 이전 버전이 없으므로 롤백을 거치지 않고, 설치 컨테이너가 남긴 사유와 함께 `Failed` 가 됩니다. DriverUpgradeState 를 지우면 새 사이클이 남아 있는 실패한 설치 Job 을 지우고 다시 만듭니다.
+
+설치기 `v8` 이하는 점검 스크립트가 없어 점검 Job 이 `StartError` 로 끝나고, operator 는 경고 이벤트(`DriverPreflightInconclusive`)만 남긴 채 예전처럼 설치를 시도합니다. apt 목록 갱신 실패처럼 점검이 판정하지 못할 때도 같습니다.
 
 ## 12. 되돌리기와 삭제
 

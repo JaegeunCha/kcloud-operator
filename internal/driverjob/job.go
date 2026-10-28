@@ -3,7 +3,7 @@
 // 상세: 상시 privileged driver DaemonSet 대신 "순간 install Job" 을 렌더한다. DS pod spec 을
 // 재사용하되 Job 전용으로 변형한다(세부는 renderJob 주석). node-agent 가 그대로 흡수할 수
 // 있도록 controller 에 의존하지 않는 독립 패키지로 둔다.
-// 생성일: 2026-07-16 | 수정일: 2026-10-11
+// 생성일: 2026-07-16 | 수정일: 2026-10-28
 // ============================================================
 
 // Package driverjob renders the one-shot driver install Job used by
@@ -36,6 +36,9 @@ const (
 	defaultActiveDeadlineSeconds   int64 = 1800 // 무한 hang 방지(DKMS 빌드 여유 30m)
 )
 
+// InstallContainerName 은 install·rollback Job 의 컨테이너 이름이다(상태 기계가 종료 기록을 찾는 키).
+const InstallContainerName = "driver-install"
+
 // RenderInstallJob 은 DriverInstallPolicy(벤더/모델/시크릿/JobOverrides 등 정책 소스) 로부터
 // nodeName(설치 대상, spec.nodeName 고정) 에 image(desired 또는 rollback 대상)·
 // version(DRIVER_VERSION env 목표값) 으로 install Job 을 빌드한다. 이름은
@@ -55,7 +58,8 @@ func RenderRollbackJob(pol *npuv1alpha1.DriverInstallPolicy, nodeName, image, ve
 	return renderJob(pol, nodeName, image, version, true)
 }
 
-// renderJob 은 RenderInstallJob·RenderRollbackJob 의 공통 구현이다. DS pod spec 을 재사용하되
+// renderJob 은 RenderInstallJob·RenderRollbackJob·RenderPreflightJob 의 공통 구현이다(RenderPreflightJob 은
+// 결과의 이름·재시작 정책·재시도·시한·컨테이너 명령 등을 다시 바꾼다). DS pod spec 을 재사용하되
 // Job 전용으로 변형한다: (1) restartPolicy=OnFailure (2) PreStop rmmod/probe 제거(완료 시
 // 방금 설치한 모듈 언로드 참사 방지) (3) RUN_MODE=job env 주입(entrypoint 가 설치 후 exit 0).
 func renderJob(
@@ -156,7 +160,7 @@ func renderJob(
 		Tolerations:   []corev1.Toleration{{Operator: corev1.TolerationOpExists}},
 		Containers: []corev1.Container{
 			{
-				Name:            "driver-install",
+				Name:            InstallContainerName,
 				Image:           image,
 				ImagePullPolicy: corev1.PullIfNotPresent,
 				Env:             env,

@@ -1,15 +1,15 @@
 # ============================================================
-# image-manifest.yaml: 릴리스 세트 0.8.3 이 사용하는 컨테이너 이미지 전체 목록
+# image-manifest.yaml: 릴리스 세트 0.8.4 가 사용하는 컨테이너 이미지 전체 목록
 # 상세: 미러(air-gap)·감사용. condition 은 pull 조건,
 #       digest 는 ghcr.io/openkcloud 발행본 기준이다. `# 발행 뒤 갱신` 이 붙은 항목은 GHCR 에 아직 없는
 #       태그라 발행 전 빌드의 digest 를 적어 두고, 발행 뒤 hack/refresh-image-digests.sh 로 바꾼다.
-# 생성일: 2026-09-10 | 수정일: 2026-10-27
+# 생성일: 2026-09-10 | 수정일: 2026-10-28
 # ============================================================
-release: "0.8.3"
+release: "0.8.4"
 kcloud:  # global.registry 로 조립. 기본 ghcr.io/openkcloud
   - image: kcloud-operator
-    tag: v0.8.3
-    digest: sha256:eb1080f4a6e599c5a085f13efbfecd86eec2726899c31757867fcdbd2c2be511  # 발행 뒤 갱신
+    tag: v0.8.4
+    digest: sha256:986b044972e19780a864f65c4e53461e84b30e48e5e7309c43eeb90a10018ca5  # 발행 뒤 갱신
     condition: 항상. pre-delete hook Job 도 이 이미지. K8s 1.26~1.30 프로파일은 v0.6.3-k8s1.28 (digest 발행 뒤 갱신, 나머지 이미지는 동일)
   - image: kcloud-node-manager
     tag: "0.6.20"
@@ -20,8 +20,8 @@ kcloud:  # global.registry 로 조립. 기본 ghcr.io/openkcloud
     digest: sha256:683f5ad08fe608b4d49e03ac43324e2f30c0e2844613777d01ccf926778202e5
     condition: NVIDIA 노드 MIG 관측 Job, 재부팅 Job
   - image: nvidia-driver-ds
-    tag: v8
-    digest: sha256:fca8d9eaadb17f56b5ab567652c51b5c4289e0a800da42e80806c589690bfc31
+    tag: v9
+    digest: sha256:fd341ef85f30852d6a0600f3e243368cfc291ba8c2bb24662e63080b209aedf9  # 발행 뒤 갱신
     condition: NVIDIA 노드 드라이버 설치 Job
   - image: furiosa-driver-ds
     tag: v3

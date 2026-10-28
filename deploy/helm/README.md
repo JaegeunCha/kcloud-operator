@@ -55,7 +55,7 @@ kcloud 가 공개 발행하는 차트는 GHCR 에 있다. `v*` 태그를 push �
 
 ```bash
 helm install kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-operator \
-  --version 0.8.3 -n kcloud --create-namespace
+  --version 0.8.4 -n kcloud --create-namespace
 ```
 
 GHCR 은 HTTPS 이므로 `--plain-http` 를 붙이지 않는다. 공개 패키지는 인증 없이 받을 수 있고,
@@ -90,7 +90,7 @@ helm upgrade kcloud-operator deploy/helm -n kcloud --reset-then-reuse-values --s
 - **반영 후 확인**: 리비전이 올라간 것만으로는 값이 반영됐다는 증거가 아니다. 바꾼 필드가 실제로
   라이브에 들어갔는지 `helm get values` 등으로 직접 확인한다.
 
-0.8.2 이하에서 webhook 을 켠 채 0.8.3 으로 올릴 때는 Rebellions 추적 전용 정책(`rebellions-atom-ds`)을 끈 상태로 먼저 올린다. 1.34 프리셋은 이 정책을 끄지만 차트 기본값은 켜져 있으므로, 프리셋 없이 올릴 때는 `--set driverInstallPolicies.rebellions.enabled=false` 를 준다. 옛 operator 의 webhook 이 image 없는 정책을 거절하기 때문이다. 이 정책을 쓰려면 operator 롤아웃이 끝난 뒤 두 번째 upgrade 에서 `--set driverInstallPolicies.rebellions.enabled=true` 를 준다. `--reset-then-reuse-values` 는 앞서 준 값을 남기므로 끈 값을 빼는 것만으로는 켜지지 않는다.
+0.8.2 이하에서 webhook 을 켠 채 0.8.3 이상으로 올릴 때는 Rebellions 추적 전용 정책(`rebellions-atom-ds`)을 끈 상태로 먼저 올린다. 1.34 프리셋은 이 정책을 끄지만 차트 기본값은 켜져 있으므로, 프리셋 없이 올릴 때는 `--set driverInstallPolicies.rebellions.enabled=false` 를 준다. 옛 operator 의 webhook 이 image 없는 정책을 거절하기 때문이다. 이 정책을 쓰려면 operator 롤아웃이 끝난 뒤 두 번째 upgrade 에서 `--set driverInstallPolicies.rebellions.enabled=true` 를 준다. `--reset-then-reuse-values` 는 앞서 준 값을 남기므로 끈 값을 빼는 것만으로는 켜지지 않는다.
 
 ### 0.7.x·0.6.x 에서 올릴 때
 
@@ -427,6 +427,12 @@ helm install kcloud-operator oci://<reg>/charts/kcloud-operator --version <v> \
   값을 끈다. 할당된 파드의 namespace·pod 이름이 인증 없는 `:9410` 지표에 나온다(dcgm-exporter 와
   같다). Prometheus 수집 설정이 대상 파드 라벨을 붙이는 구성이면 `honorLabels: true` 가 있어야
   exporter 의 라벨이 `exported_pod` 같은 이름으로 바뀌지 않는다.
+- **NVIDIA 설치 전 점검**: 차트 0.8.4 이상의 operator 는 설치기 `nvidia-driver-ds:v9` 이상을 쓰는 NVIDIA
+  정책(job·apt)에서 노드를 cordon 하기 전에 설치 전 점검 Job(`kcloud-nvidia-preflight-*`)을 만들어, 노드
+  이미지가 `apt-mark hold` 로 묶은 패키지가 설치를 막는지 본다. 막으면 cordon 없이 `Failed` 가 되고 사유에
+  패키지 이름이 남는다. 점검은 hold 를 바꾸지 않는다 — 확인·복구 절차는 [INSTALL.md](INSTALL.md) 11절에
+  있다. `v8` 이하 설치기는 점검 스크립트가 없어 점검 Job 이 `StartError` 로 끝나고, operator 는 경고
+  이벤트만 남긴 채 예전처럼 설치한다.
 - **레지스트리 도달성**: 다른 클러스터에 배포할 때 노드가 이미지 레지스트리에 도달 가능해야
   한다. 안 되면 파드가 `ImagePullBackOff` 로 멈춘다.
 - **CRD**: helm 자체는 `crds/` 의 CRD 를 삭제하지 않는다. 차트의 `post-delete` Job 이
