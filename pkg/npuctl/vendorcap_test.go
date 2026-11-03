@@ -181,7 +181,7 @@ func TestDeriveFuriosaRNGDNodeResolvesRNGDProductOnly(t *testing.T) {
 }
 
 // 실측 Warboy 노드(k8s-worker1)는 furiosa.present + furiosa-family.present 를 갖지만
-// nvidia.present·gpu.present 도 같이 갖는다(다중 벤더 노드 — mixed-node 시험이 따로
+// nvidia.present·accelerator.present 도 같이 갖는다(다중 벤더 노드 — mixed-node 시험이 따로
 // 다룬다). 이 시험은 그 라벨 세트가 "단독으로" 있을 때 product 해석만 본다:
 // furiosa.present 자체가 Warboy 노드 라벨이라(api/v1alpha1.PresentNodeLabel 의 계약)
 // product="warboy" 로 확정된다 — furiosa-family.present 만으로는 product 를 못 정하지만,
@@ -267,6 +267,7 @@ func worker1() corev1.Node {
 		"kcloud.ai/nvidia.present":         labelValueTrue,
 		"kcloud.ai/furiosa.present":        labelValueTrue,
 		"kcloud.ai/furiosa-family.present": labelValueTrue,
+		"kcloud.ai/accelerator.present":    labelValueTrue,
 		"kcloud.ai/gpu.present":            labelValueTrue,
 	})
 }

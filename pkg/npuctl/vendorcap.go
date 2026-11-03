@@ -64,7 +64,7 @@ func furiosaProduct(n corev1.Node) string {
 // Spec.Vendor 가 비어 있을 때만 쓰는 폴백이다(evidenceVendorProduct). 한 노드에 여러 벤더
 // present 라벨이 같이 실리면(예 k8s-worker1 의 nvidia+furiosa) 먼저 매치되는 벤더로
 // 떨어지는 모호함이 있다 — 그래서 evidence 는 이 폴백보다 Spec.Vendor 를 우선한다.
-// kcloud.ai/gpu.present 는 여러 벤더가 함께 쓰는 범용 라벨이라 판정에 쓰지 않는다.
+// kcloud.ai/accelerator.present(옛 gpu.present) 는 여러 벤더가 함께 쓰는 범용 라벨이라 판정에 쓰지 않는다.
 func nodeVendorProduct(n corev1.Node) (vendor, product string) {
 	has := func(v string) bool { return n.Labels[v1alpha1.PresentNodeLabel(v)] == labelValueTrue }
 	familyOnly := n.Labels[v1alpha1.FuriosaFamilyPresentLabel] == labelValueTrue

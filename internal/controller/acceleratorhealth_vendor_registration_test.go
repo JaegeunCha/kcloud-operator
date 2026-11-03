@@ -4,7 +4,7 @@
 //
 //	어긋날 수 있다. 두 대상이 비공개 식별자라 test/conformance 대신 이 패키지 안에 둔다.
 //
-// 생성일: 2026-09-28 | 수정일: 2026-10-11
+// 생성일: 2026-09-28 | 수정일: 2026-11-03
 // ============================================================
 package controller
 
@@ -12,6 +12,8 @@ import (
 	"os"
 	"sort"
 	"testing"
+
+	npuv1alpha1 "kcloud-operator/api/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +38,7 @@ var vendorPresentLabels = map[string][]string{
 // AcceleratorHealth Reconcile 이 그 벤더 노드를 에러·이벤트·로그 없이 무시한다.
 // vendorPresentLabels 에 없는 벤더가 생기면 표를 갱신하지 않고는 넘어갈 수 없게 실패로
 // 낸다. 노드 fixture 는 벤더별 라벨 하나만 갖고, detector 가 항상 함께 쓰는
-// kcloud.ai/gpu.present 는 갖지 않는다 — 등록된 벤더가 빠짐없이 담기는지만 지킨다.
+// kcloud.ai/accelerator.present 는 갖지 않는다 — 등록된 벤더가 빠짐없이 담기는지만 지킨다.
 func TestIsAcceleratorNodeRecognizesEveryVendorPresentLabel(t *testing.T) {
 	for _, vendor := range []string{vendorNvidia, vendorFuriosa, vendorRebellions, vendorTenstorrent} {
 		labels, ok := vendorPresentLabels[vendor]
@@ -52,6 +54,22 @@ func TestIsAcceleratorNodeRecognizesEveryVendorPresentLabel(t *testing.T) {
 				t.Errorf("%s 의 present 라벨 %q 를 isAcceleratorNode 가 인식하지 못한다", vendor, label)
 			}
 		}
+	}
+}
+
+// TestIsAcceleratorNodeRecognizesGenericPresentLabels 는 벤더 라벨 없이 범용 라벨만 가진
+// 노드도 감시 대상인지 본다. 새 이름 accelerator.present 와 옛 이름 gpu.present(구 node-manager
+// 가 붙임) 둘 다 인식해야 node-manager 와 operator 의 롤링 업그레이드 순서에 상관없이 노드가
+// 감시에서 빠지지 않는다.
+func TestIsAcceleratorNodeRecognizesGenericPresentLabels(t *testing.T) {
+	for _, label := range []string{npuv1alpha1.AcceleratorPresentLabel, "kcloud.ai/gpu.present"} {
+		node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{label: "true"}}}
+		if !isAcceleratorNode(node) {
+			t.Errorf("범용 present 라벨 %q 를 isAcceleratorNode 가 인식하지 못한다", label)
+		}
+	}
+	if isAcceleratorNode(&corev1.Node{}) {
+		t.Error("라벨 없는 노드를 가속기 노드로 본다")
 	}
 }
 

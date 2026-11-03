@@ -7,7 +7,7 @@
 ## 이 시험이 지키는 것
 
 이 시험은 **모든 능력을 지원하는지** 보지 않는다. 미지원(Unsupported)은 정상 상태다.
-이 시험이 보는 것은 "벤더가 등록의 각 질문에 답은 했는가" 다. 계약은 열 개다 — 여덟은
+이 시험이 보는 것은 "벤더가 등록의 각 질문에 답은 했는가" 다. 계약은 열 개다. 여덟은
 이 디렉터리 안에, 둘은 `internal/controller` 안에 있다(아래 "다른 패키지에 있는 계약
 둘" 절 참조).
 
@@ -24,33 +24,34 @@
 
 계약 7번의 CRD enum 값은 `config/crd/bases/` 아래 생성된 CRD YAML 에서 읽는다. Go 소스의
 `+kubebuilder:validation:Enum` 마커 주석이 아니라 이 YAML 을 읽는 이유는, API 서버가 실제로
-강제하는 값이 이 YAML 이기 때문이다 — 마커 주석과 생성물이 어긋나 있어도(`make manifests`
+강제하는 값이 이 YAML 이기 때문이다. 마커 주석과 생성물이 어긋나 있어도(`make manifests`
 를 돌리지 않은 경우) 이 시험은 실제로 클러스터가 보는 값을 기준으로 판정한다.
 
 벤더 집합은 `internal/vendorcap.Keys()` 의 `Vendor` 필드에서 중복을 제거해 만든다. Furiosa
-처럼 한 벤더 아래 제품이 둘(`rngd`·`warboy`)이어도 벤더로는 한 번만 센다 — image-manifest·
+처럼 한 벤더 아래 제품이 둘(`rngd`·`warboy`)이어도 벤더로는 한 번만 센다. image-manifest·
 Helm values·CRD enum 은 모두 product 가 아니라 vendor 단위로 조직돼 있다.
 
 ## 다른 패키지에 있는 계약 둘
 
 벤더 등록 지점 중 둘은 `internal/controller` 패키지의 비공개(unexported) 식별자를 직접
-본다. 그 식별자를 보려고 새 export 를 만드는 대신 그 패키지 자신의 시험 파일에 뒀다 —
+본다. 그 식별자를 보려고 새 export 를 만드는 대신 그 패키지 자신의 시험 파일에 뒀다.
 `DriverAdapter` 인터페이스에 시험 전용 메서드를 더하지 않는 것과 같은 이유다.
 
 | # | 계약 | 위치 |
 |---|------|------|
 | 8 | `isAcceleratorNode`(`AcceleratorHealth` Reconcile 의 첫 게이트)가 등록된 모든 벤더의 `kcloud.ai/<vendor>.present` 라벨을 인식한다 | `internal/controller/acceleratorhealth_vendor_registration_test.go` → `TestIsAcceleratorNodeRecognizesEveryVendorPresentLabel` |
-| 9 | `acceleratorOperationVendors` 화이트리스트의 키 집합이 `AcceleratorOperationSpec.Vendor` 의 CRD enum(계약 7번과 같은 근거지)과 같다 | `internal/controller/acceleratorhealth_vendor_registration_test.go` → `TestAcceleratorOperationVendorsMatchesCRDEnum` |
+| 9 | `acceleratorOperationVendors` 허용 목록의 키 집합이 `AcceleratorOperationSpec.Vendor` 의 CRD enum(계약 7번과 같은 근거지)과 같다 | `internal/controller/acceleratorhealth_vendor_registration_test.go` → `TestAcceleratorOperationVendorsMatchesCRDEnum` |
 
 `make conformance` 는 이 둘을 `go test ./internal/controller/...` 전체 대신 `-run` 으로
-이 두 함수만 지정해 돌린다 — `-run` 으로 `TestControllers`(Ginkgo 스위트·`BeforeSuite`
+이 두 함수만 지정해 실행한다. `-run` 으로 `TestControllers`(Ginkgo 스위트·`BeforeSuite`
 리소스 생성)는 건너뛰지만, 패키지의 `TestMain` 이 여는 envtest 는 그대로 필요하다
 (`KUBEBUILDER_ASSETS`). 두 시험 자체는 그 환경 위에서 즉시 끝난다. 표준 검증 경로인
 `go test ./internal/controller/...`(`make test`) 는 전체 스위트와 함께 이 둘도 매번 돈다.
 
-node-device-detector 의 `computeLabels` 는 장치가 하나라도 있으면 `kcloud.ai/gpu.present`
-를 항상 함께 쓰고, 이 라벨은 `isAcceleratorNode` 의 switch 에 이미 있다. 그래서 벤더별
-present 라벨이 그 switch 에 없어도 노드 자체가 감시 대상에서 빠지지는 않는다 — 계약 8번이
+node-device-detector 의 `computeLabels` 는 장치가 하나라도 있으면 `kcloud.ai/accelerator.present`
+(와 옛 이름 `kcloud.ai/gpu.present`, 0.9 에서 제거)를 항상 함께 쓰고, 이 라벨은
+`isAcceleratorNode` 의 집합에 이미 있다. 그래서 벤더별
+present 라벨이 그 switch 에 없어도 노드 자체가 감시 대상에서 빠지지는 않는다. 계약 8번이
 실제로 지키는 것은 벤더별 present 라벨의 리터럴 목록 완전성이다.
 
 ## 실행 방법
@@ -61,12 +62,12 @@ present 라벨이 그 switch 에 없어도 노드 자체가 감시 대상에서 
 make conformance
 ```
 
-이 타깃은 두 줄이다 — 계약 1~7·10 번은 `go test ./test/conformance/... -v`, 8·9 번은
+이 타깃은 두 줄이다. 계약 1~7·10 번은 `go test ./test/conformance/... -v`, 8·9 번은
 `go test ./internal/controller/... -run 'TestIsAcceleratorNodeRecognizesEveryVendorPresentLabel|TestAcceleratorOperationVendorsMatchesCRDEnum' -count=1 -v`
 (위 "다른 패키지에 있는 계약 둘" 절 참조 — `KUBEBUILDER_ASSETS` 는 필요하지만 두 시험
 자체는 그 환경 위에서 즉시 끝난다).
 
-계약 1~7·10 번만 보려면 `test/conformance` 패키지를 직접 돈다.
+계약 1~7·10 번만 보려면 `test/conformance` 패키지를 직접 실행한다.
 
 ```bash
 go test ./test/conformance/... -v
@@ -82,7 +83,7 @@ go test ./test/conformance/... -run TestVendorEnumsAgreeAcrossCRDsAndRegistry -v
 
 계약 2번은 능력 상태가 `Unknown` 인 항목을 자동으로 통과시키지 않는다. `Unknown` 이
 남아 있으려면 `conformance_test.go` 의 `unknownExceptions` 맵에 그 (벤더, 능력) 쌍과 사유를
-함께 등재해야 한다. 지금 이 맵은 비어 있다 — 레지스트리에 `Unknown` 상태 항목이 하나도
+함께 등재해야 한다. 지금 이 맵은 비어 있다. 레지스트리에 `Unknown` 상태 항목이 하나도
 없기 때문이다(마지막 항목이던 rebellions/CapIsolation 이 `Unsupported`+`AssuranceHardware`
 로 확정돼 있다). 다음에 새 벤더·능력을 조사 전에
 등록해 `Unknown` 이 생기면 아래 형태(벤더·능력 이름은 예시)로 등재한다.
@@ -101,12 +102,12 @@ var unknownExceptions = map[capKey]string{
 - 확정할 수 없는 구체적인 이유(예: 측정에 필요한 하드웨어·노드가 없다)가 있으면
   `unknownExceptions` 에 그 이유를 적어 등재한다.
 
-**예외는 통과시키는 방법이 아니라 갚아야 할 빚이다.** 목록에 이유를 적어 두는 것은 "이 칸을
-잊지 않았다" 는 뜻이지 "이 칸을 몰라도 된다" 는 뜻이 아니다. 예외 사유가 사라지면(예: 막혀
+**예외는 통과시키는 방법이 아니라 갚아야 할 빚이다.** 목록에 이유를 적어 두는 것은 "이 항목을
+잊지 않았다" 는 뜻이지 "이 항목을 몰라도 된다" 는 뜻이 아니다. 예외 사유가 사라지면(예: 막혀
 있던 노드가 복구되면) 그 항목을 조사해 확정하고 목록에서 지운다.
 
 예외 목록이 있는 계약은 2번뿐이다. 나머지(1·3·4·5·6·7·8·9·10)는 "있다/없다" 가 명확한
-사실이라 예외로 덮을 여지가 없다 — 이 계약들이 실패하면 등록 지점 자체를 채워야 한다.
+사실이라 예외로 덮을 여지가 없다. 이 계약들이 실패하면 등록 지점 자체를 채워야 한다.
 
 ## 시험이 실제로 잡는지 확인한 방법
 

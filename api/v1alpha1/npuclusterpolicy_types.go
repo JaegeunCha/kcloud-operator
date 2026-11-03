@@ -383,8 +383,8 @@ func DRARetiredNodeLabel(vendor string) string {
 // PresentNodeLabel 은 node-manager 가 "이 노드에 이 벤더 장치가 있다" 로 붙이는 자립 라벨
 // 키다(NFD 비의존, 값은 "true"). furiosa 는 product 별로 furiosa(Warboy)·rngd 키를 따로
 // 쓴다. 벤더 이름은 vendorcap 어휘(nvidia·furiosa·rngd·rebellions·tenstorrent)다.
-// Go 코드에서 이 라벨 문자열의 단일 출처다(furiosa-family·gpu 라벨은 벤더 라벨이 아니라
-// 여기 속하지 않는다). deploy/helm/values.yaml 이 같은 라벨을 매니페스트마다 별도로
+// Go 코드에서 이 라벨 문자열의 단일 출처다(furiosa-family·accelerator 라벨은 벤더 라벨이
+// 아니라 여기 속하지 않는다). deploy/helm/values.yaml 이 같은 라벨을 매니페스트마다 별도로
 // 정의하므로, 라이브 실효값은 그 차트 값이 정한다 — npuclusterpolicy_controller.go 참고.
 func PresentNodeLabel(vendor string) string {
 	return "kcloud.ai/" + vendor + ".present"
@@ -393,3 +393,8 @@ func PresentNodeLabel(vendor string) string {
 // FuriosaFamilyPresentLabel 은 Warboy·RNGD 공통 자립 라벨이다. node-manager 가 PCI 0x1ed2 장치에
 // 붙이고 통합 Furiosa DaemonSet 의 셀렉터가 된다(제품 라벨 furiosa.present·rngd.present 와 함께 붙는다).
 const FuriosaFamilyPresentLabel = "kcloud.ai/furiosa-family.present"
+
+// AcceleratorPresentLabel 은 벤더를 가리지 않는 "이 노드에 가속기가 있다" 라벨이다. node-manager 가
+// 장치가 하나라도 있으면 벤더 라벨과 함께 붙인다. 옛 이름 kcloud.ai/gpu.present 는 NPU 노드에도
+// 붙어 뜻이 어긋나 바꿨고, 0.8.x 동안은 둘을 함께 붙이며 0.9 에서 옛 이름을 뺀다.
+const AcceleratorPresentLabel = "kcloud.ai/accelerator.present"

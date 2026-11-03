@@ -3,7 +3,7 @@
 // 반영되는지 고정한다.
 // 상세: clusterpolicy.yaml 의 detector 이미지는 crdUpgrade.kubectlImage 와 같은 규약을 쓴다 —
 // .Values.detector.image 가 있으면 그대로, 없으면 registry+repository+tag 로 조립한다.
-// 생성일: 2026-10-04 | 수정일: 2026-10-27
+// 생성일: 2026-10-04 | 수정일: 2026-11-03
 // ============================================================
 package controller
 
@@ -21,7 +21,7 @@ func TestChartDetectorImageOverride(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"기본값 조립", nil, `image: "ghcr.io/openkcloud/kcloud-node-manager:0.6.20"`},
+		{"기본값 조립", nil, `image: "ghcr.io/openkcloud/kcloud-node-manager:0.6.21"`},
 		{
 			"전체 경로 덮어쓰기",
 			[]string{"--set", "detector.image=registry.example.com/mirror/npu-detector:v9.9.9"},
