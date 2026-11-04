@@ -1,4 +1,4 @@
-<!-- README.md: Magnum CAPI Add-on 연동 자료(kcloud-operator 측 제공물) 안내 | 생성일: 2026-09-10 | 수정일: 2026-10-28 -->
+<!-- README.md: Magnum CAPI Add-on 연동 자료(kcloud-operator 측 제공물) 안내 | 생성일: 2026-09-10 | 수정일: 2026-11-04 -->
 
 # Magnum CAPI 연동 자료
 
@@ -16,7 +16,7 @@
 helm upgrade --install kcloud-operator oci://ghcr.io/openkcloud/charts/kcloud-operator \
   --version 0.8.4 -n kcloud --create-namespace \
   --reset-values \
-  -f https://raw.githubusercontent.com/openkcloud/kcloud-operator/ae8ff4626ce670c2786e7d9e590256f2142b049f/deploy/helm/values-k8s1.34.yaml \
+  -f https://raw.githubusercontent.com/openkcloud/kcloud-operator/aed50ec620b76e6d308c4ad277feeee8e5566f4a/deploy/helm/values-k8s1.34.yaml \
   -f site-values.yaml \
   --wait --wait-for-jobs --timeout 15m
 ```
