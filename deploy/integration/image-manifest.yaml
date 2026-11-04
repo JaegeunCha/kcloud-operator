@@ -3,7 +3,7 @@
 # 상세: 미러(air-gap)와 감사용. condition 은 어떤 상황에서 실제로 pull 되는지다.
 #       digest 는 ghcr.io/openkcloud 발행본(2026-09-10)의 매니페스트 digest 다. 벤더 이미지는 upstream 그대로이며
 #       global.vendorRegistry 를 채우면 <미러>/<org>/<image> 로 조립된다.
-# 생성일: 2026-09-10 | 수정일: 2026-10-28 (0.6.3)
+# 생성일: 2026-09-10 | 수정일: 2026-11-04 (0.6.3)
 # ============================================================
 release: "0.8.4"
 kcloud:  # global.registry 로 조립. 기본 ghcr.io/openkcloud
@@ -24,8 +24,8 @@ kcloud:  # global.registry 로 조립. 기본 ghcr.io/openkcloud
     digest: sha256:60909d56380ca64a29a2e687a9172d597525f8eb56061767e3d30a9b4ad58923
     condition: NVIDIA 노드 드라이버 설치 Job
   - image: furiosa-driver-ds
-    tag: v3
-    digest: sha256:4b696054db4bf222d54e0b80bcde7f82456200bf7f7aa98bf1d66e3b875868af
+    tag: v4
+    digest: sha256:238f27f9c3edeb176cde980da5a70e0555755e5c2f2d466015515fb7fc7a667e  # 발행 뒤 갱신
     condition: Furiosa Warboy·RNGD 노드 드라이버 설치 Job
   - image: tenstorrent-driver-ds
     tag: 2.8.0-v1

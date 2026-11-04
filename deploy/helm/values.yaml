@@ -1,5 +1,5 @@
 # values.yaml: NPU Operator 기본 설정값
-# 생성일: 2026-03-25 | 수정일: 2026-10-27
+# 생성일: 2026-03-25 | 수정일: 2026-11-04
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 레지스트리는 두 종류로 나뉜다. 어느 이미지가 어느 쪽에 속하는지는
@@ -354,7 +354,7 @@ driverInstallPolicies:
       # 이미지는 드라이버를 담지 않는다. 태그는 빌드 개정(vN)이고 드라이버 버전은 위 version 이 정한다.
       # v1 부터 Warboy·RNGD 공용 통합 설치기다(driver-installer/furiosa/).
       repository: "furiosa-driver-ds"
-      tag: "v3"
+      tag: "v4"
       installer: apt
       # 다운그레이드 허용 여부 (false=버전 낮추기 금지, 안전장치)
       allowDowngrade: false
@@ -480,7 +480,7 @@ driverInstallPolicies:
       # registry 는 global.registry 로 조립됨 (repository 는 registry-relative path).
       # v1 부터 Warboy 와 같은 통합 설치기 이미지를 쓴다. 모델은 PCI 로 자동 판별한다.
       repository: "furiosa-driver-ds"
-      tag: "v3"
+      tag: "v4"
       installer: apt
       # 다운그레이드 허용 여부 (false=버전 낮추기 금지, 안전장치)
       allowDowngrade: false
