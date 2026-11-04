@@ -1,11 +1,11 @@
-<!-- README.md: rngd-1 Furiosa RNGD 사전 컴파일 이미지 같은 버전 왕복 실행·복구 절차 | 생성일: 2026-09-24 | 수정일: 2026-10-11 -->
+<!-- README.md: rngd-1 Furiosa RNGD 사전 컴파일 이미지 같은 버전 왕복 실행·복구 절차 | 생성일: 2026-09-24 | 수정일: 2026-11-04 -->
 
 # Furiosa RNGD 사전 컴파일 이미지 라이브 왕복 (rngd-1)
 
 ## 왜
 
 `deploy/helm` 의 DIP `furiosa-rngd-ds` 는 DKMS 설치 이미지
-(`furiosa-driver-ds:v3`)로 드라이버를 설치한다. 이 경로는 노드에서 커널 모듈을 매번
+(`furiosa-driver-ds:v4`)로 드라이버를 설치한다. 이 경로는 노드에서 커널 모듈을 매번
 컴파일한다. 이 디렉터리는 다른 설치 경로를 검증한다. DIP `spec.driver.kernelImages` 에 노드
 커널 버전을 키로 사전 컴파일 이미지를 지정하면, 상태기계가 preflight 에서 노드 커널로 그 맵을
 찾아 `status.resolvedImage` 로 고르고 install Job 이미지로 쓴다. 설치 컨테이너는 이미지에 구운

@@ -3,7 +3,7 @@
 # 상세: 미러(air-gap)·감사용. condition 은 pull 조건,
 #       digest 는 ghcr.io/openkcloud 발행본 기준이다. `# 발행 뒤 갱신` 이 붙은 항목은 GHCR 에 아직 없는
 #       태그라 발행 전 빌드의 digest 를 적어 두고, 발행 뒤 hack/refresh-image-digests.sh 로 바꾼다.
-# 생성일: 2026-09-10 | 수정일: 2026-11-03
+# 생성일: 2026-09-10 | 수정일: 2026-11-04
 # ============================================================
 release: "0.8.4"
 kcloud:  # global.registry 로 조립. 기본 ghcr.io/openkcloud
@@ -24,8 +24,8 @@ kcloud:  # global.registry 로 조립. 기본 ghcr.io/openkcloud
     digest: sha256:fd341ef85f30852d6a0600f3e243368cfc291ba8c2bb24662e63080b209aedf9  # 발행 뒤 갱신
     condition: NVIDIA 노드 드라이버 설치 Job
   - image: furiosa-driver-ds
-    tag: v3
-    digest: sha256:4b696054db4bf222d54e0b80bcde7f82456200bf7f7aa98bf1d66e3b875868af
+    tag: v4
+    digest: sha256:238f27f9c3edeb176cde980da5a70e0555755e5c2f2d466015515fb7fc7a667e  # 발행 뒤 갱신
     condition: Furiosa Warboy·RNGD 노드 드라이버 설치 Job
   - image: tenstorrent-driver-ds
     tag: 2.11.0-v1

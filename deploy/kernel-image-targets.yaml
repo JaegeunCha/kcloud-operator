@@ -4,7 +4,7 @@
 #       개정>" 태그를 조립해 당긴다. hack/kernel-image-targets.sh 가 이 목록에서 전체 이미지
 #       참조와 images 저장소 kernel-images 묶음을 유도한다(버전·variant·경로는
 #       deploy/helm/values.yaml 소관). 목록은 자동으로 늘지 않는다 — 수동 상한이다.
-# 생성일: 2026-10-05 | 수정일: 2026-10-12
+# 생성일: 2026-10-05 | 수정일: 2026-11-04
 # ============================================================
 
 # 대상 커널. 라이브 클러스터가 쓰는 세 커널이 출발점이다. 이 목록은 사전 컴파일 경로를
@@ -35,6 +35,11 @@ targets:
     buildRevision: v1
   rngd:
     buildRevision: v1
+    # 공개 묶음에서 제외. 사전 컴파일 이미지는 벤더 DKMS 소스로 빌드한 .ko 를 동봉하는데,
+    # furiosa-driver-rngd 패키지의 소스 머리글이 서면 허락 없는 복제·배포를 금하고 패키지에
+    # 라이선스 파일이 없다(2026-11-04 확인, 2026.4.0). 허락을 받기 전까지 내부 트리에서만 굽는다.
+    # 기본(DKMS) 설치기 이미지는 Furiosa 바이트가 없어 공개 발행 대상이다.
+    publicBundle: false
 
 # warboy 는 대상에 넣지 않는다. images 저장소의 driver-installer/furiosa/Makefile 이
 # VARIANT=warboy 를 거절한다 — 벤더 패키지가 공개 저장소에 없고 apt 자격 증명이 필요하다.
