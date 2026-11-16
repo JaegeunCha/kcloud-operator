@@ -1,5 +1,5 @@
 # values.yaml: NPU Operator 기본 설정값
-# 생성일: 2026-03-25 | 수정일: 2026-11-04
+# 생성일: 2026-03-25 | 수정일: 2026-11-16
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 레지스트리는 두 종류다. 어느 이미지가 어느 쪽인지는 deploy/helm/README.md 의 "레지스트리
@@ -652,7 +652,7 @@ driverInstallPolicies:
       # driver.rebootExecutor 는 CRD 기본 Job(operator 가 privileged reboot Job 생성). kured 는 1차 미구현.
 
   # ─────────────────────────────────────────────────────────────────────
-  # Furiosa RNGD (mode=job). rngd-1 노드가 준비돼 있어 기본값은 enabled=true 다.
+  # Furiosa RNGD (mode=job). 기본값은 enabled=true 다.
   # ─────────────────────────────────────────────────────────────────────
   rngd:
     enabled: true
