@@ -28,13 +28,13 @@ kubernetesProfiles:
   - range: "1.31-1.34"
     chartVersion: "0.8.4"
     valuesFile: values-k8s1.34.yaml
-    valuesURL: https://raw.githubusercontent.com/openkcloud/kcloud-operator/aed50ec620b76e6d308c4ad277feeee8e5566f4a/deploy/helm/values-k8s1.34.yaml
+    valuesURL: https://raw.githubusercontent.com/openkcloud/kcloud-operator/74982fdf67fd1fd22e06642756e5f7bf211da12a/deploy/helm/values-k8s1.34.yaml
     valuesBrowseURL: https://raw.githubusercontent.com/openkcloud/kcloud-operator/main/deploy/helm/values-k8s1.34.yaml
     operatorTag: v0.8.4
   - range: "1.26-1.30"
     chartVersion: "0.6.3"   # DRA 를 뺀 라인. 0.6.2 는 1.28 클러스터에서 검증, 0.6.3 은 렌더·시험으로만 확인
     valuesFile: values-k8s1.28.yaml
-    valuesURL: https://raw.githubusercontent.com/openkcloud/kcloud-operator/b351147fe26684088d8a6dd9b6c5f6ee796ad4c1/deploy/helm/values-k8s1.28.yaml
+    valuesURL: https://raw.githubusercontent.com/openkcloud/kcloud-operator/5fe5394a11f5889b9fed0d53a4f8df3f261436f5/deploy/helm/values-k8s1.28.yaml
     valuesBrowseURL: https://raw.githubusercontent.com/openkcloud/kcloud-operator/release/k8s-1.28/deploy/helm/values-k8s1.28.yaml
     operatorTag: v0.6.3-k8s1.28
 inputs:

@@ -29,18 +29,18 @@ serverVersion:
 
 | Service K8s | 차트 | 프리셋 | 설치용 values 주소 |
 |---|---|---|---|
-| 1.31+ | 0.8.4 | `values-k8s1.34.yaml` | `.../aed50ec620b76e6d308c4ad277feeee8e5566f4a/deploy/helm/values-k8s1.34.yaml` |
-| 1.26~1.30 | 0.6.3 | `values-k8s1.28.yaml` | `.../b351147fe26684088d8a6dd9b6c5f6ee796ad4c1/deploy/helm/values-k8s1.28.yaml` |
+| 1.31+ | 0.8.4 | `values-k8s1.34.yaml` | `.../74982fdf67fd1fd22e06642756e5f7bf211da12a/deploy/helm/values-k8s1.34.yaml` |
+| 1.26~1.30 | 0.6.3 | `values-k8s1.28.yaml` | `.../5fe5394a11f5889b9fed0d53a4f8df3f261436f5/deploy/helm/values-k8s1.28.yaml` |
 
 브랜치 주소(`release.yaml` 의 `valuesBrowseURL`)는 최신 내용을 사람이 확인할 때만 씁니다. 브랜치는 새 커밋이 들어오면 같은 주소가 다른 내용을 돌려주므로 설치에는 쓰지 않습니다.
 
 ```bash
 export CHART_VERSION=0.8.4
-export VALUES_SHA=aed50ec620b76e6d308c4ad277feeee8e5566f4a
+export VALUES_SHA=74982fdf67fd1fd22e06642756e5f7bf211da12a
 export VALUES_URL="https://raw.githubusercontent.com/openkcloud/kcloud-operator/$VALUES_SHA/deploy/helm/values-k8s1.34.yaml"
 ```
 
-1.26~1.30 클러스터라면 `CHART_VERSION=0.6.3`, `VALUES_SHA=b351147fe26684088d8a6dd9b6c5f6ee796ad4c1`, 프리셋 파일 이름은 `values-k8s1.28.yaml` 입니다. 그 프리셋은 차트 `0.6.3` 을 담은 이 브랜치(`release/k8s-1.28`)에 있고 차트 `0.8.4` 의 소스 트리에는 없습니다. 반대로 `values-k8s1.34.yaml` 은 `main` 브랜치에만 있습니다 — 위 표의 values 주소가 각자 그 라인의 커밋을 가리키므로 설치 절차는 같습니다. 차트 `0.6.3` 을 1.31+ 클러스터에 설치하려 하면 `kubeVersion` 선언 때문에 helm 이 거절합니다.
+1.26~1.30 클러스터라면 `CHART_VERSION=0.6.3`, `VALUES_SHA=5fe5394a11f5889b9fed0d53a4f8df3f261436f5`, 프리셋 파일 이름은 `values-k8s1.28.yaml` 입니다. 그 프리셋은 차트 `0.6.3` 을 담은 이 브랜치(`release/k8s-1.28`)에 있고 차트 `0.8.4` 의 소스 트리에는 없습니다. 반대로 `values-k8s1.34.yaml` 은 `main` 브랜치에만 있습니다 — 위 표의 values 주소가 각자 그 라인의 커밋을 가리키므로 설치 절차는 같습니다. 차트 `0.6.3` 을 1.31+ 클러스터에 설치하려 하면 `kubeVersion` 선언 때문에 helm 이 거절합니다.
 
 ## 3. site-values.yaml 작성
 
