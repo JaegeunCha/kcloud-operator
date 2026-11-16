@@ -3,7 +3,7 @@
 //
 //	안정 필드명의 JSON 계약. 필드는 모두 omitempty로 두어 벤더/리소스가 없을 때 생략된다.
 //
-// 생성일: 2026-07-16 | 수정일: 2026-10-27
+// 생성일: 2026-07-16 | 수정일: 2026-11-16
 package npuctl
 
 // 벤더 식별자 상수. NPUClusterPolicy.spec의 최상위 키와 1:1 대응하며(rngd는 furiosa의 서브벤더),
@@ -17,7 +17,6 @@ const (
 )
 
 // ClusterStatus는 한 번의 조회로 얻는 노드×벤더 집약 상태입니다.
-// (.omc/plans/management-api.md §6 수용 기준)
 type ClusterStatus struct {
 	// Vendors는 NPUClusterPolicy.spec 기준 벤더별 enabled 여부 + 해당 벤더의 DriverInstallPolicy 목록입니다.
 	Vendors []VendorStatus `json:"vendors,omitempty"`

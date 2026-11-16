@@ -137,7 +137,7 @@ test: manifests generate fmt vet setup-envtest ## Run tests.
 
 # OTHER_LINE_REF 는 기본 라인(1.31+) 트리를 가리키는 git ref 다. 그 라인의 프리셋은 이
 # 차트에 없으므로(kubeVersion 선언과 실재를 맞추려고 뺐다) blob 으로 꺼내 대조한다.
-OTHER_LINE_REF ?= claude-bot
+OTHER_LINE_REF ?= main
 OTHER_LINE_PRESET ?= deploy/helm/values-k8s1.34.yaml
 
 .PHONY: other-line-preset-check
