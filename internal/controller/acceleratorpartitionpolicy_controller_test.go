@@ -1065,7 +1065,7 @@ var _ = Describe("ACPP nvidia MIG journal", func() {
 		Expect(after.Status.Targets).To(Equal(before.Status.Targets),
 			"unchanged reconcile must reproduce a byte-identical target status (including lastTransitionTime)")
 		Expect(after.ResourceVersion).To(Equal(before.ResourceVersion),
-			"unchanged reconcile must be a no-op write — a real write re-enqueues the object and hot-loops (U-1)")
+			"unchanged reconcile must be a no-op write — a real write re-enqueues the object and hot-loops")
 	})
 
 	It("blocks with ObservationUnavailable when MIG observation failed (always-precondition)", func() {
@@ -1176,7 +1176,7 @@ var _ = Describe("ACPP nvidia MIG journal", func() {
 			Expect(err).NotTo(HaveOccurred())
 		}
 		Expect(steps).To(Equal(firstPass),
-			"같은 generation 의 rollback 이후 재적용은 GI 생성·파괴 왕복을 무한 반복한다(U-1 C-1)")
+			"같은 generation 의 rollback 이후 재적용은 GI 생성·파괴 왕복을 무한 반복한다")
 
 		var got npuv1alpha1.AcceleratorPartitionPolicy
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "nv-thrash-acpp"}, &got)).To(Succeed())
@@ -1767,7 +1767,7 @@ var _ = Describe("ACPP nvidia MIG deletion (snapshot rollback)", func() {
 		_, err := r.Reconcile(ctx, reconcileReq("nv-del-cordon-acpp"))
 		Expect(err).To(HaveOccurred(), "GI still present → unverified restore → finalizer retained")
 		Expect(err.Error()).NotTo(ContainSubstring("unsafe to rollback MIG"),
-			"cordon 은 삭제가 직접 취득한다 — 남을 수 있는 실패 이유는 복원 미확인뿐이다(라이브 D-10 증상)")
+			"cordon 은 삭제가 직접 취득한다 — 남을 수 있는 실패 이유는 복원 미확인뿐이다(삭제가 node not cordoned 로 막히던 증상이 재발하면 안 된다)")
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "nv-del-cordon-node"}, &n)).To(Succeed())
 		Expect(n.Spec.Unschedulable).To(BeTrue(), "삭제 경로가 rollback 전제인 cordon 을 스스로 취득해야 한다")
 		var mid npuv1alpha1.AcceleratorPartitionPolicy
@@ -1827,7 +1827,7 @@ var _ = Describe("ACPP nvidia MIG deletion (snapshot rollback)", func() {
 
 // rollback 이 assertNodeQuiesced/Rollback/assertMigEmptyAndBaseline 중 하나에서 막히면 아무 신호
 // 없이 requeue 만 되면 안 된다 — Warning 이벤트로 원인을 남겨야 한다.
-var _ = Describe("review-d10 M-1: deletion rollback failure emits a Warning event", func() {
+var _ = Describe("deletion rollback failure emits a Warning event", func() {
 	It("emits DeletionRollbackBlocked without touching MigPhase when restore verification fails", func() {
 		wipeACPPs()
 		DeferCleanup(wipeACPPs)
@@ -2156,7 +2156,7 @@ func deleteMpsDaemon() {
 // A2 만 겨냥한 MPS 정책이 discovery 직후 거부되고, ensureMpsControlDaemon 은 한 번도 호출되지 않아
 // (kube-system 에 DS 조차 안 생김) 그런 구성에서 MPS 는 영구히 도달할 수 없다(과거 결함 재발 지점).
 // 다중 장치 노드에서 노드 전체와 개별 장치를 혼동하는 결함 계열이다.
-var _ = Describe("ACPP MPS with a MIG-owned sibling device (D-5)", func() {
+var _ = Describe("ACPP MPS with a MIG-owned sibling device", func() {
 	It("judges MPS capability only on devices no other policy owns", func() {
 		wipeACPPs()
 		DeferCleanup(wipeACPPs)
@@ -2190,7 +2190,7 @@ var _ = Describe("ACPP MPS with a MIG-owned sibling device (D-5)", func() {
 			return n.Labels[nvidia.MigActiveNodeLabel]
 		}, "10s", "200ms").Should(Equal("true"))
 
-		By("A2 를 겨냥한 MPS 정책을 적용한다 — 형제 owned-device 필터링은 여전히 통과해야 한다(D-5 본래 취지)")
+		By("A2 를 겨냥한 MPS 정책을 적용한다 — 장치 단위 소유 필터(A30 제외)보다 노드 단위 mig-active 게이트가 먼저 이 노드의 MPS 를 막는다")
 		Expect(k8sClient.Create(ctx, d5MpsACPP("d5-mps-acpp", sel))).To(Succeed())
 		_, err := r.Reconcile(ctx, reconcileReq("d5-mps-acpp"))
 		Expect(err).NotTo(HaveOccurred())
@@ -2226,7 +2226,7 @@ var _ = Describe("ACPP MPS with a MIG-owned sibling device (D-5)", func() {
 		_, err = r.Reconcile(ctx, reconcileReq("d5-mig-acpp"))
 		Expect(err).NotTo(HaveOccurred())
 
-		By("모드가 아직 켜져 있는 동안에는 라벨을 붙들어 둔다(D-11 유령 GPU 차단)")
+		By("모드가 아직 켜져 있는 동안에는 라벨을 붙들어 둔다(모드만 켜진 GPU 를 flat plugin 이 통짜로 광고하지 못하게 한다)")
 		Consistently(func() string {
 			_, _ = r.Reconcile(ctx, reconcileReq("d5-mig-acpp"))
 			var n corev1.Node
@@ -2300,7 +2300,7 @@ var _ = Describe("ACPP MPS with a MIG-owned sibling device (D-5)", func() {
 		var got npuv1alpha1.AcceleratorPartitionPolicy
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "i1-mps-acpp"}, &got)).To(Succeed())
 		Expect(condReasonOf(&got, npuv1alpha1.ACPPCondValidated)).NotTo(Equal(npuv1alpha1.ReasonSharingUnsupported),
-			"★ 형제가 Ready 이전(WaitingForDrain)이라는 이유만으로 D-5 가 재발했다")
+			"★ 형제가 Ready 이전(WaitingForDrain)이라는 이유만으로 A2 겨냥 MPS 정책이 SharingUnsupported 로 거부됐다")
 		Expect(got.Status.Phase).To(Equal(npuv1alpha1.ACPPPhaseApplying),
 			"★ daemon 기동 대기(Applying)여야 한다 — Failed 면 apply 경로에 도달조차 못 한 것이다")
 		Expect(condReasonOf(&got, npuv1alpha1.ACPPCondApplied)).To(Equal(npuv1alpha1.ReasonSharingDaemonNotReady))
@@ -2357,7 +2357,7 @@ func seedRenderedDevicePlugin(sel map[string]string) {
 	var flatDS appsv1.DaemonSet
 	Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "nvidia-device-plugin-flat", Namespace: "kube-system"}, &flatDS)).To(Succeed())
 	Expect(flatDS.Spec.Template.Spec.Containers[0].Args).NotTo(ContainElement("--mig-strategy=mixed"),
-		"flat DS 에는 이 플래그가 없어야 한다 — D-8 판정의 반대편 절반")
+		"flat DS 에는 이 플래그가 없어야 한다 — mixed DS 에만 붙는다는 전제의 반대편 절반")
 }
 
 // seedFlatDevicePluginDS 는 sharing 배선 대상 flat device-plugin DS 를 만든다. sharing apply 는
@@ -2397,7 +2397,7 @@ func cleanupDevicePluginWiring() {
 // CrashLoopBackOff 로 몰고 무관한 정책이 소유한 A30 의 MIG 광고까지(mig-1g.6gb 4→0) 떨어뜨린다.
 // 이 회귀는 apply→verify 실패→rollback→재적용 flap 으로 반복되므로, 판정은 apply 이전(mutation
 // 이전)이어야 한다.
-var _ = Describe("ACPP MPS against a device-plugin running --mig-strategy=mixed (D-8)", func() {
+var _ = Describe("ACPP MPS against a device-plugin running --mig-strategy=mixed", func() {
 	It("rejects the MPS policy before touching the device-plugin", func() {
 		wipeACPPs()
 		DeferCleanup(wipeACPPs)
@@ -2411,7 +2411,7 @@ var _ = Describe("ACPP MPS against a device-plugin running --mig-strategy=mixed 
 
 		r := nvidiaReconciler()
 
-		By("A30 을 실제로 파티션해 Ready 소유 상태를 만든다(D-8 이 흔든 그 자원이다)")
+		By("A30 을 실제로 파티션해 Ready 소유 상태를 만든다(MPS 정책이 MIG 광고를 떨어뜨릴 수 있는 그 자원이다)")
 		Expect(k8sClient.Create(ctx, mkNvidiaACPP("d8-mig-acpp", sel))).To(Succeed())
 		Eventually(func() string {
 			_, _ = r.Reconcile(ctx, reconcileReq("d8-mig-acpp"))
@@ -2500,7 +2500,7 @@ var _ = Describe("ACPP MPS against a device-plugin running --mig-strategy=mixed 
 			_ = k8sClient.Get(ctx, types.NamespacedName{Name: "d8-ts-acpp"}, &got)
 			return got.Status.Phase
 		}, "10s", "200ms").Should(Equal(npuv1alpha1.ACPPPhaseReady),
-			"★ time-slicing 이 D-8 가드에 걸렸다 — 업스트림은 mps 에만 mixed 를 거부한다")
+			"★ time-slicing 이 mps 전용 mixed 거부 가드에 걸렸다 — 업스트림은 mps 에만 mixed 를 거부한다")
 
 		var got npuv1alpha1.AcceleratorPartitionPolicy
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "d8-ts-acpp"}, &got)).To(Succeed())
@@ -2520,7 +2520,7 @@ var _ = Describe("ACPP MPS against a device-plugin running --mig-strategy=mixed 
 // 존재하기만 해도 노드와 무관하게 모든 MPS 요청이 막힌다 — 이 spec 은 mixed DS 를 실제로 렌더해 둔
 // 채로(ensureNvidiaDevicePlugin 은 두 DS 를 무조건 만든다) mig-active 라벨이 없는 노드의 MPS 가
 // 통과하는지로 그 회귀를 고정한다.
-var _ = Describe("ACPP MPS after per-node device-plugin split (D-8 root fix)", func() {
+var _ = Describe("ACPP MPS after per-node device-plugin split", func() {
 	It("allows MPS on a node without the mig-active label even though the cluster-wide mixed DS exists", func() {
 		wipeACPPs()
 		DeferCleanup(wipeACPPs)
@@ -2542,7 +2542,7 @@ var _ = Describe("ACPP MPS after per-node device-plugin split (D-8 root fix)", f
 		var got npuv1alpha1.AcceleratorPartitionPolicy
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "d8root-mps"}, &got)).To(Succeed())
 		Expect(condReasonOf(&got, npuv1alpha1.ACPPCondValidated)).NotTo(Equal(npuv1alpha1.ReasonSharingUnsupported),
-			"★ mig-active 라벨이 없는 노드인데도 전역 mixed DS 존재만으로 막혔다(D-8 구 판정 회귀)")
+			"★ mig-active 라벨이 없는 노드인데도 전역 mixed DS 존재만으로 막혔다(전역 DS 조회로 판정하던 방식으로 회귀)")
 	})
 })
 
@@ -2557,7 +2557,7 @@ var _ = Describe("ACPP MPS after per-node device-plugin split (D-8 root fix)", f
 // 만들 수는 없지만, 거절청소 지점(rejectSharing→disableSharing)이 실제로 불리는지는 여전히
 // 관측 가능하다 — 아무도 안 쓰는 leftover daemon 을 미리 심어 두고, 거절이 그 daemon 을
 // 걷어내는지로 이 호출 지점을 고정한다.
-var _ = Describe("ACPP layout+MPS combination rejection cleanup (review-d8 I-4)", func() {
+var _ = Describe("ACPP layout+MPS combination rejection cleanup", func() {
 	It("cleans up a leftover mps control daemon when a layout+sharing policy is rejected by the MPS guard", func() {
 		wipeACPPs()
 		DeferCleanup(wipeACPPs)

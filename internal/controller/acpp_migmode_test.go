@@ -828,7 +828,7 @@ var _ = Describe("syncMigActiveLabel", func() {
 	})
 })
 
-var _ = Describe("review-i1 M-1/M-3: reboot branch cordons before requesting a reboot", func() {
+var _ = Describe("reboot branch cordons before requesting a reboot", func() {
 	It("cordons the node and journals ownership before setting MigPhaseRebootRequested", func() {
 		GinkgoT().Setenv("HOST_EXEC_IMAGE", "harbor.local/kcloud/kcloud-host-exec:v1") // 재부팅 Job 이 쓰는 nsenter 이미지
 		sel := map[string]string{"kcloud.ai/reboot-cordon-test": "true"}

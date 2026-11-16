@@ -177,7 +177,7 @@ func (r *AcceleratorPartitionPolicyReconciler) runSharing(
 			mrec.NodeName = t.NodeName
 			mrec.SharingRolledBackGeneration = acpp.Generation
 			if perr := r.patchApplyRecord(t.Ctx, acpp, mrec); perr != nil {
-				log.Error(perr, "sharing: failed to journal rolled-back generation (D-9 gate)")
+				log.Error(perr, "sharing: failed to journal rolled-back generation (same-generation retry gate)")
 			}
 		}
 		// 배선을 걷었으면 daemon 도 회수한다. 여기서 안 걷으면 Restored 종점은 10분 requeue 라 그 동안

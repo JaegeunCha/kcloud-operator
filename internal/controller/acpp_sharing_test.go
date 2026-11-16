@@ -249,13 +249,13 @@ func TestRunSharingAppliesMPSAndReportsReady(t *testing.T) {
 		t.Fatal(err)
 	}
 	if ts.Phase != npuv1alpha1.ACPPPhaseReady {
-		t.Fatalf("phase = %q, want Ready — mps 요청이 apply 단계에 도달하지 못했다(F1)", ts.Phase)
+		t.Fatalf("phase = %q, want Ready — mps 요청이 apply 단계에 도달하지 못했다", ts.Phase)
 	}
 	if ts.Advertisement.AdvertisedResources["nvidia.com/mig-1g.6gb"] != 16 {
 		t.Fatalf("advertised resources = %v", ts.Advertisement.AdvertisedResources)
 	}
 	if !strings.Contains(ts.Advertisement.Reason, "mps x4") {
-		t.Fatalf("mps 인데 reason 이 실제 모드를 말하지 않는다(F3): %q", ts.Advertisement.Reason)
+		t.Fatalf("mps 인데 reason 이 실제 모드를 말하지 않는다: %q", ts.Advertisement.Reason)
 	}
 
 	var cm corev1.ConfigMap
@@ -575,10 +575,10 @@ func TestRunSharingRemovesMpsDaemonAfterRollback(t *testing.T) {
 		t.Fatal(err)
 	}
 	if ts.Phase != npuv1alpha1.ACPPPhaseFailed {
-		t.Fatalf("phase = %q, want Failed — D-9 게이트를 타지 않으면 이 경로가 검증되지 않는다", ts.Phase)
+		t.Fatalf("phase = %q, want Failed — 같은 generation 재시도 게이트를 타지 않으면 이 경로가 검증되지 않는다", ts.Phase)
 	}
 	if err := c.Get(ctx, key, &ds); !apierrors.IsNotFound(err) {
-		t.Errorf("★ D-9 게이트가 daemon 정리 전에 early return 한다: err=%v", err)
+		t.Errorf("★ 같은 generation 재시도 게이트가 daemon 정리 전에 early return 한다: err=%v", err)
 	}
 }
 
@@ -1100,7 +1100,7 @@ func TestHandleNvidiaDeletionRemovesMpsControlDaemonForSharingOnlyPolicy(t *test
 			var ds appsv1.DaemonSet
 			err := c.Get(ctx, types.NamespacedName{Name: mpsControlDaemonDSName, Namespace: "kube-system"}, &ds)
 			if !apierrors.IsNotFound(err) {
-				t.Fatalf("★ sharing-only 정책 삭제 후 mps control daemon 이 남았다(D-13): err=%v", err)
+				t.Fatalf("★ sharing-only 정책 삭제 후 mps control daemon 이 남았다: err=%v", err)
 			}
 		})
 	}
@@ -1318,7 +1318,7 @@ func TestRunSharingRejectsMissingTimeSlicingBlock(t *testing.T) {
 // 미수렴은 에러가 아니라 결과로 돌아오므로(failVerifier 와 같은 모양) rollback 종점의 runErr 이 nil 이라
 // rate-limited 재시도도 안 걸리고, 다음 reconcile 이 다시 apply → device-plugin 재시작 → verify →
 // rollback 을 무한 반복한다. 같은 generation 의 rollback 저널은 terminal 이어야 한다.
-var _ = Describe("ACPP sharing (D-9: rollback does not retry forever within the same generation)", func() {
+var _ = Describe("ACPP sharing (rollback does not retry forever within the same generation)", func() {
 	It("stops after one rollback and requires a spec change to retry", func() {
 		wipeACPPs()
 		DeferCleanup(wipeACPPs)
