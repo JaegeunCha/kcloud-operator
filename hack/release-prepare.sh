@@ -5,7 +5,7 @@
 #       출력한다(push 없음). 기본은 dry-run, --apply 가 태그를 만든다. 판정 근거는
 #       각 단계·함수의 본문 주석 참고(CHECK_REGISTRY·pend 완화·커널 묶음 태그 차단 등).
 # 용법: hack/release-prepare.sh [--apply] [<묶음 이름>]
-# 생성일: 2026-10-03 | 수정일: 2026-10-15
+# 생성일: 2026-10-03 | 수정일: 2026-11-16
 # ============================================================
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -55,7 +55,7 @@ step "== 1단계 선행 조건 =="
 chart=deploy/helm/Chart.yaml
 ver="$(grep -oP '^version:\s*\K\S+' "$chart" || true)"
 app="$(grep -oP '^appVersion:\s*\K\S+' "$chart" || true)"
-op_tag="$app"
+op_tag="kcloud-operator/${app}"   # 태그 이름 공간: 프로젝트 이정표 vX.Y.Z 와 구분
 # release.yml 이 태그 push 에서 하는 대조와 같은 규칙이다(라인 태그는 -k8s<minor> 접미).
 expected="${app#v}"; expected="${expected%-k8s*}"
 if [ -z "$app" ] || [ -z "$ver" ]; then
@@ -348,7 +348,13 @@ want_tag() {
 "
 }
 
-want_tag "$op" "$op_tag" "$pub" "operator 이미지·차트 발행"
+# 옛 이름(v<appVersion>)으로 이미 공개 커밋에 태그돼 발행된 버전은 새 이름을 요구하지 않는다.
+if git -C "$op" rev-parse --verify -q "refs/tags/${app}^{commit}" >/dev/null \
+   && [ "$(git -C "$op" rev-parse "refs/tags/${app}^{commit}")" = "$(git -C "$op" rev-parse "${pub}^{commit}")" ]; then
+  ok "${app} (옛 이름) 이미 있고 ${pub} 를 가리킨다 — 새 이름 ${op_tag} 는 다음 버전부터"
+else
+  want_tag "$op" "$op_tag" "$pub" "operator 이미지·차트 발행"
+fi
 
 # blocked_bundle 은 태그를 만들지 않는 묶음이다 — publish-bundle.yml 이 images.yaml 에서만
 # build-arg 를 읽어 커널마다 다른 PREBUILD_* 를 못 넘기므로, push 하면 사전 컴파일이 아닌
