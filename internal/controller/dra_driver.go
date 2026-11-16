@@ -266,7 +266,7 @@ fi
 # 이 plugin 테이블을 선언하는 파일 중 **마지막에 로드되는 것**을 고른다.
 # containerd 의 import 병합은 같은 plugin 테이블을 재선언하면 앞 파일의 그 테이블을
 # 통째로 대체한다. 새 drop-in 을 만들어 넣으면 거기 있던 다른 설정(예: nvidia 런타임
-# 등록)이 사라진다 — 2026-08-10 k8s-worker1 에서 실제로 그렇게 만들어 device-plugin 이
+# 등록)이 사라진다 — 라이브 클러스터에서 실제로 그렇게 만들어 device-plugin 이
 # "no runtime for nvidia" 로 뜨지 못했다. 그래서 새 파일을 만들지 않는다.
 TARGET=$CFG
 if grep -qE '^[[:space:]]*imports[[:space:]]*=' "$CFG" && [ -d "$DIR/conf.d" ]; then
