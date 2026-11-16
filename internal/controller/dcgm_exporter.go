@@ -1,14 +1,8 @@
 // ============================================================
 // dcgm_exporter.go: NVIDIA GPU 텔레메트리 exporter(dcgm-exporter) DaemonSet 관리
-// 상세: NPUClusterPolicy.spec.nvidia.dcgmExporter.enabled=true 인 경우 NVIDIA 노드
-//
-//	(kcloud.ai/nvidia.present)에 upstream dcgm-exporter DS 를 배포한다. NPU 4벤더는
-//	node-manager 가 커널 hwmon 으로 온도/전력을 수집하지만(무특권) NVIDIA 드라이버는
-//	hwmon 을 등록하지 않고, node-manager(distroless/nonroot)가 host nvidia-smi 를
-//	exec 할 수 없어 NVML 경로가 별도로 필요하다. NVML 을 재구현하는 대신 NVIDIA GPU
-//	Operator 와 동일하게 upstream 이미지를 operand 로 배포한다.
-//
-// 생성일: 2026-07-29 | 수정일: 2026-10-05
+// 상세: NPUClusterPolicy.spec.nvidia.dcgmExporter.enabled=true 인 경우 NVIDIA 노드(kcloud.ai/nvidia.present)에
+// upstream dcgm-exporter DS 를 배포한다.
+// 생성일: 2026-07-29 | 수정일: 2026-11-16
 // ============================================================
 
 package controller
@@ -42,6 +36,10 @@ const (
 
 // ensureDcgmExporter 는 dcgmExporter.enabled 에 따라 DS 를 생성/갱신하거나 제거한다.
 // 비활성(nil/false)일 때 기존 DS 를 지우므로 토글 off 가 곧 정리다(별도 cleanup 불요).
+// NPU 4벤더는 node-manager 가 커널 hwmon 으로 온도/전력을 수집하지만(무특권) NVIDIA 드라이버는
+// hwmon 을 등록하지 않고, node-manager(distroless/nonroot)가 host nvidia-smi 를 exec 할 수 없어
+// NVML 경로가 별도로 필요하다. NVML 을 재구현하는 대신 NVIDIA GPU Operator 와 동일하게 upstream
+// 이미지를 operand 로 배포한다.
 func (r *NPUClusterPolicyReconciler) ensureDcgmExporter(ctx context.Context, policy *npuv1alpha1.NPUClusterPolicy) error {
 	log := logf.FromContext(ctx)
 

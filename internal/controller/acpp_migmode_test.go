@@ -4,7 +4,7 @@
 //
 //	실패 시 노드 schedulable 복원, 관측 불가 시 fail-closed, 크래시 저널 재진입 회귀까지 고정한다.
 //
-// 생성일: 2026-07-29 | 수정일: 2026-10-05
+// 생성일: 2026-07-29 | 수정일: 2026-11-16
 // ============================================================
 package controller
 
@@ -426,13 +426,11 @@ func runModePass(t *testing.T, r *AcceleratorPartitionPolicyReconciler, c client
 }
 
 // TestModeEnableFullCycleReachesReadyAndUncordonsNode 는 Disabled → -mig 1 → pending → 재부팅 →
-// Enabled → GI 생성 → Ready 전 사이클을 돈다. 두 가지를 고정한다:
-//
-//	(1) 성공 종점에서 정책이 잠근 노드가 반드시 schedulable 로 복원된다. computeBaseline 이
-//	    ApplyRecord 를 통째로 갈아치우며 cordonedByPolicy 를 흘리면 노드가 영구 cordon 으로 남고,
-//	    shouldReverify 가 재진입까지 막아 정책을 지워도 되돌아오지 않는다.
-//	(2) mode 전환 저널(RebootWaiting)을 든 채 재진입해도 Applying→Ready 로 수렴한다 —
-//	    손으로 심은 도달 불가 상태가 아니라, 관측을 뒤집어 실제로 도달하는 창이다.
+// Enabled → GI 생성 → Ready 전 사이클을 돈다. (1) 성공 종점에서 정책이 잠근 노드가 반드시 schedulable
+// 로 복원된다 — computeBaseline 이 ApplyRecord 를 통째로 갈아치우며 cordonedByPolicy 를 흘리면 노드가
+// 영구 cordon 으로 남고, shouldReverify 가 재진입까지 막아 정책을 지워도 되돌아오지 않는다.
+// (2) mode 전환 저널(RebootWaiting)을 든 채 재진입해도 Applying→Ready 로 수렴한다 — 손으로 심은
+// 도달 불가 상태가 아니라, 관측을 뒤집어 실제로 도달하는 창이다.
 func TestModeEnableFullCycleReachesReadyAndUncordonsNode(t *testing.T) {
 	acpp := migModeACPP()
 	r, c := migModeFixture(t, acpp, false, migModeNDR())
@@ -583,10 +581,9 @@ func TestAcppRebootJobNameDoesNotCollideWithDriverUpgrade(t *testing.T) {
 // TestModeEnableCompletionClearsTransitionJournal 은 전환이 끝나면 저널에서 mode-전환 phase 가
 // 사라짐을 고정한다. 남겨두면 이후 분류(no-diff)가 이미 끝난 전환을 진행 중으로 읽어, geometry 가
 // 우연히 일치하는 경우 정상 apply 경로로 내려갔다가 MigUnsafe → WaitingForDrain 으로 되돌아오기를
-// 30초마다 반복한다 — 수렴도 실패도 하지 않고 노드는 cordon 된 채로 남는다.
-// 전환이 끝난 뒤의 분류는 apply 경로가 소유해야 하며, 우리가 만들지 않은 geometry 는 정직한
-// terminal 실패(ExistingMigConfiguration)로 떨어져 cordon 복원 choke-point 를 타야 한다.
-// 저널은 손으로 심지 않고 실제 전환(Disabled → -mig 1 → pending → 재부팅 요청)으로 만든다.
+// 30초마다 반복한다 — 수렴도 실패도 하지 않고 노드는 cordon 된 채로 남는다. 전환이 끝난 뒤의 분류는
+// apply 경로가 소유하며, 우리가 만들지 않은 geometry 는 terminal 실패(ExistingMigConfiguration)로 떨어져
+// cordon 복원 choke-point 를 타야 한다. 저널은 손으로 심지 않고 실제 전환(Disabled → -mig 1 → pending → 재부팅 요청)으로 만든다.
 func TestModeEnableCompletionClearsTransitionJournal(t *testing.T) {
 	acpp := migModeACPP()
 	r, c := migModeFixture(t, acpp, false, migModeNDR())
@@ -619,14 +616,11 @@ func TestModeEnableCompletionClearsTransitionJournal(t *testing.T) {
 }
 
 // TestTerminalPhaseRestoresCordonedNodeAndCancelsReboot 은 mode enable 이 잠근 노드가 terminal
-// 종점에서 반드시 풀리고, 예약해 둔 재부팅도 함께 취소됨을 고정한다.
-//
-//	(1) terminal 갈래는 재시도해도 결과가 같으므로 여기서 복원하지 않으면 노드는 사람이 알아챌
-//	    때까지 영구히 unschedulable 로 남는다. 갈래마다 복원을 흩뿌리면 새 갈래가 생길 때 또 샌다 —
-//	    Reconcile 의 단일 choke-point 로 닫혀 있어야 한다.
-//	(2) uncordon 만 하고 재부팅 Job 을 남기면 방금 스케줄된 워크로드를 얹은 채 노드가 내려간다.
-//
-// 여기서 쓰는 terminal 갈래는 owner-lock 상실(TargetConflict) — 개별 복원 호출이 없던 자리다.
+// 종점에서 반드시 풀리고, 예약해 둔 재부팅도 함께 취소됨을 고정한다. (1) terminal 분기는 재시도해도
+// 결과가 같으므로 여기서 복원하지 않으면 노드는 사람이 알아챌 때까지 영구히 unschedulable 로 남는다.
+// 분기마다 복원을 흩뿌리면 새 분기가 생길 때 또 새므로 Reconcile 의 단일 choke-point 로 닫혀 있어야
+// 한다. (2) uncordon 만 하고 재부팅 Job 을 남기면 방금 스케줄된 워크로드를 얹은 채 노드가 내려간다.
+// 여기서 쓰는 terminal 분기는 owner-lock 상실(TargetConflict) — 개별 복원 호출이 없던 자리다.
 func TestTerminalPhaseRestoresCordonedNodeAndCancelsReboot(t *testing.T) {
 	ctx := context.Background()
 	acpp := migModeACPP()
@@ -763,9 +757,8 @@ var _ = Describe("syncMigActiveLabel", func() {
 
 	// 증명: 조각이 0개여도 **MIG 모드가 켜진 GPU 가 남아 있으면** 라벨을 떼지 않는다.
 	//
-	// D-11(2026-07-31 라이브): 그 상태의 GPU 는 `nvidia-smi -L` 에는 보이지만 CUDA 가 장치로
-	// 세지 않는다. 라벨을 떼면 flat device-plugin(전략 none)이 담당해 통짜 GPU 로 광고하고,
-	// 배정된 파드는 CUDA 초기화에서 죽는다. 실제로 유령 GPU 1개가 광고됐다.
+	// 그 상태의 GPU 는 `nvidia-smi -L` 에는 보이지만 CUDA 가 장치로 세지 않는다. 라벨을 떼면 flat
+	// device-plugin(전략 none)이 담당해 통짜 GPU 로 광고하고(유령 GPU), 배정된 파드는 CUDA 초기화에서 죽는다.
 	//
 	// 깨는 뮤테이션: migModeFullyRestored 가 항상 true 를 돌려주면 라벨이 떨어져 실패한다.
 	It("keeps the label while a GPU still has MIG mode enabled", func() {

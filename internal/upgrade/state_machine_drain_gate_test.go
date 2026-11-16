@@ -1,12 +1,10 @@
 // ============================================================
 // state_machine_drain_gate_test.go: drain 게이트의 장치 점유 판정 단위 테스트
-// 상세: 드라이버 교체 전 노드를 비우는 판정이 등록된 네 벤더를 모두 보는지, containers 와
-//   initContainers 양쪽을 보는지, Pending 단계를 빠뜨리지 않는지, 그리고
-//   hasDeviceWorkloads 와 evictDevicePods 가 같은 집합을 보는지 고정한다.
-//   다른 노드의 장치 Pod·종료 단계·장치를 쓰지 않는 Pod 만 있는 음성 사례도 고정한다.
-//   이 라인에는 resource.k8s.io 가 없어 DRA 축은 시험하지 않는다.
+// 상세: 드라이버 교체 전 노드를 비우는 판정이 등록된 네 벤더·containers 와 initContainers·Pending 단계를 모두 보는지,
+//   hasDeviceWorkloads 와 evictDevicePods 가 같은 집합을 보는지, 그리고 다른 노드의 장치 Pod·종료 단계·장치를 쓰지
+//   않는 Pod 만 있는 음성 사례를 고정한다. 이 라인에는 resource.k8s.io 가 없어 DRA 경로는 시험하지 않는다.
 //   fake client 기반 — envtest 불필요.
-// 생성일: 2026-10-05
+// 생성일: 2026-10-05 | 수정일: 2026-11-16
 // ============================================================
 
 package upgrade
@@ -102,8 +100,8 @@ func assertDrainCompletes(t *testing.T, pod *corev1.Pod, why string) {
 }
 
 // ── 시험 1: rebellions ATOM 을 쥔 Pod ────────────────────────────────
-// 판정 목록에 rebellions.ai/ 가 빠져 있던 동안 이 Pod 는 drain 에서 보이지 않았고,
-// 그 밑에서 커널 모듈이 교체됐다.
+// 판정 목록에서 rebellions.ai/ 가 빠지면 이 Pod 는 drain 에서 보이지 않고 그 밑에서 커널 모듈이
+// 교체된다(과거 결함 재발 지점).
 func TestHandleDrainingRebellionsDevicePodBlocksUpgrading(t *testing.T) {
 	pod := makeDevicePod("rbln-pod", corev1.PodRunning)
 	pod.Spec.Containers[0].Resources = corev1.ResourceRequirements{Limits: deviceLimits("rebellions.ai/ATOM")}

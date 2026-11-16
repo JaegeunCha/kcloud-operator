@@ -1,5 +1,5 @@
 # deployment.yaml: NPU Operator Controller Manager Deployment
-# 생성일: 2026-03-25 | 수정일: 2026-10-10 (벤더 이미지를 global.vendorRegistry 로 분리; 계획서 항목 토큰 제거)
+# 생성일: 2026-03-25 | 수정일: 2026-11-16
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -58,7 +58,7 @@ spec:
         {{- end }}
         env:
         # OPERATOR_NAMESPACE: operator 관리 워크로드(driver DS / install Job / toolkit DS)를
-        # 배치할 네임스페이스. release namespace 를 Downward API 로 주입한다(#16). device-plugin 은
+        # 배치할 네임스페이스. release namespace 를 Downward API 로 주입한다. device-plugin 은
         # 이 값과 무관하게 kube-system 고정. 미설정 시 코드 기본값 kube-system(회귀 0).
         - name: OPERATOR_NAMESPACE
           valueFrom:

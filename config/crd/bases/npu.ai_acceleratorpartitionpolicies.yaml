@@ -50,7 +50,7 @@ spec:
           spec:
             description: |-
               AcceleratorPartitionPolicySpec 는 원하는 파티션 상태다.
-              layout 과 sharing 둘 다 비면 정책이 아무것도 요청하지 않으므로 admission 에서 거부한다(D-3).
+              layout 과 sharing 둘 다 비면 정책이 아무것도 요청하지 않으므로 admission 에서 거부한다.
             properties:
               deletionPolicy:
                 default: Retain
@@ -61,7 +61,7 @@ spec:
               layout:
                 description: |-
                   Layout 은 파티션 레이아웃 요청이다. 비우면 파티션 없음 — sharing 만 단독으로 쓸 수 있다
-                  (순수 시분할 등, 라이브 결함 D-3). 이때 파티션 apply 경로(cordon·MIG mode·GI)는 타지 않는다.
+                  (순수 시분할 등). 이때 파티션 apply 경로(cordon·MIG mode·GI)는 타지 않는다.
                 items:
                   description: PartitionLayout 는 한 profile 의 파티션 레이아웃 요청이다.
                   properties:
@@ -212,7 +212,7 @@ spec:
                     sharingRolledBackGeneration:
                       description: |-
                         SharingRolledBackGeneration 은 같은 spec.generation 에서 sharing verify 가 이미 실패해
-                        rollback 됐음을 기록한다(D-9). 값이 acpp.Generation 과 같으면 재적용하지 않고 terminal
+                        rollback 됐음을 기록한다. 값이 acpp.Generation 과 같으면 재적용하지 않고 terminal
                         Failed 로 끝낸다 — 재시도 경로는 spec 변경(generation 증가)뿐이다. MIG GI apply 의
                         같은 원리(MigPhaseRolledBack + Generation 게이트)와 대칭이다.
                       format: int64

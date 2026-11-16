@@ -3,7 +3,7 @@
 //
 //	describe 명령의 렌더·인자 파싱도 여기서 시험한다.
 //
-// 생성일: 2026-08-11 | 수정일: 2026-10-27
+// 생성일: 2026-08-11 | 수정일: 2026-11-16
 package main
 
 import (
@@ -37,8 +37,8 @@ func captureStdout(t *testing.T, f func()) string {
 }
 
 // TestPrintStatusText_DistinguishesDevicesOnSameNode 는 벤더·모델·버전이 모두 같고 PCI 주소만
-// 다른 두 장치가 표에서 다른 행으로 읽히는지 본다. 라이브(2026-08-11)에서 A30 과 A2 가 완전히
-// 동일한 두 줄로 나와 구분이 불가능했다.
+// 다른 두 장치가 표에서 다른 행으로 읽히는지 본다. 두 행이 완전히 동일하면
+// A30 과 A2 처럼 PCI 주소만 다른 장치를 구분할 수 없다.
 func TestPrintStatusText_DistinguishesDevicesOnSameNode(t *testing.T) {
 	status := &npuctl.ClusterStatus{
 		Nodes: []npuctl.NodeStatus{{
@@ -158,8 +158,8 @@ func TestPrintStatusText_OmitsEmptyReasonParens(t *testing.T) {
 	}
 }
 
-// 라이브(2026-08-11)에서 tenstorrent/blackhole-p150(26자)이 15자 열을 11자 넘겨
-// 그 행부터 PCI 이후가 전부 밀렸다. 표를 눈으로 훑는 것이 이 명령의 용도이므로
+// tenstorrent/blackhole-p150(26자)이 15자 열을 11자 넘기면
+// 그 행부터 PCI 이후가 전부 밀린다. 표를 눈으로 훑는 것이 이 명령의 용도이므로
 // 한 행이 어긋나면 열을 따라갈 수 없다. 헤더와 모든 데이터 행에서 각 열의 시작
 // 위치가 같은지 본다 — 폭을 하드코딩으로 되돌리면 이 단언이 걸린다.
 func TestPrintStatusText_ColumnsAlignWithLongestDeviceName(t *testing.T) {
@@ -307,10 +307,10 @@ func TestParseDescribeArgs_이름과JSON플래그(t *testing.T) {
 
 // TestRenderNodeDetails_실패노드는건너뛰고빈줄은실제출력블록수를따른다 는 cmdDescribe
 // 전체노드 경로가 하는 것과 같은 전제(조회 실패 노드는 details 목록에서 이미 걸러짐)로
-// renderNodeDetails 를 시험한다. 리뷰에서 지적된 결함 재발 방지용 — 예전엔 루프 인덱스
-// `i > 0` 을 그대로 빈 줄 판정에 썼는데, names=[실패, ok, ok] 처럼 앞쪽 노드가 조회에
-// 실패하면 실제로 처음 찍히는 블록 앞에도 빈 줄이 붙었다. 여기선 애초에 실패한 노드가
-// details 슬라이스에 들어오지 않으므로 그 버그가 구조적으로 재발할 수 없다.
+// renderNodeDetails 를 시험한다. 빈 줄 판정에 루프 인덱스 `i > 0` 을 그대로 쓰면
+// names=[실패, ok, ok] 처럼 앞쪽 노드가 조회에 실패할 때 실제로 처음 찍히는 블록 앞에도
+// 빈 줄이 붙는다(과거 결함 재발 지점). 여기선 실패한 노드가 애초에 details 슬라이스에
+// 들어오지 않으므로 그 오류가 구조적으로 재발할 수 없다.
 func TestRenderNodeDetails_실패노드는건너뛰고빈줄은실제출력블록수를따른다(t *testing.T) {
 	// 빈 목록: 출력 없음.
 	if out := renderNodeDetails(nil); out != "" {
@@ -342,7 +342,7 @@ func TestRenderNodeDetails_실패노드는건너뛰고빈줄은실제출력블�
 }
 
 // TestRenderNodeDetail_Health사유없으면빈괄호없음 은 Reason 이 빈 Health 에서 "Healthy ()" 같은
-// 빈 괄호를 내지 않는지 본다. 라이브 두 노드 모두 이 상태다(리뷰에서 지적).
+// 빈 괄호를 내지 않는지 본다. 라이브 두 노드 모두 이 상태다.
 func TestRenderNodeDetail_Health사유없으면빈괄호없음(t *testing.T) {
 	d := &npuctl.NodeDetail{
 		Name:   "k8s-worker1",
@@ -376,11 +376,10 @@ func TestRenderNodeDetail_Evidence식별자없음은명시(t *testing.T) {
 
 // TestRenderNodeDetail_Evidence식별자없음표열정렬 은 VENDOR·LEVEL 이 둘 다 빈
 // evidence 때문에 EXPIRES 열 위치가 실제 vendor·level 이 있는 표와 달라지지
-// 않는지 본다. 리뷰 지적 — 이전엔 "식별자 없음"(16바이트)을 VENDOR 칸에 그대로
-// 넣어 renderTable 이 폭을 재는 len()(바이트 수)이 헤더("VENDOR", 6바이트)보다
-// 훨씬 커졌고, 그 결과 EXPIRES 열이 실제 vendor 가 있는 표보다 훨씬 오른쪽에서
-// 시작했다(k8s-master·k8s-worker3 실측). "—" 로 바꾼 지금은 두 표의 EXPIRES
-// 열이 같은 자리에서 시작해야 한다.
+// 않는지 본다. "식별자 없음"(16바이트)을 VENDOR 칸에 그대로 넣으면 renderTable 이
+// 폭을 재는 len()(바이트 수)이 헤더("VENDOR", 6바이트)보다 훨씬 커져 EXPIRES 열이
+// 실제 vendor 가 있는 표보다 훨씬 오른쪽에서 시작한다(k8s-master·k8s-worker3 실측).
+// 칸에 "—" 를 넣는 현재 구현에서는 두 표의 EXPIRES 열이 같은 자리에서 시작해야 한다.
 func TestRenderNodeDetail_Evidence식별자없음표열정렬(t *testing.T) {
 	withVendor := renderNodeDetail(&npuctl.NodeDetail{
 		Name:     "k8s-worker1",

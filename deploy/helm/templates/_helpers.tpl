@@ -38,8 +38,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{/*
 Assemble a fully-qualified image string from a registry-relative repo + tag.
 Input dict keys: registry (may be empty), repo, tag.
-- registry 가 비어있지 않으면 "<registry>/<repo>:<tag>" 로 prefix.
-- 비어있으면 "<repo>:<tag>" (registry-relative, e.g. Docker Hub 기본).
+- registry 가 비어있지 않으면 "<registry>/<repo>:<tag>" 로 prefix, 비어있으면 "<repo>:<tag>" (registry-relative, e.g. Docker Hub 기본).
 사설 IP 를 values 기본값에서 제거하고 install 시 global.registry 로 1줄 주입하기 위함.
 */}}
 {{- define "kcloud-operator.image" -}}
@@ -48,12 +47,9 @@ Input dict keys: registry (may be empty), repo, tag.
 {{- end -}}
 
 {{/*
-Assemble a 3rd-party(vendor) image string.
-Input dict keys: registry (global.vendorRegistry, may be empty), upstream (vendor host,
-e.g. "docker.io"), repo ("<org>/<image>"), tag.
+Assemble a 3rd-party(vendor) image string. Input dict keys: registry (global.vendorRegistry, may be empty), upstream (vendor host, e.g. "docker.io"), repo ("<org>/<image>"), tag.
 - registry 가 비어 있으면 "<upstream>/<repo>:<tag>" — 벤더 공개 레지스트리에서 직접 당긴다.
-- registry 가 채워져 있으면 "<registry>/<repo>:<tag>" — air-gap 사설 미러 경로다.
-미러 경로 규약은 upstream 의 org 경로를 그대로 유지하는 것이다(<registry>/<org>/<image>).
+- registry 가 채워져 있으면 "<registry>/<repo>:<tag>" — air-gap 사설 미러 경로다. 미러 경로 규약은 upstream 의 org 경로를 그대로 유지하는 것이다(<registry>/<org>/<image>).
 kcloud 가 빌드하는 이미지는 이 헬퍼가 아니라 kcloud-operator.image + global.registry 를 쓴다.
 */}}
 {{- define "kcloud-operator.vendorImage" -}}

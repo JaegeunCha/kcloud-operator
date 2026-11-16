@@ -1,7 +1,7 @@
 // ============================================================
 // profiles_test.go: ValidateLayoutShape/KnownMIGProfiles 시험
 // 상세: 삭제 실험으로 CountPerDevice 경계를 실제로 잡는지 확인(TestValidateLayoutShape 참조).
-// 생성일: 2026-08-24 | 수정일: 2026-10-09 (MIG 정규식 단일 정의 가드 추가)
+// 생성일: 2026-08-24 | 수정일: 2026-10-11
 // ============================================================
 package partition
 
@@ -48,7 +48,7 @@ func TestKnownMIGProfiles_모르는제품은통과(t *testing.T) {
 	}
 }
 
-// a100 은 MIG 가능한 실제 제품이지만 이 저장소에 실측 근거(testdata)가 없어 표에서 뺐다.
+// a100 은 MIG 가능한 실제 제품이지만 이 저장소에 실측 근거(testdata)가 없어 표에 없다.
 // "표에 없으면 판정하지 않는다" 는 fail-open 의 의미가 미확인 제품에서도 성립함을 못박는다.
 func TestKnownMIGProfiles_A100은실측근거없어표에없음(t *testing.T) {
 	if _, ok := KnownMIGProfiles("a100-pcie-40gb"); ok {
@@ -68,8 +68,6 @@ func TestKnownMIGProfiles_generic은판정하지않음(t *testing.T) {
 	}
 }
 
-// TestNvidiaProfileRegexDefinedOnce 는 nvidia backend 가 MIG 프로파일 정규식을 따로 정의하면
-// FAIL 한다 — 두 벌이면 한쪽만 고쳐 admission 과 컨트롤러의 판정이 갈린다.
 func TestNvidiaProfileRegexDefinedOnce(t *testing.T) {
 	src, err := os.ReadFile("nvidia/backend.go")
 	if err != nil {

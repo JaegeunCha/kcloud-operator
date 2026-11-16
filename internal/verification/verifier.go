@@ -4,7 +4,7 @@
 //
 //	AcceleratorEvidence 로 upsert 한다. 판정 실패는 에러가 아니라 등급 없는 근거다.
 //
-// 생성일: 2026-07-31
+// 생성일: 2026-07-31 | 수정일: 2026-11-16
 // ============================================================
 package verification
 
@@ -43,7 +43,7 @@ type Request struct {
 	ObservationErrors map[string]string
 	// TargetDevices 는 이 정책이 실제로 건드린 장치다(PCI). 비어 있으면 벤더 장치 전부를 본다.
 	// 채워지면 보고서 대조를 그 장치들로 좁힌다 — 같은 노드의 비대상 GPU(예: 파티션하지 않는 A2)를
-	// 정책의 기대 geometry 로 판정하면 절대 통과할 수 없는 실패가 난다(라이브 실측, 2026-08-04).
+	// 정책의 기대 geometry 로 판정하면 절대 통과할 수 없는 실패가 난다(라이브 실측).
 	TargetDevices []string
 }
 
@@ -188,7 +188,7 @@ func reportGeometry(ndr *v1alpha1.NodeDeviceReport, vendor string, targets []str
 		}
 		// PCI 가 없는 벤더(Furiosa 는 detector 가 PCI 를 채우지 않는다)도 "보고서에 장치가 있다"
 		// 는 사실은 남겨야 한다 — PCI 없는 항목을 버리면 보고서가 멀쩡한데도 "보고서 없음" 으로
-		// 읽혀 근거가 영영 등급을 못 받는다(라이브 실측, 2026-08-04).
+		// 읽혀 근거가 영영 등급을 못 받는다(라이브 실측).
 		if len(want) > 0 && !want[d.PCIeAddress] {
 			continue
 		}

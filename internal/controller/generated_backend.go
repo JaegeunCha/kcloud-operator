@@ -3,7 +3,7 @@
 // 상세: 벤더 지식이 0인 일반 device-plugin 런타임에 줄 ConfigMap 과 DaemonSet 을
 //       descriptor 하나로 조립한다. 벤더 하드코딩은 여기 없다 - vendor·product 는
 //       전부 desc.Spec 에서 읽는다.
-// 생성일: 2026-08-11 | 수정일: 2026-09-10 (1.28 라인: DeviceClass 를 타입 없이 렌더)
+// 생성일: 2026-08-11 | 수정일: 2026-11-16
 // ============================================================
 
 package controller
@@ -53,8 +53,7 @@ func renderGeneratedDevicePlugin(
 
 	priv := true
 	// kubelet 소켓 디렉터리는 root 소유 0755 라 nonroot 로는 소켓을 열 수 없다.
-	// privileged 만으로는 UID 가 바뀌지 않는다 - 2026-08-11 라이브에서 nonroot 이미지가
-	// `bind: permission denied` 로 죽었다.
+	// privileged 만으로는 UID 가 바뀌지 않는다 - nonroot 이미지는 `bind: permission denied` 로 죽는다.
 	var rootUID int64
 	dirOrCreate := corev1.HostPathDirectoryOrCreate
 	hostVol := func(volName, path string) corev1.Volume {
@@ -129,8 +128,7 @@ func renderGeneratedDRADriver(
 
 	priv := true
 	// kubelet 소켓 디렉터리는 root 소유 0755 라 nonroot 로는 소켓을 열 수 없다.
-	// privileged 만으로는 UID 가 바뀌지 않는다 - 2026-08-11 라이브에서 nonroot 이미지가
-	// `bind: permission denied` 로 죽었다.
+	// privileged 만으로는 UID 가 바뀌지 않는다 - nonroot 이미지는 `bind: permission denied` 로 죽는다.
 	var rootUID int64
 	dirOrCreate := corev1.HostPathDirectoryOrCreate
 	hostVol := func(volName, path string) corev1.Volume {
@@ -212,7 +210,7 @@ func renderGeneratedDRADriver(
 
 // renderGeneratedDRARBAC 는 DRA 런타임이 ResourceSlice 를 발행하는 데 필요한 권한을 낸다.
 // 배포물에 이것이 빠지면 드라이버가 뜨기는 하지만 발행에 실패하고 조용히 아무 장치도
-// 나오지 않는다 - 2026-08-11 라이브에서 default ServiceAccount 로 떠서 실제로 그랬다.
+// 나오지 않는다 - default ServiceAccount 로 뜨면 이렇게 된다.
 // device-plugin 판은 API 를 보지 않으므로 대응물이 없다.
 func renderGeneratedDRARBAC(desc *npuv1alpha1.AcceleratorDescriptor, ns string) (
 	*corev1.ServiceAccount, *rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding) {
@@ -267,7 +265,7 @@ func renderGeneratedDRARBAC(desc *npuv1alpha1.AcceleratorDescriptor, ns string) 
 }
 
 // RenderGeneratedBackends 는 descriptor 하나가 만드는 모든 배포물을 낸다.
-// 컨트롤러가 아직 없으므로(2026-08-11 라이브 §6.3) 라이브 재현은 이 함수를 지나간다 -
+// 컨트롤러가 아직 없으므로 라이브 재현은 이 함수를 지나간다 -
 // 손으로 쓴 YAML 을 쓰면 "descriptor 가 단일 출처" 라는 주장을 검증할 수 없다.
 // 선언하지 않은 backend 의 배포물은 내지 않는다.
 func RenderGeneratedBackends(

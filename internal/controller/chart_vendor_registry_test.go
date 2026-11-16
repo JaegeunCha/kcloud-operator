@@ -1,18 +1,10 @@
 // ============================================================
-// chart_vendor_registry_test.go: 벤더 이미지가 global.vendorRegistry 축을 타는지 고정한다.
-//
-// 상세: 차트는 레지스트리를 두 개로 나눠 쓴다. global.registry 는 우리가 빌드하는
-//
-//	이미지, global.vendorRegistry 는 3rd-party 이미지다. 두 축이 섞이면 공개
-//	기본값으로 설치했을 때 ghcr.io/openkcloud/furiosaai/... 처럼 실재하지 않는
-//	경로가 렌더된다 — helm 은 그것을 오류로 보지 않으므로 ImagePullBackOff 로만
-//	드러난다. 여기서 두 분기(vendorRegistry 있음/없음)를 렌더 결과로 고정한다.
-//
-// 범위: 렌더 결과 문자열만 본다. 그 경로에 이미지가 실재하는지는 레지스트리 조회의
-//
-//	몫이다(여기서 네트워크를 타지 않는다).
-//
-// 생성일: 2026-09-09 | 수정일: 2026-10-05 (렌더에 라인 K8s 버전 고정)
+// chart_vendor_registry_test.go: 벤더 이미지가 global.vendorRegistry 설정을 따르는지 고정한다.
+// 상세: global.registry 는 우리가 빌드하는 이미지, global.vendorRegistry 는 3rd-party 이미지다. 둘이 섞이면 공개
+// 기본값 설치에서 ghcr.io/openkcloud/furiosaai/... 처럼 실재하지 않는 경로가 렌더되고, helm 은 그것을 오류로 보지
+// 않아 ImagePullBackOff 로만 드러난다. vendorRegistry 있음/없음 두 분기를 렌더 결과 문자열로 고정하고, 그 경로에
+// 이미지가 실재하는지는 레지스트리 조회의 몫이다(네트워크를 타지 않는다).
+// 생성일: 2026-09-09 | 수정일: 2026-11-16
 // ============================================================
 package controller
 

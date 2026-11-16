@@ -1,7 +1,7 @@
 // ============================================================
 // translate_test.go: 추상 의도 → 벤더 리소스 번역 테스트
 // 상세: 벤더 우선순위, DRA 거절, 축을 지목하는 오류 전파, 노드 후보 확정.
-// 생성일: 2026-07-30 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
+// 생성일: 2026-07-30 | 수정일: 2026-11-16
 // ============================================================
 package intent
 
@@ -229,13 +229,12 @@ func TestTranslateMultiVendorNode(t *testing.T) {
 	}
 }
 
-// D-2 라이브 재현: k8s-worker1(Warboy — 같은 furiosa 벤더지만 furiosa.ai/rngd 은 광고하지 않음)과
-// rngd-1(RNGD, 물리 1대인데 4개 광고 — oversubscribed, D-1 이후 CheckMode 가 exclusive 를 거절함)이
-// 함께 있을 때, exclusive RNGD 요청의 거절은 rngd-1 의 실제 사유여야 한다. 벤더만 보는 낡은 후보
-// 필터는 worker1 도 후보로 들여 그 사소한 "광고 안 함" 이 rngd-1 의 진짜 거절을 가린다.
-// 두 순서 모두 확인한다 — BuildSnapshot 은 이름 사전순으로 정렬해 "k8s-worker1" 이 항상 먼저
-// 오지만("k8s-worker1" < "rngd-1"), 고침이 반복 순서가 아니라 후보 판정 자체를 고쳐야 한다는
-// 것을 보이기 위해 반대 순서도 함께 돈다.
+// Warboy 노드(같은 furiosa 벤더지만 furiosa.ai/rngd 는 광고하지 않음)와 RNGD 노드(물리 1대인데
+// 4개 광고 — oversubscribed, CheckMode 가 exclusive 를 거절함)가 함께 있을 때, exclusive RNGD
+// 요청의 거절은 RNGD 노드의 실제 사유여야 한다. 벤더만 보는 후보 필터는 Warboy 노드도 후보로 들여
+// 그 사소한 "광고 안 함" 이 RNGD 노드의 진짜 거절을 가린다. 두 순서 모두 확인한다 — BuildSnapshot 은
+// 이름 사전순으로 정렬해 "k8s-worker1" 이 항상 먼저 오지만("k8s-worker1" < "rngd-1"), 고침이 반복
+// 순서가 아니라 후보 판정 자체를 고쳐야 한다는 것을 보이기 위해 반대 순서도 함께 돈다.
 func TestTranslateRNGDExclusiveReportsRealRejectionNotWrongNode(t *testing.T) {
 	warboy := NodeCapability{NodeName: nodeK8sWorker1, Vendor: vendorFuriosa,
 		Advertised: map[string]int32{"beta.furiosa.ai/npu": 1}, SharingMode: v1alpha1.SharingModeExclusive}

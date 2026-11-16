@@ -1,11 +1,8 @@
 // control.go: pkg/npuctl 제어(control) 로직 — 모두 CR patch로 귀결
-// 상세: DriverInstallPolicy.spec.driver.version 변경(업그레이드)과
-//
-//	NPUClusterPolicy.spec.<vendor>.enabled 토글. 두 동작 모두 k8s API patch만 수행하며
-//	operator 재조정(reconcile)이 실제 작업을 수행한다 — 외부 상태 이원화 없음.
-//	⚠️ 라이브 클러스터에서 이 경로를 실행하는 검증은 금지되어 있다(가드레일) — fake client
-//	단위 테스트로만 검증한다.
-//
+// 상세: DriverInstallPolicy.spec.driver.version 변경(업그레이드)과 NPUClusterPolicy.spec.<vendor>.enabled
+// 토글. 두 동작 모두 k8s API patch만 수행하며 operator 재조정(reconcile)이 실제 작업을 수행한다 —
+// 외부 상태 이원화 없음. ⚠️ 라이브 클러스터에서 이 경로를 실행하는 검증은 금지되어 있다(가드레일) —
+// fake client 단위 테스트로만 검증한다.
 // 생성일: 2026-07-16 | 수정일: 2026-11-16
 package npuctl
 

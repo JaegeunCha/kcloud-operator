@@ -93,7 +93,7 @@ spec:
                     migLgipOutput:
                       description: |-
                         MigLgipOutput 은 `nvidia-smi mig -lgip` 원문입니다(ACPP §4.2 MIG profile discovery 소스).
-                        node-manager(detector) 가 채웁니다(Task 11b). NVIDIA 이외 벤더는 공란.
+                        node-manager(detector) 가 채웁니다. NVIDIA 이외 벤더는 공란.
                       type: string
                     migModeCurrent:
                       description: |-

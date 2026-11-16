@@ -1,5 +1,5 @@
 # rbac.yaml: NPU Operator RBAC 리소스
-# 생성일: 2026-03-25 | 수정일: 2026-10-10 (1.28 라인: resource.k8s.io 권한 제외; 계획서 항목 토큰 제거)
+# 생성일: 2026-03-25 | 수정일: 2026-11-16
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -60,10 +60,9 @@ rules:
   # 최소화(get/list/watch) 이후 확장: 정책과 무관한 MIG 관측 컨트롤러(migobservation_controller.go)
   # 가 특권 Job 의 관측 결과를 이 보고서에 직접 기록한다(detector 는 비특권이라 MIG 를 못 봐서
   # 대신 쓴다) — status 에 update/patch 가 없으면 그 기록이 조용히 거절되고, 보고서가 영영
-  # 안 바뀌어 재관측이 필요하다고 계속 판단해 특권 Job 이 반복 생성된다(2026-08-04 라이브 핫루프,
-  # config/rbac/role.yaml 은 이미 이 verb 를 갖고 있었지만 실제 배포는 이 파일이라 반영이 안 됐다).
-  # status 서브리소스는 list/watch 를 안 받는다(생성본 config/rbac/role.yaml 과 동일 — 서브리소스는
-  # 컬렉션이 아니라 list/watch 가 의미가 없다).
+  # 안 바뀌어 재관측이 필요하다고 계속 판단해 특권 Job 이 반복 생성된다. config/rbac/role.yaml 에는
+  # 이 verb 가 있지만 실제 배포는 이 파일이라 여기에도 있어야 반영된다.
+  # status 서브리소스는 list/watch 를 안 받는다(생성본 config/rbac/role.yaml 과 동일 — 서브리소스는 컬렉션이 아니라 list/watch 가 의미가 없다).
   - apiGroups: ["npu.ai"]
     resources: ["nodedevicereports"]
     verbs: ["get", "list", "watch", "update", "patch"]
@@ -101,7 +100,7 @@ rules:
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "watch", "create", "delete"]
-  # P1: PDB-aware drain via Eviction API (pods/eviction create + PDB read)
+  # PDB-aware drain via Eviction API (pods/eviction create + PDB read)
   - apiGroups: [""]
     resources: ["pods/eviction"]
     verbs: ["create"]
@@ -133,7 +132,7 @@ rules:
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: ["clusterroles", "clusterrolebindings", "roles", "rolebindings"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  # P4 관리 REST API: 외부 관리툴 Bearer 토큰 인증(TokenReview)·인가(SubjectAccessReview).
+  # 관리 REST API: 외부 관리툴 Bearer 토큰 인증(TokenReview)·인가(SubjectAccessReview).
   # api.enabled=false 여도 무해하며, 누락 시 모든 API 요청이 500(리뷰 생성 실패)이 되므로 항상 부여.
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
@@ -189,7 +188,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: kcloud-node-manager
-    # detector SA 는 operator 부속으로 release namespace(=OPERATOR_NAMESPACE, kcloud)에 생성됨(#16).
+    # detector SA 는 operator 부속으로 release namespace(=OPERATOR_NAMESPACE, kcloud)에 생성됨.
     namespace: {{ .Release.Namespace }}
 
 ---

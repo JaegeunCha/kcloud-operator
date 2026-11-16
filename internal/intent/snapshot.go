@@ -4,7 +4,7 @@
 // Node.status.allocatable(무엇이 실제로 광고되는가), ACPP status(무엇이 적용됐고 장치가
 // 무엇을 할 수 있는가), NDR(장치 메모리). ACPP 가 수렴하지 않았으면 그 노드는 stale 로
 // 표시해 모든 모드에서 탈락시킨다(fail closed).
-// 생성일: 2026-07-29 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
+// 생성일: 2026-07-29 | 수정일: 2026-11-16
 // ============================================================
 package intent
 
@@ -90,15 +90,12 @@ func BuildSnapshot(nodes []corev1.Node, acpps []v1alpha1.AcceleratorPartitionPol
 	return out
 }
 
-// applyACPPStatus 는 이 노드를 타깃하는 ACPP **전체**의 상태를 스냅샷에 반영한다.
-// 이름 사전순 첫-매치 단락은 라이브 결함 D-4(§5.2)의 원인이었다: 사전순 앞의 Failed 정책이
-// 같은 노드의 Ready 정책 관측을 통째로 가리고 노드 전체를 후보에서 빼 버렸다(Translate 의
-// firstReject/nodeHasVendor 와 같은 "첫 매치가 나머지를 폐기" 계열).
-// 채택 규칙: 수렴(observedGeneration==generation) + Ready 인 정책이 있으면 그 관측을 쓴다 —
-// 여럿이면 이름 사전순 첫 번째(MVP 미지원 조합에 대한 결정적 선택일 뿐 소유권 판정이 아니다).
-// 다른 정책의 실패/미수렴은 채택된 관측을 가리지 않는다(그 정책은 mutation 에 도달한 적이 없거나
-// 자기 status 로 이미 드러난다). Ready 가 하나도 없으면 기존 fail-closed 그대로 stale 로 표시한다
-// (사유는 사전순 첫 번째 비수렴 정책) — 낡은 capability 로 판정하느니 후보에서 빼는 편이 안전하다.
+// applyACPPStatus 는 이 노드를 타깃하는 ACPP **전체**의 상태를 스냅샷에 반영한다. 이름 사전순
+// 첫-매치로 단락하면 사전순 앞의 Failed 정책이 같은 노드의 Ready 정책 관측을 통째로 가리고 노드 전체를
+// 후보에서 뺀다(Translate 의 firstReject/nodeHasVendor 와 같은 "첫 매치가 나머지를 폐기" 계열).
+// 채택 규칙: 수렴(observedGeneration==generation) + Ready 인 정책이 있으면 그 관측을 쓴다 — 여럿이면
+// 이름 사전순 첫 번째(MVP 미지원 조합에 대한 결정적 선택일 뿐 소유권 판정이 아니다). 다른 정책의
+// 실패/미수렴은 채택된 관측을 가리지 않는다(그 정책은 mutation 에 도달한 적이 없거나 자기 status 로 이미 드러난다).
 func applyACPPStatus(nc *NodeCapability, acpps []v1alpha1.AcceleratorPartitionPolicy) {
 	sorted := make([]v1alpha1.AcceleratorPartitionPolicy, len(acpps))
 	copy(sorted, acpps)
@@ -132,6 +129,8 @@ func applyACPPStatus(nc *NodeCapability, acpps []v1alpha1.AcceleratorPartitionPo
 		}
 	}
 	if adopted == nil {
+		// Ready 가 하나도 없으면 fail-closed 로 stale 표시한다(사유는 사전순 첫 번째 비수렴 정책).
+		// 낡은 capability 로 판정하느니 후보에서 빼는 편이 안전하다.
 		if staleReason != "" {
 			nc.Stale = true
 			nc.StaleReason = staleReason
@@ -154,23 +153,14 @@ func applyACPPStatus(nc *NodeCapability, acpps []v1alpha1.AcceleratorPartitionPo
 	}
 }
 
-// applyObservedSharing 은 ACPP 저널이 아니라 실제 광고량으로 "광고 수 > 물리 장치 수" 를
-// 검출한다. SharingMode 를 ACPP ApplyRecord 에서만 읽으면, 누가 device-plugin 의 sharing
-// ConfigMap 을 손으로 고쳤거나 ACPP 가 소유권을 주장하지 않는 기존 설정이 남아 있을 때 저널은
-// exclusive 라고 말하고 exclusive 워크로드가 복제된 장치 위에 떨어진다(정직성 §19.3 이 절대 일어나면
-// 안 된다고 한 것) — 그래서 저널만 믿지 않고 이 관측도 함께 본다.
-//
-// 다만 이 관측(광고 수가 물리 장치 수보다 많다)은 "광고가 관측된 물리 장치 수를 넘는다" 는 것만
-// 증명한다 — 원인은 증명하지 않는다. device-plugin 복제(격리 없음)와 벤더의 하드웨어 서브유닛
-// 광고(격리 있음 — 예: Furiosa RNGD 카드 1대가 PE 4개로 광고됨)가 똑같은 이 관측을 만든다.
-// 그래서 SharingModeTimeSliced 를 단정하지 않고 SharingModeOversubscribed 로만 표시한다.
-// CheckMode 는 여전히 fail-closed 로 exclusive 를 거절하지만(정직성 §19.3 이 지키려던 안전 속성은
-// 그대로 보존된다), 근거 없이 "복제 중이라 격리 없음" 이라고 주장하지는 않는다.
-// timeSliced 는 저널(ApplyRecord.SharingMode, applyACPPStatus 가 읽는 실측 증거)이 있을 때만
-// 성립한다 — 여기서는 절대 선언하지 않는다.
-// 불일치 방향은 항상 "실제보다 많이 광고" 뿐이라 안전하다.
-// 파티션이 적용된 노드는 대상이 아니다 — 리소스명이 조각을 가리키므로 물리 장치 수와 비교할 수 없다.
+// applyObservedSharing 은 ACPP 저널이 아니라 실제 광고량으로 "광고 수 > 물리 장치 수" 를 검출한다.
+// SharingMode 를 ACPP ApplyRecord 에서만 읽으면, 누가 device-plugin 의 sharing ConfigMap 을 손으로
+// 고쳤거나 ACPP 가 소유권을 주장하지 않는 기존 설정이 남아 있을 때 저널은 exclusive 라고 말하고
+// exclusive 워크로드가 복제된 장치 위에 떨어진다(정직성 §19.3 이 절대 일어나면 안 된다고 한 것) —
+// 그래서 저널만 믿지 않고 이 관측도 함께 본다. 불일치 방향은 항상 "실제보다 많이 광고" 뿐이라 안전하다.
+// 이 관측이 증명하는 범위와 표시 방식은 아래 SharingModeOversubscribed 설정부에 있다.
 func applyObservedSharing(nc *NodeCapability, ndrs []v1alpha1.NodeDeviceReport) {
+	// 파티션이 적용된 노드는 대상이 아니다 — 리소스명이 조각을 가리키므로 물리 장치 수와 비교할 수 없다.
 	if nc.Stale || len(nc.PartitionProfiles) > 0 || nc.SharingMode == v1alpha1.SharingModeTimeSliced {
 		return
 	}
@@ -192,6 +182,12 @@ func applyObservedSharing(nc *NodeCapability, ndrs []v1alpha1.NodeDeviceReport) 
 		if physical <= 0 || count <= physical {
 			continue
 		}
+		// 이 관측은 "광고가 관측된 물리 장치 수를 넘는다" 는 것만 증명하고 원인은 증명하지 않는다. device-plugin
+		// 복제(격리 없음)와 벤더의 하드웨어 서브유닛 광고(격리 있음 — 예: Furiosa RNGD 카드 1대가 PE 4개로
+		// 광고됨)가 똑같은 관측을 만든다. 그래서 SharingModeTimeSliced 를 단정하지 않고 SharingModeOversubscribed
+		// 로만 표시한다. CheckMode 는 여전히 fail-closed 로 exclusive 를 거절하므로(정직성 §19.3 이 지키려던 안전
+		// 속성은 보존된다) 근거 없이 "복제 중이라 격리 없음" 이라고 주장하지 않는다. timeSliced 는 저널
+		// (ApplyRecord.SharingMode, applyACPPStatus 가 읽는 실측 증거)가 있을 때만 성립하므로 여기서 선언하지 않는다.
 		nc.SharingMode = v1alpha1.SharingModeOversubscribed
 		// 나눠떨어지지 않으면 어떤 배수도 실제 장치가 주는 값이 아니다 — 내림한 수를 발표하면
 		// 뒤 게이트가 그 값과 비교해 통과시킨다. 미상(0)으로 두면 shared 도 함께 거절된다.
@@ -239,11 +235,7 @@ func smallestDeviceMemoryMiB(ndrs []v1alpha1.NodeDeviceReport, nodeName string) 
 	return smallest
 }
 
-// Load 는 클러스터에서 스냅샷 입력을 읽어 BuildSnapshot 을 돌린다.
-// webhook 과 컨트롤러가 같은 입력으로 같은 판정을 하도록 조회 지점을 하나로 묶는다.
-// 파라미터는 client.Reader 다 — 이 함수는 List 만 하므로 캐시 없는 직접 reader(관리 API)도
-// 그대로 쓸 수 있어야 한다.
-// ApplyHealth 는 배치 후보에서 "지금 쓰면 안 되는" 노드를 뺀다(F-18).
+// ApplyHealth 는 배치 후보에서 "지금 쓰면 안 되는" 노드를 뺀다.
 //
 // health 축은 ACPP 판정 **뒤**에 얹는다. ACPP 가 준 사유가 더 구체적이므로 먼저 쓰고, 그것이
 // 없을 때만 health 사유를 쓴다 — 순서를 뒤집으면 "왜 배치가 안 되는가" 의 답이 항상 뭉뚱그린
@@ -302,6 +294,10 @@ func ApplyHealth(snap []NodeCapability, healths []v1alpha1.AcceleratorHealth) []
 	return snap
 }
 
+// Load 는 클러스터에서 스냅샷 입력을 읽어 BuildSnapshot 을 돌린다.
+// webhook 과 컨트롤러가 같은 입력으로 같은 판정을 하도록 조회 지점을 하나로 묶는다.
+// 파라미터는 client.Reader 다 — 이 함수는 List 만 하므로 캐시 없는 직접 reader(관리 API)도
+// 그대로 쓸 수 있어야 한다.
 func Load(ctx context.Context, c client.Reader) ([]NodeCapability, error) {
 	var nodes corev1.NodeList
 	if err := c.List(ctx, &nodes); err != nil {

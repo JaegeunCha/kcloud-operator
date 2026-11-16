@@ -4,7 +4,7 @@
 //       handleValidatingJob(Job Complete+NDR→Uncordoning / 미완료→requeue /
 //       실패→Rollback), handleRollbackJob(재-Job / 이전버전 부재→Failed),
 //       daemonset 무영향(isJobMode) 검증.
-// 생성일: 2026-07-16 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
+// 생성일: 2026-07-16 | 수정일: 2026-11-16
 // ============================================================
 
 package upgrade
@@ -162,7 +162,7 @@ func TestHandleIdleJob_DriverNotLoaded_TriggersReinstall(t *testing.T) {
 }
 
 // TrackOnly 정책은 driverLoaded=false self-heal 엣지에서도 install Job 을 트리거하지
-// 않아야 한다(#15 TT 버전관리 편입 — DriverSpec.TrackOnly 계약: 설치 경로 없음).
+// 않아야 한다 — DriverSpec.TrackOnly 계약: 설치 경로 없음.
 func TestHandleIdleJob_TrackOnly_NeverTriggersInstall(t *testing.T) {
 	dus := makeJobDUS(v1alpha1.UpgradeStateIdle, verNew, verNew)
 	dip := makeJobDIP(verNew, imgNew, false, true)
@@ -425,7 +425,7 @@ func TestHandleRollbackJob_CreatesRollbackJob(t *testing.T) {
 
 	// 정책은 allowDowngrade 를 켜지 않았다(makeJobDIP 는 이 필드를 건드리지 않는다). 그래도
 	// 롤백 Job 은 다운그레이드를 허용받아야 한다 — 아니면 installer 자신의 가드가 설치를
-	// 거부해 롤백이 무동작이 된다(2026-08-10 라이브).
+	// 거부해 롤백이 무동작이 된다(라이브 관측).
 	//
 	// **이 단언이 호출부를 지킨다.** 렌더러 쪽 시험(driverjob/rollbackjob_test.go)만으로는
 	// 이 자리를 RenderInstallJob 으로 되돌려도 아무도 실패하지 않는다.
@@ -441,14 +441,11 @@ func TestHandleRollbackJob_CreatesRollbackJob(t *testing.T) {
 }
 
 // ── install Job 신원(이미지+목표 버전) ────────────
-//
-// apt/script 인스톨러는 같은 이미지가 모든 드라이버 버전을 설치한다 — 목표 버전은 이미지
-// 태그가 아니라 DRIVER_VERSION env 로 들어간다. 그래서 이미지만으로 Job 을 식별하면 지난
-// 사이클이 남긴 완료된 Job 을 이번 사이클의 Job 으로 착각한다.
-// 라이브 실측(2026-08-07 `.91` k8s-worker1): 595.84 사이클이 끝난 12초 뒤 580.173.02
-// 사이클이 시작했고, 앞 사이클의 완료된 Job 이 TTL 안에 살아 있어 재사용됐다. 580 설치는
-// 한 번도 생성되지 않은 채 validator 가 앞 Job 의 결과(595.84)를 10분간 채점했고 검증
-// 예산 만료 → 불필요한 rollback → 불필요한 재부팅으로 이어졌다.
+// apt/script 인스톨러는 같은 이미지가 모든 드라이버 버전을 설치한다 — 목표 버전은 이미지 태그가 아니라
+// DRIVER_VERSION env 로 들어간다. 그래서 이미지만으로 Job 을 식별하면 지난 사이클이 남긴 완료된 Job 을 이번
+// 사이클의 Job 으로 착각한다. 라이브 클러스터에서 관측한 순서: 595.84 사이클이 끝난 12초 뒤 580.173.02 사이클이
+// 시작하고, 앞 사이클의 완료된 Job 이 TTL 안에 살아 있어 재사용된다. 580 설치는 한 번도 생성되지 않은 채 validator 가
+// 앞 Job 의 결과(595.84)를 10분간 채점하고, 검증 예산 만료 → 불필요한 rollback → 불필요한 재부팅으로 이어진다.
 
 // makeAptJobDIP 는 apt 인스톨러 정책이다 — 모든 버전이 같은 이미지를 쓴다(라이브 구성).
 func makeAptJobDIP(version, image string) *v1alpha1.DriverInstallPolicy {
@@ -569,7 +566,7 @@ func TestReconstructPrevImage(t *testing.T) {
 
 // TestRestartStaleDevicePluginPods 는 install Job 완료 시각 이전에 기동한 device-plugin
 // Pod 만 삭제(재스캔 유도)하고, 완료 이후 기동 Pod 와 비-plugin Pod 는 보존함을 고정한다.
-// device-plugin 재스캔 레이스(업그레이드 후 allocatable=0) 회귀 방지(#26).
+// device-plugin 재스캔 레이스(업그레이드 후 allocatable=0) 회귀를 방지한다.
 func TestRestartStaleDevicePluginPods(t *testing.T) {
 	since := metav1.NewTime(metav1.Now().Time)
 	mkPod := func(name string, isDP bool, offset time.Duration) *corev1.Pod {
@@ -633,8 +630,8 @@ func TestHandleRollbackJob_AptInstallerKeepsImage(t *testing.T) {
 }
 
 // TestHandleValidatingJob_RunningJobDoesNotConsumeBudget 는 install Job 이 아직 돌고 있는 동안
-// 검증 예산이 만료되어 롤백으로 밀려나지 않는 것을 고정한다. 라이브 실측: apt 로 313MB 를
-// 받는 도중 10분 예산이 끝나 설치가 중단되고, 이어진 롤백이 없는 이미지를 집어 노드가 굳었다.
+// 검증 예산이 만료되어 롤백으로 밀려나지 않는 것을 고정한다. 라이브에서 관측한 사례: apt 로 313MB 를
+// 받는 도중 10분 예산이 끝나면 설치가 중단되고, 이어진 롤백이 없는 이미지를 집어 노드가 굳는다.
 func TestHandleValidatingJob_RunningJobDoesNotConsumeBudget(t *testing.T) {
 	dus := makeJobDUS(v1alpha1.UpgradeStateValidating, verOld, verNew)
 	dus.Status.LastTransitionTime = metav1.NewTime(time.Now().Add(-30 * time.Minute))
@@ -676,9 +673,9 @@ func TestHandleValidatingJob_BudgetStartsAfterJobCompletion(t *testing.T) {
 }
 
 // detector 가 PCI 식별자로 제품명을 싣기 시작하면 장치 쪽 model 만 "generic" 에서 "a30" 으로
-// 바뀐다 — DriverUpgradeState.spec.model 은 생성 시점 값이라 갱신되지 않는다. 두 값이 갈린
-// 조합이 기존 픽스처에 없어서(양쪽 다 "generic") 이 불일치가 시험에 잡히지 않았고, 라이브에서
-// 재부팅 게이트와 자가복구 게이트가 모든 장치를 걸러 조용히 죽었다. 양방향을 다 고정한다.
+// 바뀐다 — DriverUpgradeState.spec.model 은 생성 시점 값이라 갱신되지 않는다. 픽스처가 양쪽 다
+// "generic" 이면 두 값이 갈린 조합의 불일치가 시험에 잡히지 않고, 라이브에서는 재부팅 게이트와
+// 자가복구 게이트가 모든 장치를 걸러 조용히 죽는다(과거 결함 재발 지점). 양방향을 다 고정한다.
 func TestDeviceModelMatchesTreatsGenericAsWildcard(t *testing.T) {
 	for _, tc := range []struct {
 		name, deviceModel, specModel string

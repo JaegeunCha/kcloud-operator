@@ -1,10 +1,7 @@
 // main.go: kubectl-npu plugin — NPU Operator CLI
-// 상세: kubectl npu status[--json]/driver-version/upgrade/toggle/describe 명령을 제공.
-//
-//	조회·제어 로직은 pkg/npuctl(kcloud-operator 모듈, replace로 로컬 참조)에 위임하고,
-//	이 파일은 CLI 파싱 + 사람용/JSON 출력 포맷팅만 담당한다.
-//
-// 생성일: 2026-03-25 | 수정일: 2026-10-27
+// 상세: kubectl npu status[--json]/driver-version/upgrade/toggle/describe 명령을 제공한다.
+// 조회·제어 로직은 pkg/npuctl(kcloud-operator 모듈, replace로 로컬 참조)에 위임하고, CLI 파싱 + 사람용/JSON 출력 포맷팅만 담당한다.
+// 생성일: 2026-03-25 | 수정일: 2026-11-16
 package main
 
 import (

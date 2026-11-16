@@ -1,11 +1,10 @@
 // ============================================================
 // validator.go: 드라이버 업그레이드 검증 단계 (Validator) 인터페이스 + 구현
-// 상세: architectural plan §4.4.3 — 단일 단계 handleValidating 을
-//       단계별 책임으로 분리한다 (DriverModule / DevicePlugin / Workload).
-//       각 Validator 는 controller-runtime client 와 기본 식별자만 받아
-//       단일 검증 시도(Run)를 수행한다. caller 는 timeout 내에서 재시도하고
-//       Event/Metric 을 발행한다.
-// 생성일: 2026-04-27 | 수정일: 2026-08-07
+// 상세: 단일 단계 handleValidating 을 단계별 책임으로
+//       분리한다 (DriverModule / DevicePlugin / Workload). 각 Validator 는 controller-runtime
+//       client 와 기본 식별자만 받아 단일 검증 시도(Run)를 수행한다. caller 는 timeout 내에서
+//       재시도하고 Event/Metric 을 발행한다.
+// 생성일: 2026-04-27 | 수정일: 2026-11-16
 // ============================================================
 
 package validator
@@ -33,9 +32,7 @@ type Result struct {
 	Message string
 }
 
-// Validator 는 단일 검증 단계 인터페이스.
-//
-// 의미:
+// Validator 는 단일 검증 단계 인터페이스. 의미:
 //   - Name 은 metric/event label 로 사용된다 (예: "DriverModule", "DevicePlugin").
 //   - Timeout 은 controller wall-clock 예산 — caller 는 LastTransitionTime 부터
 //     이 값을 초과하면 Failed/Rollback 으로 전이한다.
@@ -52,12 +49,9 @@ type Validator interface {
 // ─────────────────────────────────────────────
 
 // DriverModuleValidator 는 노드의 드라이버 커널 모듈이 desiredVersion 으로 로드되었는지
-// NodeDeviceReport (NDR) 를 통해 검증한다.
-//
+// NodeDeviceReport (NDR) 를 통해 검증한다. timeout 30s — NDR collector 가 보통 수 초 내 갱신.
 // 통과 조건: NDR.status.devices[].driverVersion == desiredVersion (vendor 일치)
 //   - DriverLoaded=true 도 함께 요구.
-//
-// timeout 30s — NDR collector 가 보통 수 초 내 갱신.
 type DriverModuleValidator struct{}
 
 // Name 은 metric/event label.
@@ -125,7 +119,7 @@ func (v *DriverModuleValidator) Run(
 		)
 		// needsReboot 이면 위 안내는 틀렸다. 목표 버전 모듈은 이미 디스크에 준비돼 있고 구 모듈이
 		// 사용 중이라 삽입만 못 한 상태(cross-major)라서 rmmod 로는 풀리지 않는다 — 그 지시를
-		// 따르는 사람은 시간만 버린다(2026-08-07 라이브). 교체 주체는 노드 재부팅뿐이고,
+		// 따르는 사람은 시간만 버린다. 교체 주체는 노드 재부팅뿐이고,
 		// 그 재부팅은 상태기계가 RebootRequired 로 진행한다.
 		if hostNeedsReboot {
 			msg = fmt.Sprintf(
@@ -151,11 +145,8 @@ func (v *DriverModuleValidator) Run(
 // ─────────────────────────────────────────────
 
 // DevicePluginValidator 는 device-plugin Pod 가 노드에서 ContainersReady 인지 검증한다.
-//
 // 통과 조건: kube-system namespace 에서 vendor 라벨/이름 매칭되는 Pod 중
-//
-//	노드에 스케줄된 인스턴스가 ContainersReady=True 면 PASS.
-//
+// 노드에 스케줄된 인스턴스가 ContainersReady=True 면 PASS.
 // timeout 60s — Pod 재시작/시작 시간 고려.
 type DevicePluginValidator struct{}
 
@@ -214,7 +205,7 @@ func (v *DevicePluginValidator) Run(
 // ─────────────────────────────────────────────
 
 // WorkloadValidator 는 GPU/NPU sample 워크로드 1개를 spawn 해 ResourceAllocated 까지
-// 도달하는지 검증할 예정 (architectural plan §4.4.3).
+// 도달하는지 검증할 예정.
 // 본 작업에서는 인터페이스 정의 + skeleton 만 제공 — 실제 워크로드 spawn 은 후속 PR.
 //
 // timeout 120s — Pod 스케줄 + 컨테이너 시작 + 리소스 할당 시간 포함.
@@ -245,12 +236,10 @@ func (v *WorkloadValidator) Run(
 // ─────────────────────────────────────────────
 
 // isDevicePluginPod 은 Pod 가 device-plugin 인지 (옵션) 특정 vendor 인지 판단한다.
-//
+// vendor 가 비어있지 않다면 라벨/이름에 vendor 토큰이 포함되어야 한다.
 // 매칭 규칙 (state_machine.go deleteDevicePluginPods 와 동일):
 //   - app.kubernetes.io/name 라벨에 "device-plugin" 부분 포함, 또는
 //   - Pod 이름에 "device-plugin" 포함.
-//
-// vendor 가 비어있지 않다면 라벨/이름에 vendor 토큰이 포함되어야 한다.
 func isDevicePluginPod(pod *corev1.Pod, vendor string) bool {
 	matchedDevicePlugin := false
 	for key, val := range pod.Labels {
@@ -269,7 +258,7 @@ func isDevicePluginPod(pod *corev1.Pod, vendor string) bool {
 		return true
 	}
 	// vendor 토큰 별칭: TT device-plugin 은 "kcloud-tt-device-plugin" 로 명명되어
-	// "tenstorrent" 문자열을 포함하지 않는다(#21). "tt" 를 별칭으로 허용한다.
+	// "tenstorrent" 문자열을 포함하지 않는다. "tt" 를 별칭으로 허용한다.
 	// ponytail: 단일 별칭. 벤더가 늘면 map 으로 승격.
 	tokens := []string{strings.ToLower(vendor)}
 	if strings.EqualFold(vendor, "tenstorrent") {

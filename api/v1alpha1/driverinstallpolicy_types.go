@@ -52,7 +52,7 @@ type UpgradePolicy struct {
 
 	// RollbackTarget 은 롤백 시 어떤 image 로 되돌릴지 결정합니다.
 	// previousValidated : 직전 사이클에서 검증된 PreviousImage 가 있을 때만 롤백 (없으면 Failed).
-	//                     plain tag 치환으로 인한 broken image 회귀 (architectural plan §3.4) 차단.
+	//                     plain tag 치환으로 인한 broken image 회귀 차단.
 	// spec              : 현재 동작 — PreviousImage 가 없으면 태그만 치환하여 복구 (legacy, unsafe).
 	// 비워두면 spec 과 동일하게 처리되어 backward compat 유지. 신규 클러스터는 previousValidated 권장.
 	// +kubebuilder:validation:Enum=previousValidated;spec
@@ -61,7 +61,7 @@ type UpgradePolicy struct {
 	// IdleCooldownSeconds 는 Idle 진입 후 다음 upgrade 트리거를 받지 않을 최소 기간(초).
 	// 미지정(nil) 시 default 10s 적용. 0 또는 음수는 cooldown 비활성화 (legacy 동작).
 	// rolling-update 테스트에서 연속 trigger 가 mid-state 로 오인되거나 관측되지 않은 채
-	// 신규 사이클이 시작되는 것을 차단하는 안전장치 (followup plan §F3).
+	// 신규 사이클이 시작되는 것을 차단하는 안전장치.
 	// +kubebuilder:default=10
 	// +kubebuilder:validation:Minimum=0
 	IdleCooldownSeconds *int32 `json:"idleCooldownSeconds,omitempty"`

@@ -3,9 +3,7 @@
 // 상세: R&D v1.0 §10.1 AcceleratorCapability 의 조회 표면. 트랙 ①이 별도 CRD 대신 ACPP status 에
 //       흡수한 3축을 노드 기준으로 모은다. 핵심은 "후보에서 빠진 노드를 목록에서 지우지 않는
 //       것" — 지우면 사용자는 노드가 왜 안 보이는지 알 수 없다. Candidate=false + 사유를 단다.
-//       사유는 intent 패키지의 Axis/Reason 어휘를 그대로 재사용한다(intent.CheckMode 의 stale
-//       거절과 같은 모양) — 여기서 별도의 사유 문자열 체계를 새로 만들지 않는다.
-// 생성일: 2026-07-30 | 수정일: 2026-07-30
+// 생성일: 2026-07-30 | 수정일: 2026-11-16
 // ============================================================
 
 package apiserver
@@ -74,6 +72,8 @@ func BuildNodeCapabilities(nodes []corev1.Node, acpps []v1alpha1.AcceleratorPart
 			SharingMode: v1alpha1.SharingModeExclusive,
 			Policy:      policy,
 		}
+		// 사유는 intent 패키지의 Axis/Reason 어휘를 그대로 재사용한다(intent.CheckMode 의 stale
+		// 거절과 같은 모양). 별도의 사유 문자열 체계를 새로 만들지 않는다.
 		nc, ok := byNode[name]
 		switch {
 		case !ok:

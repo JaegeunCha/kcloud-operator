@@ -17,7 +17,7 @@ limitations under the License.
 // ============================================================
 // npuclusterpolicy_types.go: NPUClusterPolicy CRD 타입 정의
 // 상세: Detector/Nvidia/Furiosa/Rebellions/Tenstorrent vendor spec 포함
-// 생성일: 2025-01-01 | 수정일: 2026-10-24
+// 생성일: 2025-01-01 | 수정일: 2026-11-16
 // ============================================================
 
 package v1alpha1
@@ -80,15 +80,11 @@ type RngdSpec struct {
 	// +kubebuilder:validation:Enum=none;single-core;dual-core;quad-core
 	// +optional
 	PartitionPolicy string `json:"partitionPolicy,omitempty"`
-	// DebugMode 는 device plugin 바이너리에 --debugMode 를 넘길지 정한다.
-	//
-	// 벤더 이미지 세대마다 받는 flag 가 다르다. 사내에서 쓰는 파티션 지원 빌드는 이 flag 를
-	// 요구하고(없으면 "couldn't recognize any furiosa devices" 로 종료), 공개
-	// ghcr.io/furiosa-ai/furiosa-device-plugin(v0.0.12·v0.0.13·rc0)은 flag 를 아예 받지
-	// 않아 `unknown flag: --debugMode` 로 즉시 죽는다(2026-09-09 실측).
-	//
-	// 기본값은 nil 이고 그때는 켠 것으로 읽는다 — 기존 배포의 동작을 그대로 둔다.
-	// 공개 이미지를 쓰려면 false 로 명시한다.
+	// DebugMode 는 device plugin 바이너리에 --debugMode 를 넘길지 정한다. 벤더 이미지 세대마다
+	// 받는 flag 가 다르다. 사내에서 쓰는 파티션 지원 빌드는 이 flag 를 요구하고(없으면
+	// "couldn't recognize any furiosa devices" 로 종료), 공개 ghcr.io/furiosa-ai/furiosa-device-plugin
+	// (v0.0.12·v0.0.13·rc0)은 flag 를 아예 받지 않아 `unknown flag: --debugMode` 로 즉시 죽는다.
+	// 기본값 nil 은 켠 것으로 읽는다(기존 배포의 동작 유지). 공개 이미지를 쓰려면 false 로 명시한다.
 	// +optional
 	DebugMode *bool `json:"debugMode,omitempty"`
 	// DRA 는 이 벤더의 DRA 드라이버 배포 여부다. 광고 주체(AdvertiseBy)와 독립이다.

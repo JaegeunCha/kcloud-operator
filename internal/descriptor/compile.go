@@ -4,7 +4,7 @@
 //
 //	벤더 기본값을 여기서 채우면 명세서가 단일 출처라는 성질이 깨진다.
 //
-// 생성일: 2026-08-11
+// 생성일: 2026-08-11 | 수정일: 2026-11-16
 // ============================================================
 package descriptor
 
@@ -48,13 +48,12 @@ func CompileDevicePlugin(spec npuv1alpha1.AcceleratorDescriptorSpec, deviceIDs [
 	// 치환자가 없으면 장치가 여럿일 때 전부 같은 노드를 잡는다 - 두 장치를 준
 	// 것처럼 광고하고 실제로는 하나를 두 번 준다. 장치가 하나면 문제되지 않으므로
 	// 여기(장치 목록을 아는 자리)에서만 판정할 수 있다.
-	//
+
 	// 언어의 한계: 고정 노드만 가진 descriptor(예: nvidia-a30 archetype, identity.source
 	// 가 uuid 라 {{id}} 를 못 쓴다)는 이 거절 때문에 장치 하나까지만 표현할 수 있다.
 	// NVIDIA 장치 노드는 실제로 /dev/nvidia0, /dev/nvidia1 처럼 인덱스인데, descriptor
 	// 언어에는 식별자(identity.source)와 별개인 "인덱스 치환자" 가 없어 이 인덱스를
-	// 표현할 길이 없다. 다장치 NVIDIA 구성을 담으려면 언어에 인덱스 치환자를 추가해야
-	// 한다.
+	// 표현할 길이 없다. 다장치 NVIDIA 구성을 담으려면 언어에 인덱스 치환자를 추가해야 한다.
 	if len(deviceIDs) > 1 && !hasPlaceholder(spec.DeviceNodes) {
 		return nil, fmt.Errorf(
 			"장치가 %d개인데 장치 노드에 %s 치환자가 없다 — 모든 장치가 같은 노드를 잡는다",

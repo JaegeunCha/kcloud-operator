@@ -1,11 +1,9 @@
 // ============================================================
 // quiesce.go: 장치 변경 전 노드 quiesce 오케스트레이션 (cordon → 배출 → 검증 → 복원)
 // 상세: MIG mode enable·파티션 변경처럼 "실행 중 워크로드가 있으면 안 되는" 변경의 공통 선결 절차.
-//
-//	DaemonSet 소유·static/mirror pod 은 배출 대상이 아니다(device-plugin 자신 포함 + API 서버로
-//	애초에 evict 불가능하므로).
-//
-// 생성일: 2026-07-29 | 수정일: 2026-07-29
+// DaemonSet 소유·static/mirror pod 은 배출 대상이 아니다(device-plugin 자신 포함 + API 서버로
+// 애초에 evict 불가능하므로).
+// 생성일: 2026-07-29 | 수정일: 2026-11-16
 // ============================================================
 package partition
 
@@ -69,7 +67,7 @@ const mirrorPodAnnotationKey = "kubernetes.io/config.mirror"
 
 // isExemptPod 는 배출 대상에서 제외되는 pod 인지다: DaemonSet 소유(device-plugin 자신 등, 삭제해도
 // 즉시 재생성) + static/mirror pod(Node 소유이거나 mirror annotation 보유 — API 서버로 evict/delete 불가).
-// (I-1) 이 예외를 놓치면 그런 pod 이 장치를 점유할 때 EvictDeviceWorkloads 가 evict 실패로 전체
+// 이 예외를 놓치면 그런 pod 이 장치를 점유할 때 EvictDeviceWorkloads 가 evict 실패로 전체
 // 중단되거나 AssertQuiesced 가 영구히 실패한다.
 func isExemptPod(p *corev1.Pod) bool {
 	if _, mirrored := p.Annotations[mirrorPodAnnotationKey]; mirrored {
@@ -114,7 +112,7 @@ func (q *Quiescer) Uncordon(ctx context.Context, node string) error {
 // EvictDeviceWorkloads 는 장치 점유 pod 을 Eviction API 로 배출하고(PDB 존중), 배출 대상에서
 // 제외된(isExemptPod) 장치 점유 pod 수를 참고용으로 돌려준다.
 //
-// (I-2) remaining 은 정보성 카운트일 뿐 완료·재시도 신호가 아니다 — DaemonSet/static pod 은
+// remaining 은 정보성 카운트일 뿐 완료·재시도 신호가 아니다 — DaemonSet/static pod 은
 // 영구히 배출되지 않으므로 이 값이 0 이 되기를 기다리며 requeue 하면 무한 대기할 수 있다.
 // 완료 판정은 오직 AssertQuiesced(같은 예외 규칙 적용)가 nil 을 돌려주는지로만 한다.
 func (q *Quiescer) EvictDeviceWorkloads(ctx context.Context, node string) (int, error) {

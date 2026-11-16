@@ -1,7 +1,7 @@
 // ============================================================
 // acceleratorpartitionpolicy_test.go: ACPPValidator 시험
 // 상세: 정상/형식오류/노드부재/빈요청 거부 + fail-open(제품 미확인 통과) 못박기.
-// 생성일: 2026-08-24 | 수정일: 2026-08-24
+// 생성일: 2026-08-24 | 수정일: 2026-11-16
 // ============================================================
 package webhook
 
@@ -61,9 +61,8 @@ func specSharing(node string) npuv1alpha1.AcceleratorPartitionPolicySpec {
 // TestACPPValidator: worker1 에 a30, master 에(제품 미확인 표시용) geforce-gtx-970 이 있는
 // NodeDeviceReport 를 fake client 에 넣어 정상/거부/fail-open 경로를 함께 확인한다.
 //
-// brief 의 예시는 "nodeSelector 가 아무 노드도 안 고름" 케이스의 wantMsg 를 한국어 "노드"로
-// 들었으나, 이 구현의 거부 메시지는 저장소의 다른 validator 들과 같이 영어로 통일했다
-// (spec.nodeSelector ... matches no node) — wantMsg 를 "node" 로 맞춰 실제 메시지와 일치시켰다.
+// 거부 메시지는 저장소의 다른 validator 들과 같이 영어(spec.nodeSelector ... matches no node)로
+// 통일돼 있으므로, "nodeSelector 가 아무 노드도 안 고름" 케이스의 wantMsg 도 "node" 로 맞춘다.
 func TestACPPValidator(t *testing.T) {
 	cases := []struct {
 		name    string

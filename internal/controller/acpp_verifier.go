@@ -1,12 +1,8 @@
 // ============================================================
 // acpp_verifier.go: ACPP 하드웨어 검증 구현 — Node allocatable + 1-파티션 테스트 Pod (spec 전제2/3)
-// 상세: VerifyAllocatable 은 Node.status.allocatable 을 읽어 순수 비교(allocatableMet)로 판정한다.
-//
-//	VerifyAllocation 은 operator 네임스페이스에 1-파티션 리소스를 요청하는 테스트 Pod 를
-//	대상 노드에 스케줄해 Running 을 기다린 뒤 정리한다(spec 전제3). kubelet 이 없는 envtest 로는
-//	Running 전이를 재현할 수 없어 라이브 실증은 후속 과제로 미룬다(ponytail: 순수 비교 함수만 unit 테스트).
-//
-// 생성일: 2026-07-23 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
+// 상세: VerifyAllocatable 은 Node.status.allocatable 을 읽어 순수 비교(allocatableMet)로 판정하고,
+// VerifyAllocation 은 1-파티션 테스트 Pod 를 대상 노드에 스케줄해 Running 전이로 판정한다(spec 전제3).
+// 생성일: 2026-07-23 | 수정일: 2026-11-16
 // ============================================================
 package controller
 
@@ -35,7 +31,7 @@ const (
 )
 
 // defaultProbeImage 는 ACPP_PROBE_IMAGE 미설정 시 fallback — air-gap(Harbor mirror) 클러스터는
-// 이 이미지가 미러링되어 있지 않으면 ImagePullBackOff 로 verify 가 실패한다(finding #3).
+// 이 이미지가 미러링되어 있지 않으면 ImagePullBackOff 로 verify 가 실패한다.
 const defaultProbeImage = "registry.k8s.io/pause:3.9"
 
 // liveVerifier 는 실 클러스터(Node/Pod) 를 대상으로 partition.Verifier 를 구현한다.
@@ -98,8 +94,10 @@ func (v *liveVerifier) VerifyAllocatable(t partition.Target, expected map[string
 	}
 }
 
-// VerifyAllocation 은 대상 노드에 1-파티션(resourceName: 1) 테스트 Pod 를 스케줄하고
-// Running 전이를 기다린 뒤 삭제한다(spec 전제3). 스케줄 실패/타임아웃은 실패로 취급한다.
+// VerifyAllocation 은 대상 노드에 1-파티션(resourceName: 1) 테스트 Pod 를 operator 네임스페이스에
+// 스케줄하고 Running 전이를 기다린 뒤 삭제한다(spec 전제3). 스케줄 실패/타임아웃은 실패로 취급한다.
+// kubelet 이 없는 envtest 로는 Running 전이를 재현할 수 없어 이 함수의 라이브 실증은 후속 과제로
+// 미룬다(ponytail: 순수 비교 함수만 unit 테스트).
 func (v *liveVerifier) VerifyAllocation(t partition.Target, resourceName string) (*partition.VerifyResult, error) {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

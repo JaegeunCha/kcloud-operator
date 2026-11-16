@@ -3,7 +3,7 @@
 // 상세: PreviousImage broken tag sanitization 검증
 //       Rollback exhaustion → Failed 터미널 정지 검증
 //       fake client 기반 — envtest 불필요
-// 생성일: 2026-04-28 | 수정일: 2026-10-14
+// 생성일: 2026-04-28 | 수정일: 2026-11-16
 // ============================================================
 
 package upgrade
@@ -76,7 +76,7 @@ func makeIdleDIP(name, vendor, version string) *v1alpha1.DriverInstallPolicy {
 
 // TestPreviousImage_BrokenTag_Cleared 는 reconcile 진입 시 plain tag (예: ":580.142") 가
 // PreviousImage 에 잔류하는 경우 자동 정리됨을 검증한다.
-// (architectural plan §3.4 defense-in-depth: broken tag rollback 회귀 차단)
+// (defense-in-depth: broken tag rollback 회귀 차단)
 func TestPreviousImage_BrokenTag_Cleared(t *testing.T) {
 	const (
 		nodeName    = "worker-sanitize-broken"
@@ -369,7 +369,7 @@ func makeRollbackDUS(name, nodeName, vendor string, attempts int32) *v1alpha1.Dr
 
 // TestRollbackExhaustion_TransitionsToFailed 는 RollbackAttempts 가 maxRollbackAttempts 에
 // 도달한 상태에서 단 1 회의 reconcile 호출만으로 Failed 터미널 상태로 전이됨을 검증한다.
-// (architectural plan §R1 — rollback infinite-loop 차단)
+// (rollback infinite-loop 차단)
 func TestRollbackExhaustion_TransitionsToFailed(t *testing.T) {
 	const (
 		nodeName = "k8s-worker1"

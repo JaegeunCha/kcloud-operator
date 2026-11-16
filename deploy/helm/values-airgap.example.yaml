@@ -3,29 +3,31 @@
 # 상세: 모든 이미지를 단일 사설 미러에서 당기도록 지정하는 방법.
 #       사용:  helm install/upgrade <release> kcloud-operator/deploy/helm -f values-airgap.example.yaml
 #       <your-registry> 부분을 실제 미러 host:port (예: registry.internal:5000) 로 교체한다.
-# 생성일: 2026-06-02 | 수정일: 2026-09-09 (global.vendorRegistry 도입)
+# 생성일: 2026-06-02 | 수정일: 2026-10-11
 # ============================================================
 
 # ─────────────────────────────────────────────────────────────────────────────
-# (1) kcloud 가 빌드하는 이미지: global.registry 한 줄로 일괄 prefix.
-#     operator / node-manager / host-exec / furiosa-exporter / 드라이버 설치기 3종 /
-#     Furiosa 통합 device-plugin / Tenstorrent device-plugin 이 모두
-#     <your-registry>/<repo>:<tag> 로 조립된다.
+# (1) kcloud 가 빌드하는 이미지: global.registry 한 줄로 일괄 prefix한다. operator·node-manager·
+#     host-exec·furiosa-exporter·드라이버 설치기 3종·Furiosa 통합/Tenstorrent device-plugin 과
+#     generatedBackend 두 이미지(generic-device-plugin·generic-dra-driver)가 모두
+#     <your-registry>/<repo>:<tag> 로 조립된다. 아래에 따로 적지 않는다(적으면 구 태그로 덮는다).
 # ─────────────────────────────────────────────────────────────────────────────
 global:
   registry: "<your-registry>"   # 예: registry.internal:5000/kcloud
 
-  # ───────────────────────────────────────────────────────────────────────────
-  # (2) 벤더(3rd-party) 이미지: global.vendorRegistry 한 줄로 일괄 prefix.
-  #     미러에 upstream 의 org 경로를 그대로 살려 올려 둔다:
+  # (2) 벤더(3rd-party) 이미지: global.vendorRegistry 한 줄로 일괄 prefix한다. 미러에 upstream 의
+  #     org 경로를 그대로 살려 올려 둔다:
   #       <your-registry>/nvidia/k8s-device-plugin:v0.19.3
   #       <your-registry>/bitnamilegacy/kubectl:1.28
-  #       <your-registry>/dra-driver-nvidia/dra-driver-nvidia-gpu:v0.4.0
   #       <your-registry>/furiosaai/furiosa-device-plugin:2026.1.1
-  #       <your-registry>/furiosaai/furiosa-dra-driver:2026.1.1
   #       <your-registry>/rebellions/k8s-device-plugin:v0.3.6
-  #     DRA 드라이버 두 개는 해당 기능을 켤 때만 필요하다.
-  # ───────────────────────────────────────────────────────────────────────────
+
+  #     DRA 관련 다섯 개는 해당 기능을 켤 때만 필요하다(Tenstorrent 는 Fabric Manager agent 이미지도 함께 필요):
+  #       <your-registry>/dra-driver-nvidia/dra-driver-nvidia-gpu:v0.4.0
+  #       <your-registry>/furiosaai/furiosa-dra-driver:2026.1.1
+  #       <your-registry>/rebellions/k8s-dra-driver-npu:v0.2.0
+  #       <your-registry>/tenstorrent/tt-dra-driver:0.0.48
+  #       <your-registry>/tenstorrent/tt-fabric-manager:latest
   vendorRegistry: "<your-registry>"   # 위와 같은 미러여도 되고 달라도 된다
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -35,6 +37,8 @@ global:
 nvidia:
   devicePluginImage: "<your-registry>/nvidia/k8s-device-plugin:v0.17.1"
   # GPU 텔레메트리 exporter(선택). 켤 경우 이미지도 미러 경로로 지정한다.
+  # upstream 은 nvcr.io/nvidia/k8s/dcgm-exporter 로 경로에 k8s/ 가 들어간다. 미러에는
+  # 그 세그먼트 없이 nvidia/dcgm-exporter 로 올린다 — 미러를 만들 때 경로를 맞춘다.
   dcgmExporter:
     enabled: false
     image: "<your-registry>/nvidia/dcgm-exporter:4.5.2-4.8.1-ubuntu22.04"

@@ -2,7 +2,7 @@
 // server_test.go: 관리 REST API 핸들러 단위 테스트
 // 상세: fake clientset(TokenReview/SAR reactor) + fake controller-runtime client(npuctl)로
 //       인증(401)/인가(403)/patch 매핑/오입력 거부(400)를 검증한다(라이브 불필요).
-// 생성일: 2026-07-20 | 수정일: 2026-10-09 (주석의 작업 항목 토큰 제거)
+// 생성일: 2026-07-20 | 수정일: 2026-11-16
 // ============================================================
 
 package apiserver
@@ -198,9 +198,9 @@ func TestToggle_MissingEnabled400(t *testing.T) {
 	}
 }
 
-// 최종 리뷰 Important #4 로 추가한 core-group nodes 게이트를 고정한다. 게이트가 있는데
+// core-group nodes 게이트를 고정한다. 게이트가 있는데
 // 아무 테스트도 잠그지 않으면 다음 리팩터가 조용히 지워도 초록으로 남는다 — 이 트랙이
-// 반복해서 값을 치른 형태다(I-6 의 동어반복 테스트와 같은 부류, 인가 쪽 버전).
+// 반복해서 값을 치른 형태다(동어반복 테스트와 같은 부류, 인가 쪽 버전).
 // 응답에 node 이름·schedulable·nodeAdvertised 를 싣는 5개 라우트 전부가 대상이다.
 func TestNodeAuthzGateOnNodeDerivedRoutes(t *testing.T) {
 	cases := []struct{ name, method, path, body string }{
@@ -222,7 +222,7 @@ func TestNodeAuthzGateOnNodeDerivedRoutes(t *testing.T) {
 				t.Fatalf("core group nodes 권한 없으면 403 이어야 함: got %d (%s)", w.Code, w.Body.String())
 			}
 			// 어느 리소스가 403 에 이름을 남기는지는 authzAll 의 pairs 순서로 결정된다.
-			// 순서를 고정하지 않으면 뒤집어도 스위트가 green 이라(리뷰가 실험으로 확인)
+			// 순서를 고정하지 않으면 뒤집어도 스위트가 green 이라
 			// 사용자가 받는 사유가 조용히 바뀐다. nodes 가 첫 게이트임을 여기서 고정한다.
 			if body := w.Body.String(); !strings.Contains(body, "list nodes") {
 				t.Errorf("403 은 막힌 리소스(nodes)를 이름으로 알려야 함: %s", body)
@@ -232,7 +232,7 @@ func TestNodeAuthzGateOnNodeDerivedRoutes(t *testing.T) {
 }
 
 // 중첩 게이트가 계층마다 TokenReview 를 반복하면 요청당 왕복이 게이트 수만큼 늘어난다.
-// 토큰이 하나면 TokenReview 도 한 번이어야 한다(최종 리뷰 후속 4번).
+// 토큰이 하나면 TokenReview 도 한 번이어야 한다.
 func TestAuthzAllDoesOneTokenReview(t *testing.T) {
 	s, _ := newServer(t, okAuth(), previewObjects()...)
 	fake := s.Authn.(*k8sfake.Clientset)
@@ -259,7 +259,7 @@ func TestAuthzAllDoesOneTokenReview(t *testing.T) {
 
 // 기존 read 라우트 2개는 npuctl.CollectStatus 를 통해 corev1.NodeList 를 읽고
 // node.status.allocatable 전량을 응답에 싣는다(pkg/npuctl/types.go:68-71). npu.ai 권한만으로
-// 그게 나가면 안 된다 — core group nodes list 인가를 함께 요구한다(최종 리뷰 후속 1번).
+// 그게 나가면 안 된다 — core group nodes list 인가를 함께 요구한다.
 func TestStatusRoutesRequireNodeAuthz(t *testing.T) {
 	cases := []struct{ name, path string }{
 		{"status", "/api/v1/status"},
@@ -280,8 +280,8 @@ func TestStatusRoutesRequireNodeAuthz(t *testing.T) {
 }
 
 // 두 게이트가 동시에 막혀 있을 때 403 이 이름을 남기는 리소스는 authzAll 의 pairs 순서로
-// 결정된다. 순서를 고정하는 테스트가 없으면 pairs 를 뒤집어도 스위트가 green 이라(리뷰가
-// 실험으로 확인) 사용자가 받는 사유가 조용히 바뀐다. nodes 가 첫 게이트임을 고정한다.
+// 결정된다. 순서를 고정하는 테스트가 없으면 pairs 를 뒤집어도 스위트가 green 이라
+// 사용자가 받는 사유가 조용히 바뀐다. nodes 가 첫 게이트임을 고정한다.
 // 거부를 하나만 걸면 순서와 무관하게 그 하나가 이름에 나오므로 반드시 둘을 막아야 한다.
 func TestAuthzAllReportsFirstGateInOrder(t *testing.T) {
 	opts := authnOpts{

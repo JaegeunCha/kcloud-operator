@@ -1,7 +1,7 @@
 // ============================================================
 // acceleratorpartitionpolicy_types.go: AcceleratorPartitionPolicy CRD 타입
 // 상세: 이기종 가속기(RNGD/NVIDIA) 파티션 통합 인터페이스. spec + status 4축.
-// 생성일: 2026-07-23 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
+// 생성일: 2026-07-23 | 수정일: 2026-11-16
 // ============================================================
 package v1alpha1
 
@@ -25,14 +25,14 @@ type QuiescePolicy struct {
 }
 
 // AcceleratorPartitionPolicySpec 는 원하는 파티션 상태다.
-// layout 과 sharing 둘 다 비면 정책이 아무것도 요청하지 않으므로 admission 에서 거부한다(D-3).
+// layout 과 sharing 둘 다 비면 정책이 아무것도 요청하지 않으므로 admission 에서 거부한다.
 // +kubebuilder:validation:XValidation:rule="(has(self.layout) && self.layout.size() > 0) || has(self.sharing)",message="spec.layout and spec.sharing cannot both be empty"
 type AcceleratorPartitionPolicySpec struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// +kubebuilder:validation:Enum=furiosa;nvidia
 	Vendor string `json:"vendor"`
 	// Layout 은 파티션 레이아웃 요청이다. 비우면 파티션 없음 — sharing 만 단독으로 쓸 수 있다
-	// (순수 시분할 등, 라이브 결함 D-3). 이때 파티션 apply 경로(cordon·MIG mode·GI)는 타지 않는다.
+	// (순수 시분할 등). 이때 파티션 apply 경로(cordon·MIG mode·GI)는 타지 않는다.
 	// +optional
 	Layout        []PartitionLayout `json:"layout,omitempty"`
 	QuiescePolicy QuiescePolicy     `json:"quiescePolicy,omitempty"`
@@ -63,14 +63,11 @@ const (
 	// mps-control-daemon 이 함께 떠야 하고, MIG 가 켜진 장치에서는 쓸 수 없다.
 	SharingModeMPS = "mps"
 	// SharingModeOversubscribed 는 "광고된 리소스 수가 NDR 이 보고한 물리 장치 수를 넘는다"는
-	// 관측 그 자체만을 뜻한다 — 원인은 확정하지 않는다. 이 관측은 두 가지 서로 다른 사실 중
-	// 어느 쪽에서도 똑같이 나온다: (a) device-plugin 이 시분할로 복제 중이다(격리 없음), 또는
-	// (b) 벤더의 device-plugin 이 하드웨어 서브유닛을 그대로 광고한다(격리 있음, 예: Furiosa
-	// RNGD 의 물리 장치 1대가 PE 4개로 나뉘어 광고됨). 알고 있는 것은 "광고 수 > 물리 장치 수"
-	// 뿐이고, 격리가 있는지 없는지는 모른다 — 이 값은 그 사실 그대로만 말한다.
-	// CheckMode 는 이 상태에서도 exclusive 를 안전하게(fail-closed) 거절하지만, timeSliced 처럼
-	// "복제 중이라 격리 없음"이라고 단정하지는 않는다. timeSliced 는 오직 실측 증거(ApplyRecord
-	// 저널, applyACPPStatus 가 읽는 값)가 있을 때만 선언한다.
+	// 관측 그 자체만 뜻하고 원인·격리 여부는 확정하지 않는다. (a) device-plugin 이 시분할로 복제
+	// 중이어도(격리 없음), (b) 벤더 device-plugin 이 하드웨어 서브유닛을 그대로 광고해도(격리 있음,
+	// 예: Furiosa RNGD 의 물리 장치 1대가 PE 4개로 나뉘어 광고됨) 같은 관측이 나온다. CheckMode 는
+	// 이 상태에서도 exclusive 를 안전하게(fail-closed) 거절하지만, timeSliced 처럼 "복제 중이라 격리
+	// 없음"이라고 단정하지 않는다. timeSliced 는 실측 증거(ApplyRecord 저널, applyACPPStatus 가 읽는 값)가 있을 때만 선언한다.
 	SharingModeOversubscribed = "oversubscribed"
 )
 
@@ -168,7 +165,7 @@ type ApplyRecord struct {
 	SharingMode     string `json:"sharingMode,omitempty"`
 	SharingReplicas int32  `json:"sharingReplicas,omitempty"`
 	// SharingRolledBackGeneration 은 같은 spec.generation 에서 sharing verify 가 이미 실패해
-	// rollback 됐음을 기록한다(D-9). 값이 acpp.Generation 과 같으면 재적용하지 않고 terminal
+	// rollback 됐음을 기록한다. 값이 acpp.Generation 과 같으면 재적용하지 않고 terminal
 	// Failed 로 끝낸다 — 재시도 경로는 spec 변경(generation 증가)뿐이다. MIG GI apply 의
 	// 같은 원리(MigPhaseRolledBack + Generation 게이트)와 대칭이다.
 	SharingRolledBackGeneration int64 `json:"sharingRolledBackGeneration,omitempty"`

@@ -1,10 +1,8 @@
 // ============================================================
 // acceleratorevidence_types.go: AcceleratorEvidence CRD 타입 (검증 근거의 1급 모델)
 // 상세: R&D base v0.1 §8.3/§8.5/§8.6. 노드당 하나 — "무엇을 관측했고(level), 어느 환경에서
-//
-//	나왔으며(fingerprint), 언제까지 유효한지(expiresAt)" 를 정책과 분리해 남긴다.
-//
-// 생성일: 2026-07-31
+// 나왔으며(fingerprint), 언제까지 유효한지(expiresAt)" 를 정책과 분리해 남긴다.
+// 생성일: 2026-07-31 | 수정일: 2026-11-16
 // ============================================================
 package v1alpha1
 
@@ -18,7 +16,7 @@ const (
 	EvidenceLevelObserved = "Observed"
 	// EvidenceLevelFunctionallyVerified: 위에 더해 노드가 기대한 자원을 광고하고 있다.
 	EvidenceLevelFunctionallyVerified = "FunctionallyVerified"
-	// EvidenceLevelAllocationVerified: 위에 더해 테스트 Pod 가 실제로 그 자원을 할당받았다.
+	// EvidenceLevelAllocationVerified: 위에 더해 테스트 Pod 가 그 자원을 실제로 할당받는다.
 	EvidenceLevelAllocationVerified = "AllocationVerified"
 )
 

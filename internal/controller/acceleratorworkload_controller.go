@@ -1,11 +1,8 @@
 // ============================================================
 // acceleratorworkload_controller.go: AcceleratorWorkload 컨트롤러
-// 상세: 추상 워크로드의 최종 권위 판정. admission webhook 은 failurePolicy=Ignore 라 우회될
-// 수 있고 승인 이후 클러스터 capability 가 바뀔 수도 있으므로, 같은 intent.Translate 를 다시
-// 돌려 결과를 status 에 남긴다. 성공하면 Deployment 하나를 소유하고, 거절되면 Deployment 를
-// 만들지 않고 Condition=False 로 사유를 남긴다(실행 중인 것을 강제로 죽이지는 않는다 —
-// 광고가 사라지면 Pod 은 자연히 Pending 이 되고, 그 판단은 운영자 몫이다).
-// 생성일: 2026-07-30 | 수정일: 2026-07-30
+// 상세: 추상 워크로드의 최종 권위 판정. 같은 intent.Translate 를 다시 돌려 결과를 status 에 남기고,
+// 성공하면 Deployment 하나를 소유한다. 판정 근거는 AcceleratorWorkloadReconciler 주석에 있다.
+// 생성일: 2026-07-30 | 수정일: 2026-11-16
 // ============================================================
 package controller
 
@@ -46,7 +43,11 @@ const awRequeueInterval = 2 * time.Minute
 // errDeploymentNotOwned 는 같은 이름의 Deployment 가 남의 것일 때다. 뺏지 않는다.
 var errDeploymentNotOwned = errors.New("deployment is not owned by this AcceleratorWorkload")
 
-// AcceleratorWorkloadReconciler 는 추상 워크로드를 Deployment 로 실현한다.
+// AcceleratorWorkloadReconciler 는 추상 워크로드를 Deployment 로 실현한다. admission webhook 은
+// failurePolicy=Ignore 라 우회될 수 있고 승인 이후 클러스터 capability 가 바뀔 수도 있으므로, 같은
+// intent.Translate 를 다시 돌려 결과를 status 에 남긴다. 성공하면 Deployment 하나를 소유하고, 거절되면
+// Deployment 를 만들지 않고 Condition=False 로 사유를 남긴다(실행 중인 것을 강제로 죽이지는 않는다 —
+// 광고가 사라지면 Pod 은 자연히 Pending 이 되고, 그 판단은 운영자 몫이다).
 type AcceleratorWorkloadReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme

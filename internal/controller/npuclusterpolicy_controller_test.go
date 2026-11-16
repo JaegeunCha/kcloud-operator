@@ -134,15 +134,15 @@ var _ = Describe("ensureNvidiaDevicePlugin renders mixed and flat DaemonSets", f
 		}
 		Expect(found).To(BeTrue(), "flat DS must exclude mig-active nodes via DoesNotExist affinity")
 
-		// 둘 다 restartNvidiaDevicePlugin 이 찾는 공통 라벨(kcloud.ai/dp-vendor)을 공유한다(C-1 수정 후).
+		// 둘 다 restartNvidiaDevicePlugin 이 찾는 공통 라벨(kcloud.ai/dp-vendor)을 공유한다.
 		Expect(mixed.Spec.Template.Labels).To(HaveKeyWithValue(nvidiaDevicePluginVendorLabel, "nvidia"))
 		Expect(flat.Spec.Template.Labels).To(HaveKeyWithValue(nvidiaDevicePluginVendorLabel, "nvidia"))
 
-		// C-1: mixed 의 selector 는 과거 라이브 값 그대로여야 한다 — 바뀌면 기존 클러스터에서
+		// mixed 의 selector 는 과거 라이브 값 그대로여야 한다 — 바뀌면 기존 클러스터에서
 		// immutable 필드라 422 로 영구 거부된다.
 		Expect(mixed.Spec.Selector.MatchLabels).To(Equal(map[string]string{"app.kubernetes.io/name": "nvidia-device-plugin"}))
 
-		// I-B: 두 DS 의 selector 는 서로의 template label 과 매치되면 안 된다(pod 을 서로 훔치지 않음).
+		// 두 DS 의 selector 는 서로의 template label 과 매치되면 안 된다(pod 을 서로 훔치지 않음).
 		mixedSel, err := metav1.LabelSelectorAsSelector(mixed.Spec.Selector)
 		Expect(err).NotTo(HaveOccurred())
 		flatSel, err := metav1.LabelSelectorAsSelector(flat.Spec.Selector)
@@ -151,7 +151,7 @@ var _ = Describe("ensureNvidiaDevicePlugin renders mixed and flat DaemonSets", f
 		Expect(flatSel.Matches(labels.Set(mixed.Spec.Template.Labels))).To(BeFalse(), "flat selector must not match mixed pods")
 	})
 
-	// C-1: 기존 selector 를 가진 mixed DS 가 라이브에 이미 있는 업그레이드 경로.
+	// 기존 selector 를 가진 mixed DS 가 라이브에 이미 있는 업그레이드 경로.
 	// selector 가 바뀌면 DaemonSet.spec.selector 는 immutable 이라 API 서버가 422 로 영구 거부한다.
 	It("succeeds against a pre-existing mixed DS with the old (pre-split) selector", func() {
 		oldSelectorLabels := map[string]string{"app.kubernetes.io/name": "nvidia-device-plugin"}
@@ -244,7 +244,7 @@ var _ = Describe("NPUClusterPolicy reconcile with Nvidia.Enabled=false", func() 
 	})
 
 	// 이 operator 가 한 번도 reconcile 하지 않은(=owner annotation 없는) DS 는 이름이 같아도
-	// 지우면 안 된다 — #19 흡수 대상 3rd-party DS 보호. 소유권 검사를 걷어내면 이 스펙이 실패로
+	// 지우면 안 된다 — 흡수 대상 3rd-party DS 보호. 소유권 검사를 걷어내면 이 스펙이 실패로
 	// 뒤집힌다(뮤테이션으로 확인).
 	It("does not remove a same-named DaemonSet it has never owned", func() {
 		selMixed := map[string]string{"app.kubernetes.io/name": nvidia.DevicePluginNameMixed}
@@ -283,7 +283,7 @@ var _ = Describe("NPUClusterPolicy reconcile with Nvidia.Enabled=false", func() 
 	})
 })
 
-// TestOwnedScanNamespaces: #16 detector 이동 dual-ns 스캔 고정.
+// TestOwnedScanNamespaces: detector 이동 dual-ns 스캔 고정.
 // env 미설정 → kube-system 1개(회귀 0). 설정 → kube-system + kcloud 2개(과도기 orphan 방지).
 func TestOwnedScanNamespaces(t *testing.T) {
 	t.Setenv("OPERATOR_NAMESPACE", "")
@@ -297,7 +297,7 @@ func TestOwnedScanNamespaces(t *testing.T) {
 	}
 }
 
-// TestIsDevicePluginResource: #19 device-plugin 보존 정책 고정.
+// TestIsDevicePluginResource: device-plugin 보존 정책 고정.
 // 5종 device-plugin=보존(true), operator 관리(driver/toolkit/detector)=삭제 대상(false).
 func TestIsDevicePluginResource(t *testing.T) {
 	preserve := []string{"nvidia-device-plugin", "furiosa-device-plugin", "furiosa-rngd-device-plugin",
@@ -381,7 +381,7 @@ func TestEnsureNvidiaDevicePluginUnownedStaysPlain(t *testing.T) {
 
 // TestFlatAffinityRenderIsDeterministic: flat DS 의 NodeAffinity 는 map 순회(무작위 순서)로
 // 조립되므로 sort.Strings 없이는 매 reconcile 마다 MatchExpressions 순서가 흔들려 DeepEqual 이
-// 불일치 → DS 가 매번 롤링 재시작한다(I-A). sort.Strings 자체는 이미 있다 — 이 테스트는
+// 불일치 → DS 가 매번 롤링 재시작한다. sort.Strings 자체는 이미 있다 — 이 테스트는
 // 그걸 회귀로부터 고정한다.
 func TestFlatAffinityRenderIsDeterministic(t *testing.T) {
 	r := &NPUClusterPolicyReconciler{}

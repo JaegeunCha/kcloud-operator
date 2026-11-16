@@ -59,7 +59,7 @@ type DeviceEntry struct {
 	MigObservationError string `json:"migObservationError,omitempty"`
 	FirmwareVersion     string `json:"firmwareVersion,omitempty"` // 가용 시 펌웨어/BIOS 버전
 	// MigLgipOutput 은 `nvidia-smi mig -lgip` 원문입니다(ACPP §4.2 MIG profile discovery 소스).
-	// node-manager(detector) 가 채웁니다(Task 11b). NVIDIA 이외 벤더는 공란.
+	// node-manager(detector) 가 채웁니다. NVIDIA 이외 벤더는 공란.
 	MigLgipOutput string `json:"migLgipOutput,omitempty"`
 }
 

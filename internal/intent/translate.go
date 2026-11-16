@@ -1,9 +1,9 @@
 // ============================================================
 // translate.go: 추상 사용자 의도 → 벤더 device-plugin 리소스 번역
-// 상세: 이 계획의 유일한 번역 함수다. admission webhook 과 컨트롤러가 같은 함수를 부른다.
+// 상세: 유일한 번역 함수다. admission webhook 과 컨트롤러가 같은 함수를 부른다.
 // 순수 함수이므로 클러스터 조회는 호출부(Load)가 미리 해 둔다. 실패하면 항상 *Reject 를
 // 돌려주며, 절대 다른 모드·다른 벤더로 조용히 갈아끼우지 않는다.
-// 생성일: 2026-07-30 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
+// 생성일: 2026-07-30 | 수정일: 2026-11-16
 // ============================================================
 package intent
 
@@ -152,17 +152,15 @@ func Translate(req Request, snap []NodeCapability) (*Result, error) {
 // nodeHasVendor) 같은 벤더 아래 다른 제품의 노드까지 후보로 들인다 — furiosa 벤더 아래 rngd 와
 // warboy 가 다른 리소스명으로 광고되는데도 벤더가 같다는 이유만으로 Warboy 노드가 RNGD 요청의
 // 후보가 되고, 그 노드의 사소한 "광고 안 함" 거절이 firstReject 를 선점해 실제 RNGD 노드의
-// 거절을 가린다(D-2 라이브 재현: k8s-worker1 이 rngd-1 의 진짜 사유를 가림).
-//
-// 그래서 벤더가 아니라 리소스로 거른다: (a) 이미 이 리소스를 광고하고 있거나, (b) 아직 이
-// 리소스는 광고하지 않지만(파티션 미적용 등 governed-pending) 이 매핑의 전체 장치 리소스는
-// 광고한다 — 이 경우 CheckMode 의 ProfileNotApplied 같은 구체적 축이 열리도록 후보에 남긴다.
-// 전체 장치조차 광고하지 않는 노드는(k8s-worker1 처럼) 이 매핑의 후보가 아니다 — 그 노드의
-// 거절은 이 매핑에서 볼 가치가 없다.
+// 거절을 가린다. 그래서 벤더가 아니라 리소스로 거른다: 이미 이 리소스를 광고하고 있거나, 아직 이
+// 리소스는 광고하지 않지만(파티션 미적용 등 governed-pending) 이 매핑의 전체 장치 리소스는 광고하는 노드만 남긴다.
 func nodeIsCandidateFor(nc NodeCapability, m v1alpha1.AcceleratorMapping, resolved string) bool {
 	if nc.Advertised[resolved] > 0 {
 		return true
 	}
+	// 전체 장치 리소스를 광고하는 노드는 CheckMode 의 ProfileNotApplied 같은 구체적 축이 열리도록 후보에
+	// 남긴다. 전체 장치조차 광고하지 않는 노드(Warboy 노드처럼)는 이 매핑의 후보가 아니고, 그 노드의
+	// 거절은 이 매핑에서 볼 가치가 없다.
 	whole, err := WholeDeviceResource(m.Vendor, m.Product)
 	return err == nil && whole != "" && nc.Advertised[whole] > 0
 }

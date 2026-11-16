@@ -1,13 +1,9 @@
 #!/usr/bin/env bash
 # ============================================================
 # install.sh: NPU Operator Helm 설치/업그레이드 래퍼
-# 상세: deploy.env 를 로드하여 global.registry / global.vendorRegistry 를 주입한 뒤
-#       helm upgrade --install 을 실행합니다.
-#       --dry-run 등 CLI 인수는 helm 에 그대로 전달됩니다.
-# 사용법:
-#   bash install.sh            # 실제 설치
-#   bash install.sh --dry-run  # helm dry-run (명령 미리보기 후 helm 이 렌더링만 수행)
-# 생성일: 2026-06-02 | 수정일: 2026-09-09 (VENDOR_REGISTRY 주입 추가)
+# 상세: deploy.env 를 로드해 global.registry/global.vendorRegistry 를 주입한 뒤 helm
+#       upgrade --install 을 실행한다. --dry-run 등 CLI 인수는 helm 에 그대로 전달한다.
+# 생성일: 2026-06-02 | 수정일: 2026-11-16
 # ============================================================
 set -euo pipefail
 
@@ -52,7 +48,7 @@ HELM_CMD=(
   --set "global.vendorRegistry=${VENDOR_REGISTRY}"
 )
 
-# .91 dev 오버라이드 자동 적용: 커밋된 values-dev.yaml 이 있으면 -f 로 병합한다.
+# 개발 클러스터 오버라이드 자동 적용: 커밋된 values-dev.yaml 이 있으면 -f 로 병합한다.
 # (dev 배포 경로 한정 — 차트 기본값 values.yaml 은 외부 소비자용으로 유지). nvidia toolkit
 # 등 이 클러스터에만 필요한 설정을 --set 대신 커밋된 values 로 영속시켜 upgrade 승계를 보장.
 if [[ -f "${SCRIPT_DIR}/values-dev.yaml" ]]; then

@@ -3,8 +3,8 @@
 // 상세: state_machine.go 의 handleUpgrading/handleValidating/handleRollback 이 Mode=job 일 때
 //       진입하는 대체 경로. "DS 이미지 patch + pod 삭제" 를 "install Job 생성/재생성" 으로,
 //       "DS pod Ready 관찰" 을 "Job 성공 종료 + NDR 일치" 로 재정의한다.
-//       install Job 의 신원은 이미지 + DRIVER_VERSION 두 축이다(jobTargetsInstall).
-// 생성일: 2026-07-16 | 수정일: 2026-10-14
+//       install Job 의 신원은 이미지 + DRIVER_VERSION 두 값이다(jobTargetsInstall).
+// 생성일: 2026-07-16 | 수정일: 2026-11-16
 // ============================================================
 
 package upgrade
@@ -172,8 +172,8 @@ func (m *UpgradeStateMachine) handleValidatingJob(
 
 	// install Job 이 아직 돌고 있으면 검증 예산을 쓰지 않는다. Job 에는 자기 시한
 	// (activeDeadlineSeconds, 기본 30m)이 있고 초과하면 위 실패 분기가 받는다. 여기서 별도
-	// 시계를 돌리면 정상 진행 중인 설치를 실패로 단정한다 — 라이브 실측: apt 로 313MB 를 받는
-	// 도중 검증 예산 10분이 끝나 롤백으로 밀려났고, 그 롤백이 없는 이미지를 집어 노드가 굳었다.
+	// 시계를 돌리면 정상 진행 중인 설치를 실패로 단정한다 — 라이브에서 관측한 사례: apt 로 313MB 를
+	// 받는 도중 검증 예산 10분이 끝나면 롤백으로 밀려나고, 그 롤백이 없는 이미지를 집으면 노드가 굳는다.
 	if jobFound && !jobComplete(&job) {
 		logger.Info("install Job 진행 중 — 완료 대기", "job", jobName)
 		return true, 10 * time.Second, nil
@@ -377,7 +377,7 @@ func (m *UpgradeStateMachine) handleRollbackJob(
 	metrics.RecordRollback(state.Spec.Vendor)
 	// RenderInstallJob 이 아니라 RenderRollbackJob 이다 — 롤백 Job 은 다운그레이드를 허용받아야
 	// 하고 정책 선언 버전이 아니라 지시받은 이전 버전을 설치해야 한다. 일반 설치 Job 으로 렌더링하면
-	// installer 자신의 다운그레이드 가드가 거부해 롤백이 무동작이 된다(2026-08-10 라이브).
+	// installer 자신의 다운그레이드 가드가 거부해 롤백이 무동작이 된다(라이브 관측).
 	desired := driverjob.RenderRollbackJob(policy, state.Spec.NodeName, prevImage, prevVersion)
 	if err := m.Create(ctx, desired); err != nil && !apierrors.IsAlreadyExists(err) {
 		return false, 0, fmt.Errorf("rollback install Job 생성 실패: %w", err)
@@ -467,16 +467,12 @@ func jobContainerImage(job *batchv1.Job) string {
 	return ""
 }
 
-// jobTargetsInstall 은 잔여 Job 이 지금 하려는 설치(이미지 + 목표 버전)와 같은 것인지 반환한다.
-//
-// 이미지만으로는 판정할 수 없다. apt/script 인스톨러는 같은 이미지가 모든 드라이버 버전을
-// 설치하고 목표 버전은 DRIVER_VERSION env 로만 들어간다 — 그래서 지난 사이클이 남긴 완료된
-// Job 과 이번 사이클의 Job 이 이미지 상으로는 구별되지 않는다. 라이브 실측(2026-08-07
-// `.91` k8s-worker1): 595.84 사이클 종료 12초 뒤 시작한 580.173.02 사이클이 앞 사이클의
-// 완료된 Job 을 재사용해, 580 설치를 한 번도 만들지 않은 채 validator 가 앞 Job 의 결과를
-// 10분간 채점했다.
-//
-// DRIVER_VERSION 이 없는 Job(구 operator 산물)은 불일치로 본다 — 삭제 후 재생성이 안전한 쪽이다.
+// jobTargetsInstall 은 잔여 Job 이 지금 하려는 설치(이미지 + 목표 버전)와 같은 것인지 반환한다. 이미지만으로는
+// 판정할 수 없다 — apt/script 인스톨러는 같은 이미지가 모든 드라이버 버전을 설치하고 목표 버전은 DRIVER_VERSION
+// env 로만 들어가므로, 지난 사이클이 남긴 완료된 Job 과 이번 사이클의 Job 이 이미지 상으로는 구별되지 않는다.
+// 라이브 클러스터에서 관측한 순서: 595.84 사이클 종료 12초 뒤 시작한 580.173.02 사이클이 앞 사이클의 완료된 Job
+// 을 재사용해, 580 설치를 한 번도 만들지 않은 채 validator 가 앞 Job 의 결과를 10분간 채점한다. DRIVER_VERSION
+// 이 없는 Job(구 operator 산물)은 불일치로 본다 — 삭제 후 재생성이 안전한 쪽이다.
 func jobTargetsInstall(job *batchv1.Job, image, version string) bool {
 	return jobContainerImage(job) == image && jobDriverVersion(job) == version
 }

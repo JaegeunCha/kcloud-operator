@@ -1,6 +1,6 @@
 // driverupgradestate_types.go: DriverUpgradeState CRD 타입 정의
 // 상세: 노드별 드라이버 업그레이드 상태를 추적하는 클러스터 스코프 CRD
-// 생성일: 2026-04-13 | 수정일: 2026-10-14
+// 생성일: 2026-04-13 | 수정일: 2026-11-16
 
 package v1alpha1
 
@@ -109,7 +109,7 @@ type DriverUpgradeStateStatus struct {
 	// QuiescedDeployments 는 Cordoning 진입 시 scale=0 으로 patch 한 Deployment 목록입니다.
 	// Idle/Failed 진입 시 원래 replicas 로 복구하기 위한 backup 이며,
 	// `npu.ai/quiesce-on-driver-upgrade=true` 라벨이 붙은 Deployment 만 대상입니다.
-	// (architectural plan §A6.1 — opt-in quiesce on driver upgrade)
+	// (opt-in quiesce on driver upgrade)
 	QuiescedDeployments []QuiescedDeployment `json:"quiescedDeployments,omitempty"`
 }
 

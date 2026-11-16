@@ -4,7 +4,7 @@
 //
 //	선언하므로 검증기 구현과 독립이다 - 순환 평가를 피한다.
 //
-// 생성일: 2026-08-10
+// 생성일: 2026-08-10 | 수정일: 2026-11-16
 // ============================================================
 package descriptor
 
@@ -62,9 +62,9 @@ func TestArchetypesAreValid(t *testing.T) {
 }
 
 // 규칙이 조용히 사라지는 것을 막는다. 규칙을 더하면 이 수를 함께 올린다.
-// 25 에서 26 으로: "정규화됐지만 /dev 밖"(/etc/shadow) 을 추가해 /dev 하위
-// 검사(case !strings.HasPrefix(n, "/dev/"))를 직접 두들기는 표본을 만들었다
-// - 그전엔 이 분기를 지워도 표본이 하나도 안 실패했다(task-4-report.md 참고).
+// "정규화됐지만 /dev 밖"(/etc/shadow) 규칙이 /dev 하위 검사
+// (case !strings.HasPrefix(n, "/dev/"))를 직접 두들기는 표본을 만든다
+// - 이 규칙이 없으면 그 분기를 지워도 표본이 하나도 실패하지 않는다.
 func TestMutationRuleCount(t *testing.T) {
 	rules := MutationRules()
 	if len(rules) != 26 {

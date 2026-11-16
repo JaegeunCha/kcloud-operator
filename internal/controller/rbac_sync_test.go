@@ -1,17 +1,9 @@
 // ============================================================
 // rbac_sync_test.go: 생성 RBAC 와 배포 RBAC 가 갈라지지 않는지 고정한다.
-// 상세: `make manifests` 는 config/rbac/role.yaml 만 재생성한다 — 실제 배포는 손으로 관리하는
-//
-//	deploy/helm/templates/rbac.yaml 다. 둘이 갈라지면 kubebuilder 마커를 고쳐도 배포에는
-//	반영되지 않는다(2026-08-04 라이브 핫루프의 절반 원인 — nodedevicereports/status 의
-//	update/patch 가 생성본에만 있었다). 완전 자동 동기화는 이 시험의 범위 밖이다 — 이
-//	컨트롤러가 실제로 쓰는 리소스만 좁혀서, 갈라짐을 드러내는 것만 한다. (npu.ai 전 리소스로
-//	넓히면 npuclusterpolicies 의 create/delete 처럼 kubebuilder 마커에는 있지만 코드가 쓴 적
-//	없는 오래된 항목까지 걸려 노이즈가 된다 — 그건 이 컨트롤러의 사고와 무관한 별개 정리 대상이다.
-//	acceleratorpartitionpolicies 의 create/delete 는 2026-08-11 부터 관리 API 정책 라우트가
-//	실제로 쓰므로 더는 노이즈가 아니고, 아래 세 번째 시험이 그것을 본다.)
-//
-// 생성일: 2026-08-04 | 수정일: 2026-09-10 (1.28 라인: DRA RBAC 시험 제외)
+// 상세: `make manifests` 는 config/rbac/role.yaml 만 재생성하고 실제 배포는 손으로 관리하는 deploy/helm/templates/rbac.yaml
+// 이 쓴다 — 둘이 갈라지면 kubebuilder 마커를 고쳐도 배포에는 반영되지 않는다. 완전 자동 동기화는 이 시험의 범위
+// 밖이고, 이 컨트롤러가 실제로 쓰는 리소스만 좁혀 갈라짐을 드러낸다. 1.28 라인은 DRA RBAC 시험을 두지 않는다.
+// 생성일: 2026-08-04 | 수정일: 2026-11-16
 // ============================================================
 package controller
 
@@ -88,14 +80,18 @@ func deployedOperatorRules(t *testing.T) map[string][]string {
 
 // TestHelmRBACGrantsWhatMigObservationNeeds 는 이 컨트롤러의 kubebuilder RBAC 마커
 // (migobservation_controller.go 의 nodedevicereports/nodedevicereports/status)가 생성한
-// verb 집합이 실제 배포되는 helm 차트에도 그대로 있는지 본다. 완전한 두 파일 비교가 아니다
-// (위 파일 주석 참고) — 이 컨트롤러가 실제로 쓰는 리소스만 좁혀서, 마커를 고치고도 배포를
-// 잊는 사고(2026-08-04)가 다시 나면 여기서 잡히게 한다.
+// verb 집합이 실제 배포되는 helm 차트에도 그대로 있는지 본다. 마커를 고치고도 배포를 잊으면
+// 여기서 잡힌다 — nodedevicereports/status 의 update/patch 가 생성본에만 있으면 라이브에서 핫루프가
+// 난다(라이브에서 관측한 핫루프의 두 원인 중 하나).
 // 깨는 뮤테이션: helm rbac.yaml 에서 nodedevicereports/status 의 update 나 patch 를 지우면 실패한다.
 func TestHelmRBACGrantsWhatMigObservationNeeds(t *testing.T) {
 	generated := generatedOperatorRules(t)
 	deployed := deployedOperatorRules(t)
 
+	// 완전한 두 파일 비교가 아니라 이 컨트롤러가 실제로 쓰는 리소스만 본다. npu.ai 전 리소스로 넓히면
+	// npuclusterpolicies 의 create/delete 처럼 kubebuilder 마커에는 있지만 코드가 쓰지 않는 오래된 항목까지
+	// 걸려 노이즈가 된다 — 그건 이 컨트롤러의 사고와 무관한 별개 정리 대상이다. acceleratorpartitionpolicies
+	// 의 create/delete 는 관리 API 정책 라우트가 실제로 쓰므로 노이즈가 아니고, TestHelmRBACGrantsWhatPolicyWriteNeeds 가 본다.
 	for _, res := range []string{"nodedevicereports", "nodedevicereports/status"} {
 		want, ok := generated[res]
 		if !ok {
@@ -116,8 +112,8 @@ func TestHelmRBACGrantsWhatMigObservationNeeds(t *testing.T) {
 
 // TestHelmRBACGrantsWhatPolicyWriteNeeds 는 관리 API 의 정책 생성·삭제 라우트가 쓰는
 // acceleratorpartitionpolicies create/delete 가 배포 helm 차트에도 있는지 본다. 생성본에는
-// 처음부터 있었지만 helm 차트에는 없어서, 라우트를 붙인 뒤 라이브에서 403 이 났다(2026-08-11).
-// 호출자 인가(SubjectAccessReview)도 같은 verb 를 보므로 이 한 줄이 두 경로를 함께 막았다.
+// 있어도 helm 차트에서 빠지면 라우트가 라이브에서 403 을 낸다(관측된 결함의 재발 지점).
+// 호출자 인가(SubjectAccessReview)도 같은 verb 를 보므로 이 verb 가 빠지면 두 경로가 함께 막힌다.
 // 깨는 뮤테이션: helm rbac.yaml 에서 acceleratorpartitionpolicies 의 create 나 delete 를 지우면 실패한다.
 func TestHelmRBACGrantsWhatPolicyWriteNeeds(t *testing.T) {
 	deployed := deployedOperatorRules(t)

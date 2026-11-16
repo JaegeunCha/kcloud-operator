@@ -102,7 +102,7 @@ spec:
                   QuiescedDeployments 는 Cordoning 진입 시 scale=0 으로 patch 한 Deployment 목록입니다.
                   Idle/Failed 진입 시 원래 replicas 로 복구하기 위한 backup 이며,
                   `npu.ai/quiesce-on-driver-upgrade=true` 라벨이 붙은 Deployment 만 대상입니다.
-                  (architectural plan §A6.1 — opt-in quiesce on driver upgrade)
+                  (opt-in quiesce on driver upgrade)
                 items:
                   description: |-
                     QuiescedDeployment 는 driver upgrade cycle 동안 일시적으로 scale=0 으로 quiesce 된

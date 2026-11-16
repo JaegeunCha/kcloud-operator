@@ -3,7 +3,7 @@
 // 상세: operator pod 내 별도 HTTPS listener(:9444). pkg/npuctl 를 감싸 read(GET /status,
 //       /nodes/{node})/control(POST /vendors/{vendor}/upgrade|rollback|toggle)을 노출.
 //       control 은 전부 CR patch 로 귀결(1단계 계약 유지). 인증=TokenReview, 인가=SubjectAccessReview.
-// 생성일: 2026-07-20 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
+// 생성일: 2026-07-20 | 수정일: 2026-11-16
 // ============================================================
 
 package apiserver
@@ -117,11 +117,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/vendors/{vendor}/upgrade", s.authz("patch", "driverinstallpolicies", s.handleUpgrade))
 	mux.HandleFunc("POST /api/v1/vendors/{vendor}/rollback", s.authz("patch", "driverinstallpolicies", s.handleUpgrade))
 	mux.HandleFunc("POST /api/v1/vendors/{vendor}/toggle", s.authz("patch", "npuclusterpolicies", s.handleToggle))
-	// track ③ 인벤토리 조회: 미관리 노드는 NodeDeviceReport 만으로 채워지므로(review I-1)
+	// track ③ 인벤토리 조회: 미관리 노드는 NodeDeviceReport 만으로 채워지므로
 	// acceleratorpartitionpolicies 인가만으론 부족하다 — nodedevicereports 인가도 함께 요구한다
 	// (기존 authz 를 중첩 호출해 둘 다 통과해야 next 가 실행되게 한다). 응답은 node 이름·cordon
 	// 상태·advertised 수량도 함께 낸다(loadInventory/handleNodeAccelerators 가 corev1.Node 를
-	// 직접 읽는다) — core 그룹 nodes list 인가도 함께 요구한다(리뷰 Important #4, 5라우트 전부).
+	// 직접 읽는다) — core 그룹 nodes list 인가도 함께 요구한다(5라우트 전부).
 	mux.HandleFunc("GET /api/v1/accelerators", s.authzAll(invGates, s.handleAccelerators))
 	mux.HandleFunc("GET /api/v1/accelerators/{uid...}", s.authzAll(invGates, s.handleAcceleratorByUID))
 	mux.HandleFunc("GET /api/v1/nodes/{node}/accelerators", s.authzAll(invGates, s.handleNodeAccelerators))

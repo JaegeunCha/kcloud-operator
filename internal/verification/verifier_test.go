@@ -4,7 +4,7 @@
 //
 //	TTL 이 각각 맞아도 이음매가 틀리면 evidence 가 거짓을 말하므로 여기서 함께 본다.
 //
-// 생성일: 2026-07-31
+// 생성일: 2026-07-31 | 수정일: 2026-11-16
 // ============================================================
 package verification
 
@@ -333,7 +333,7 @@ func TestVerifyThenFreshnessSeam(t *testing.T) {
 
 // TestReportGeometryKeepsDevicesWithoutPCI 는 PCI 를 채우지 않는 벤더(Furiosa detector)의 보고서도
 // "장치가 있다" 로 읽히는지 고정한다. PCI 없는 항목을 버리면 evalNodeDeviceReport 가 멀쩡한
-// 보고서를 "보고서 없음" 으로 판정해 근거가 영영 등급을 못 받는다(2026-08-04 라이브).
+// 보고서를 "보고서 없음" 으로 판정해 근거가 영영 등급을 못 받는다(라이브 실측).
 func TestReportGeometryKeepsDevicesWithoutPCI(t *testing.T) {
 	ndr := &v1alpha1.NodeDeviceReport{Status: v1alpha1.NodeDeviceReportStatus{
 		Devices: []v1alpha1.DeviceEntry{{Vendor: "furiosa", Model: "rngd", Count: 1}},
@@ -346,7 +346,7 @@ func TestReportGeometryKeepsDevicesWithoutPCI(t *testing.T) {
 
 // TestReportGeometryScopesToTargets 는 정책이 건드리지 않은 장치를 보고서 대조에서 빼는지 본다.
 // 빼지 않으면 같은 노드의 비대상 GPU(A2)가 정책의 기대 geometry 로 판정돼 절대 통과할 수 없다
-// (2026-08-04 라이브: "report geometry \"\" != expected \"1g.6gb x4\"" 가 A2 에서도 났다).
+// (라이브 실측: "report geometry \"\" != expected \"1g.6gb x4\"" 가 A2 에서도 났다).
 func TestReportGeometryScopesToTargets(t *testing.T) {
 	ndr := &v1alpha1.NodeDeviceReport{Status: v1alpha1.NodeDeviceReportStatus{
 		Devices: []v1alpha1.DeviceEntry{

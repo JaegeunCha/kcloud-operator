@@ -1,14 +1,9 @@
 // ============================================================
 // helm_presence_test.go: 차트 렌더 시험이 기대는 helm 전제를 한 자리에서 판정한다
-// 상세: 차트를 렌더하는 시험들은 helm 이 PATH 에 없으면 건너뛴다. 로컬에서는 그게 맞지만
-//
-//	CI 에서 건너뛰는 것은 "환경이 없어 건너뜀" 이 아니라 "있어야 할 것이 없음" 이다 —
-//	그 상태로 워크플로가 초록이면 차트 검사 묶음이 아무 신호 없이 사라진다. 이 라인에
-//	실제로 그랬다(kubeVersion 경계 시험과 렌더 시험 넷이 건너뛰고 패키지는 ok 였다).
-//	그래서 판정을 helmBinary 하나로 모았다: CI 면 하드 실패, 아니면 건너뛴다.
-//	TestCIWorkflowInstallsHelm 은 그 전제의 다른 쪽 — 워크플로 선언 자체가 사라지는 경우다.
-//
-// 생성일: 2026-10-05 | 수정일: 2026-10-06
+// 상세: 차트를 렌더하는 시험들은 helm 이 PATH 에 없으면 건너뛴다. 로컬에서는 맞지만, CI 에서
+// 건너뛰는 것은 "환경이 없어 건너뜀" 이 아니라 "있어야 할 것이 없음" 이다 — 그 상태로
+// 워크플로가 초록이면 차트 검사 묶음이 신호 없이 사라질 수 있다. CI 에서는 하드 실패로 만든다.
+// 생성일: 2026-10-05 | 수정일: 2026-10-11
 // ============================================================
 package controller
 
@@ -23,6 +18,9 @@ import (
 // helmBinary 는 helm 실행 파일 경로를 돌려준다. 없으면 CI 에서는 하드 실패하고 로컬에서는
 // 건너뛴다. **helm 부재를 판정하는 자리는 이 함수 하나뿐이다** — 자리를 나눠 두면 한 곳만
 // 고치고 나머지가 옛 동작으로 남는다.
+//
+// internal/upgrade 에 같은 판정의 사본이 있다(kernel_image_targets_test.go 의
+// upgradeHelmBinary). 패키지가 달라 공유할 수 없다 — 한쪽을 고치면 다른 쪽도 고칠 것.
 func helmBinary(t *testing.T) string {
 	t.Helper()
 	bin, err := exec.LookPath("helm")
@@ -101,16 +99,12 @@ func TestWorkflowStepInstallsHelmDistinguishesInstallFromUse(t *testing.T) {
 	}
 }
 
-// helmBinary 는 helm 이 **실제로** 없는 것을 잡는다. 이 시험은 그 전제의 다른 쪽 — 워크플로에
-// 설치 **선언** 이 있는지다. 설치 단계를 지우면 CI 에서 helmBinary 가 하드 실패하지만, 그건
-// 러너에서야 드러난다. 이 시험은 같은 결함을 로컬 `make test` 에서 먼저 잡는다.
-//
-// 설치 방식은 글자 그대로 고정하지 않는다 — azure/setup-helm 이든 `apt-get install helm` 이든
-// `curl … get-helm-3 | bash` 든 통과한다(판정은 workflowStepInstallsHelm).
-//
-// 이 라인의 워크플로 중 helm 을 쓰는 것은 test.yml(차트 렌더 시험)과 release.yml
-// (`helm package`·`helm push`)뿐이다. release.yml 은 보지 않는다 — 거기서 helm 이 없으면
-// 그 단계가 바로 실패해 조용히 사라지지 않는다. lint.yml 은 helm 소비자가 없다.
+// helmBinary 는 helm 이 **실제로** 없는 것을 잡는다. 이 시험은 설치 **선언** 이 워크플로에
+// 있는지를 본다 — 선언을 지우면 CI 의 helmBinary 가 하드 실패하지만 그건 러너에서야 드러나고,
+// 이 시험은 같은 결함을 로컬 `make test` 에서 먼저 잡는다. 설치 방식은 글자 그대로 고정하지
+// 않는다(판정은 workflowStepInstallsHelm). lint.yml 은 일부러 보지 않는다 — 그쪽 helm 소비자인
+// footprint-check 게이트는 helm 이 없으면 건너뛰지 않고 하드 실패하므로, 조용히 사라지는
+// 전제는 test.yml 쪽뿐이다.
 func TestCIWorkflowInstallsHelm(t *testing.T) {
 	const wfPath = "../../.github/workflows/test.yml"
 	for _, step := range workflowSteps(t, wfPath) {

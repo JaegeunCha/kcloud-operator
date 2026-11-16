@@ -1,15 +1,9 @@
 // ============================================================
 // inventory.go: 가속기 인벤토리 집약 — 노드·ACPP·NDR → 물리 장치 목록
-// 상세: 정직성 계약(R&D v1.0 §19.3)을 코드로 고정한다. (1) 물리 장치당 정확히 1행 —
-//       time-slicing replica 는 절대 행이 되지 않고 sharingReplicas 숫자로만 나타난다.
-//       (2) SharingModeView.Verified 는 supported && verification==verified 일 때만 true 라
-//       UI 가 "주장" 을 "지원" 으로 렌더할 수 없다. (3) stale/미수렴 데이터는 숨기지 않는다 —
-//       ACPP 가 타깃하지만 아직 장치를 보고하지 않은(수렴 중) 노드는 미관리로 떨어뜨리지 않고
-//       Source=ACPP + Stale 행으로 남기며, 미수렴 ACPP 의 낡은 장치 데이터는 애초에 노출하지
-//       않는다(nc.Devices 가 intent.applyACPPStatus 의 게이트를 통과한 값만 담는다). 장치
-//       사실의 1순위 출처는 ACPP status 이고, ACPP 가 관리하지 않는 노드는 NDR 집계 행에서
-//       합성 ID 로 채우되 source 로 구분한다.
-// 생성일: 2026-07-30 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
+// 상세: 정직성 계약(R&D v1.0 §19.3)을 코드로 고정한다 — 물리 장치당 정확히 1행, stale·
+//       미수렴 데이터는 숨기지 않고 표시한다. 장치 사실의 1순위 출처는 ACPP status 이고,
+//       ACPP 가 관리하지 않는 노드는 NDR 집계 행에서 합성 ID 로 채우되 Source 로 구분한다.
+// 생성일: 2026-07-30 | 수정일: 2026-11-16
 // ============================================================
 
 package apiserver
@@ -94,7 +88,7 @@ type AcceleratorView struct {
 	// metadata.generation 을 못 따라갔거나 target phase != Ready). true 면 Model/PCIAddress/
 	// SharingMode/Capability 가 비어 있거나(수렴 중) 낡은 값(스펙 변경 후 미반영)일 수 있다 —
 	// SharingMode 는 특히 stale 행에서 초기화 기본값(exclusive)로 채워진 채 나갈 수 있다(applyACPPStatus
-	// 가 실제 ApplyRecord 를 읽기 전에 반환하므로, 리뷰 Important #2). UI 는 이 값들을 "정상" 으로
+	// 가 실제 ApplyRecord 를 읽기 전에 반환하므로). UI 는 이 값들을 "정상" 으로
 	// 렌더하면 안 된다. 미관리(Source=NodeDeviceReport) 행은 항상 false 다.
 	Stale       bool   `json:"stale"`
 	StaleReason string `json:"staleReason,omitempty"`
@@ -139,13 +133,11 @@ func toCapabilityView(d v1alpha1.DeviceStatus) CapabilityView {
 }
 
 // devicesForNode 는 이 노드를 타깃한 ACPP 의 이름·phase·ResolvedLayout 이다(없으면 빈 값). 장치
-// 목록은 여기서 돌려주지 않는다 — 호출자는 전부 nc.Devices(intent.BuildSnapshot 산출, 수렴 게이트를
-// 이미 통과한 값)를 대신 쓴다. 선택 규칙은 intent.applyACPPStatus 의 채택 규칙과 반드시 같아야
-// 한다(수렴+Ready 정책 우선, 사전순) — 다르면 여기서 고른 정책의 layout 이 저쪽이 채택한 Devices
-// 와 다른 TargetStatus 에서 와 짝이 어긋난다(라이브 결함 D-4: 사전순 앞의 Failed 정책이 Ready
-// 정책의 행을 뭉갰다). Ready 가 없으면 사전순 첫 정책으로 폴백해 governed-but-pending/failed
-// 상태를 정직하게 드러낸다. 어느 쪽이든 결정론적 선택일 뿐 소유권 판정이 아니다(owner-lock 은
-// 컨트롤러 몫).
+// 목록은 돌려주지 않는다 — 호출자는 nc.Devices(intent.BuildSnapshot 산출, 수렴 게이트 통과값)를 쓴다.
+// 선택 규칙은 intent.applyACPPStatus 의 채택 규칙(수렴+Ready 정책 우선, 사전순)과 같아야 한다.
+// 다르면 여기서 고른 정책의 layout 이 저쪽이 채택한 Devices 와 다른 TargetStatus 에서 와 짝이
+// 어긋난다(사전순 앞의 Failed 정책이 Ready 정책의 행을 뭉개는 경우). Ready 가 없으면 사전순 첫
+// 정책으로 폴백해 governed-but-pending/failed 상태를 드러낸다. 소유권 판정이 아니다(owner-lock 은 컨트롤러 몫).
 func devicesForNode(acpps []v1alpha1.AcceleratorPartitionPolicy, nodeName string) (policy, phase string, layout []v1alpha1.ResolvedLayoutEntry) {
 	sorted := make([]v1alpha1.AcceleratorPartitionPolicy, len(acpps))
 	copy(sorted, acpps)
@@ -203,6 +195,7 @@ func uncordonedCopy(nodes []corev1.Node) []corev1.Node {
 // BuildInventory 는 노드·ACPP·NDR 을 물리 장치 목록으로 접는다(순수 함수).
 // 노드 단위 값(광고량·공유 상태·파티션 프로파일)은 intent.BuildSnapshot 을 그대로 재사용한다 —
 // 특히 "광고 수 > 물리 장치 수이면 timeSliced" 정직성 override 를 여기서 다시 구현하지 않는다.
+// 물리 장치당 정확히 1행이다 — time-slicing replica 는 행이 되지 않고 SharingReplicas 숫자로만 나타난다.
 func BuildInventory(nodes []corev1.Node, acpps []v1alpha1.AcceleratorPartitionPolicy, ndrs []v1alpha1.NodeDeviceReport) []AcceleratorView {
 	snap := intent.BuildSnapshot(uncordonedCopy(nodes), acpps, ndrs)
 	byNode := make(map[string]intent.NodeCapability, len(snap))
@@ -244,7 +237,7 @@ func BuildInventory(nodes []corev1.Node, acpps []v1alpha1.AcceleratorPartitionPo
 		if policy != "" {
 			// ACPP 가 이 노드를 타깃한다. 장치 목록은 devicesForNode 의 원시 TargetStatus.Devices
 			// 가 아니라 nc.Devices(intent.BuildSnapshot 산출)를 쓴다 — applyACPPStatus 가 이미
-			// generation 불일치·phase!=Ready 를 걸러 두었으므로(리뷰 Critical #1) 여기서 같은
+			// generation 불일치·phase!=Ready 를 걸러 두었으므로 여기서 같은
 			// 수렴 판정을 다시 구현하면 판정이 어긋날 여지가 생긴다.
 			if len(nc.Devices) > 0 {
 				for _, d := range nc.Devices {
@@ -258,7 +251,7 @@ func BuildInventory(nodes []corev1.Node, acpps []v1alpha1.AcceleratorPartitionPo
 				}
 			} else {
 				// 장치를 아직 보고하지 않았다(수렴 중) 또는 stale 하다 — 미관리(NDR)로 오분류
-				// 하지 않고 governed-but-pending 상태를 한 행으로 정직하게 낸다(리뷰 Critical #2).
+				// 하지 않고 governed-but-pending 상태를 한 행으로 정직하게 낸다.
 				// base.Stale/StaleReason 이 이미 이 상태를 담고 있다.
 				v := base
 				v.Source = SourceACPP
@@ -326,11 +319,10 @@ func ndrEntriesFor(ndrs []v1alpha1.NodeDeviceReport, nodeName string) []v1alpha1
 
 // deviceVendor 는 ACPP 장치 한 대의 벤더다. DeviceStatus 에는 벤더 필드가 없어 모델명으로
 // NDR 집계 행과 매칭해 되짚는다 — 멀티벤더 노드(예: NVIDIA A30/A2 + Furiosa RNGD 카드가 한 노드에
-// 공존)에서 vendorForNode(노드 단위 벤더 하나, 리소스명 사전순 첫 값)를 장치마다 그대로 복사하면
-// 오답이 난다(task-2-review Important #3 — worker1 에서 NVIDIA 장치에 furiosa 가 찍히는 재현
-// 사례). 매칭되는 NDR 행이 없으면(detector 미관측 등) vendorForNode 로 폴백한다 — 그 경우엔
-// 여전히 오답 가능성이 남는다(DeviceStatus 에 device 단위 벤더 필드가 없는 한 완전한 해결은
-// 불가 — 스키마 범위 밖).
+// 공존)에서 vendorForNode(노드 단위 벤더 하나, 리소스명 사전순 첫 값)를 장치마다 복사하면
+// NVIDIA 장치에 furiosa 가 찍히는 오답이 난다. 매칭되는 NDR 행이 없으면(detector 미관측 등)
+// vendorForNode 로 폴백하므로 오답 가능성이 남는다(DeviceStatus 에 장치 단위 벤더 필드가 없는 한
+// 완전한 해결은 스키마 범위 밖이다).
 func deviceVendor(nc intent.NodeCapability, ndrs []v1alpha1.NodeDeviceReport, nodeName, model string) string {
 	for _, e := range ndrEntriesFor(ndrs, nodeName) {
 		if e.Model == model {

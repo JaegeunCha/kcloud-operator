@@ -1,9 +1,7 @@
 // describe_test.go: CollectNodeDetail 단위 테스트(fake client, envtest 불필요)
 // 상세: 노드 하나의 상세(장치·health·evidence·정책)가 다른 노드 것과 섞이지 않고
-//
-//	노드 이름으로 걸러지는지 검증한다. status_test.go 의 fake client 헬퍼를 재사용한다.
-//
-// 생성일: 2026-08-24 | 수정일: 2026-08-24
+// 노드 이름으로 걸러지는지 검증한다. status_test.go 의 fake client 헬퍼를 재사용한다.
+// 생성일: 2026-08-24 | 수정일: 2026-11-16
 package npuctl
 
 import (
@@ -19,7 +17,7 @@ import (
 	npuv1alpha1 "kcloud-operator/api/v1alpha1"
 )
 
-// TestCollectNodeDetail_조회대상없으면빈값 은 브리프 Step 2/6 의 시험이다. 노드는 있으나
+// TestCollectNodeDetail_조회대상없으면빈값 은 노드는 있으나
 // NodeDeviceReport·health·evidence·policy 가 없는 경우를 본다("둘 다 없으면 오류" 조건과
 // 겹치지 않도록 Node 하나는 넣는다 — 완전 빈 클러스터는 별도 시험(...둘다없으면오류)이 다룬다).
 func TestCollectNodeDetail_조회대상없으면빈값(t *testing.T) {
@@ -37,7 +35,7 @@ func TestCollectNodeDetail_조회대상없으면빈값(t *testing.T) {
 	}
 }
 
-// TestCollectNodeDetail_노드와NDR둘다없으면오류 는 브리프의 유일한 오류 조건이다 —
+// TestCollectNodeDetail_노드와NDR둘다없으면오류 는 유일한 오류 조건을 본다 —
 // 노드도 NodeDeviceReport 도 없을 때만 오류를 반환해야 한다.
 func TestCollectNodeDetail_노드와NDR둘다없으면오류(t *testing.T) {
 	c := newTestClient(t)
@@ -47,7 +45,7 @@ func TestCollectNodeDetail_노드와NDR둘다없으면오류(t *testing.T) {
 	}
 }
 
-// TestCollectNodeDetail_값이있으면옮기고다른노드것은섞이지않는다 는 Step 6 시험이다.
+// TestCollectNodeDetail_값이있으면옮기고다른노드것은섞이지않는다 는 값이 있을 때를 본다.
 // evidence·정책은 다른 노드 것 한 건씩을 함께 넣어 이 노드 것만 걸리는지 본다.
 func TestCollectNodeDetail_값이있으면옮기고다른노드것은섞이지않는다(t *testing.T) {
 	node := &corev1.Node{
@@ -143,14 +141,12 @@ func TestCollectNodeDetail_값이있으면옮기고다른노드것은섞이지�
 	}
 }
 
-// TestListNodeNames_이름순정렬 는 브리프 Step 1 의 시험이다. 노드들을 섞은 순서로 넣어도
-// 이름순으로 정렬되어 돌아오는지 검증한다. 입력 순서(zebra→alpha→beta)를 정렬 순서와 의도적으로
-// 다르게 해서 sort.Strings 가 없어지면 이를 감지하도록 설계했다.
-//
-// 주의: fake.NewClientBuilder() 의 List() 구현이 이미 정렬된 순서로 반환하므로, 이 시험은
-// sort.Strings 제거를 실제로 감지하지 못한다(리뷰 재확인됨). 하지만 실제 쿠버네티스
-// API 서버는 삽입 순서 또는 비정렬 순서로 반환하므로 프로덕션에서는 sort.Strings 가
-// 필수다. 단위 테스트 한계로 인해 코드 검증은 수동(코드리뷰)으로 진행.
+// TestListNodeNames_이름순정렬 은 노드들을 섞은 순서로 넣어도 이름순으로 정렬되어 돌아오는지
+// 검증한다. 입력 순서(zebra→alpha→beta)를 정렬 순서와 의도적으로 달리해 sort.Strings 가 없어지면
+// 감지하는 것이 목적이다. 주의: fake.NewClientBuilder() 의 List() 구현이 이미 정렬된 순서로
+// 반환하므로 이 시험은 sort.Strings 제거를 실제로 감지하지 못한다. 하지만 실제 쿠버네티스
+// API 서버는 삽입 순서 또는 비정렬 순서로 반환하므로 프로덕션에서는 sort.Strings 가 필수다.
+// 단위 테스트 한계로 인해 코드 검증은 수동(코드리뷰)으로 진행.
 func TestListNodeNames_이름순정렬(t *testing.T) {
 	c := newTestClient(t,
 		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "zebra-node"}},
@@ -167,7 +163,7 @@ func TestListNodeNames_이름순정렬(t *testing.T) {
 	}
 }
 
-// TestListNodeNames_노드없으면빈슬라이스 는 브리프 Step 1 의 시험이다.
+// TestListNodeNames_노드없으면빈슬라이스 는
 // 노드가 없을 때 빈 결과(길이 0)를 돌려주는지 검증한다.
 func TestListNodeNames_노드없으면빈슬라이스(t *testing.T) {
 	c := newTestClient(t)

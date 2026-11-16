@@ -1,21 +1,8 @@
 // ============================================================
-// chart_image_path_test.go: values 의 이미지 경로가 registry 와 조립됐을 때 실재하는
-//
-//	Harbor 경로가 되는지 고정한다.
-//
-// 상세: _helpers.tpl 의 kcloud-operator.image 는 "<global.registry>/<repo>:<tag>" 로
-//
-//	조립한다. global.registry 가 프로젝트 경로(.../kcloud)까지 포함하므로 repo 는
-//	레지스트리 상대경로여야 하는데, Furiosa 통합 이미지만 repo 에 kcloud/ 를 또 달고
-//	있어 최종 경로가 .../kcloud/kcloud/... 로 두 겹이 된다. 이게 오타처럼 보이지만
-//	Harbor 에 실제로 올라가 있는 경로는 두 겹 쪽이고 한 겹 경로는 없다. 겹을 지우면
-//	그 순간 ImagePullBackOff 다.
-//
-// 범위: values 파일이 스스로 일관된가만 본다. Harbor 에 그 태그가 실재하는지는
-//
-//	레지스트리 조회의 몫이다(여기서 네트워크를 타지 않는다).
-//
-// 생성일: 2026-08-07
+// chart_image_path_test.go: values 의 이미지 경로가 registry 와 조립됐을 때 실재하는 Harbor 경로가 되는지 고정한다.
+// 상세: _helpers.tpl 의 kcloud-operator.image 는 "<global.registry>/<repo>:<tag>" 로 조립한다. values 파일이
+// 스스로 일관된가만 보고, Harbor 에 그 태그가 실재하는지는 레지스트리 조회의 몫이다(네트워크를 타지 않는다).
+// 생성일: 2026-08-07 | 수정일: 2026-11-16
 // ============================================================
 package controller
 
@@ -45,10 +32,12 @@ func valuesScalar(t *testing.T, key string) string {
 	return strings.Trim(string(m[0][1]), `"'`)
 }
 
-// TestNestedFuriosaRepoPathsArePreserved 는 Harbor 에 두 겹 경로로만 올라가 있는
-// Furiosa 통합 이미지의 kcloud/ 접두가 지워지지 않았는지 본다(RNGD -mi 이미지는 2026-09-09 공개 벤더 이미지로 대체돼 목록에서 뺐다). 접두를 빼는 것은
-// 정리가 아니라 회귀다 — 한 겹 경로에 이미지를 먼저 올린 뒤에만 뺄 수 있고, 그때는
-// 이 시험도 같이 고쳐야 한다.
+// TestNestedFuriosaRepoPathsArePreserved 는 Furiosa 통합 이미지의 kcloud/ 접두가 지워지지 않았는지 본다.
+// global.registry 가 프로젝트 경로(.../kcloud)까지 포함하므로 repo 는 레지스트리 상대경로여야 하는데, 이
+// 이미지만 kcloud/ 를 또 달아 최종 경로가 .../kcloud/kcloud/... 가 된다. 오타처럼 보이지만 Harbor 에
+// 올라가 있는 경로는 이쪽뿐이라 접두를 지우면 그 순간 ImagePullBackOff 다. 접두를 빼는 것은 정리가 아니라
+// 회귀다 — 접두 없는 경로에 이미지를 먼저 올린 뒤에만 뺄 수 있고, 그때는 이 시험도 같이 고친다.
+// RNGD 는 공개 벤더 이미지(furiosaai/furiosa-device-plugin)를 쓰므로 목록에 없다.
 func TestNestedFuriosaRepoPathsArePreserved(t *testing.T) {
 	raw, err := os.ReadFile("../../deploy/helm/values.yaml")
 	if err != nil {
@@ -66,7 +55,7 @@ func TestNestedFuriosaRepoPathsArePreserved(t *testing.T) {
 }
 
 // TestOtherRepoPathsAreRegistryRelative 는 나머지 repository 필드가 registry 상대경로를
-// 유지하는지 본다. 위 두 개의 예외를 보고 다른 필드에도 프로젝트 경로를 붙이면
+// 유지하는지 본다. 위 예외를 보고 다른 필드에도 프로젝트 경로를 붙이면
 // 그쪽은 Harbor 에 없는 경로가 된다.
 func TestOtherRepoPathsAreRegistryRelative(t *testing.T) {
 	for _, key := range []string{"kubectlRepository"} {

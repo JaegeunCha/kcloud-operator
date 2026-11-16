@@ -1,19 +1,10 @@
 // ============================================================
 // chart_version_sync_test.go: chart 선언 버전과 배포 프리셋이 갈라지지 않는지 고정한다.
-// 상세: Chart.yaml 의 appVersion 은 릴리스마다 손으로 올려야 하는데, 실제 배포는
-//
-//	values 의 image.tag 로 결정된다. 둘이 갈라져도 아무 데서도 실패하지 않아
-//	2026-08-06 시점에 appVersion=v0.5.79 인 채 v0.5.103 이 돌고 있었다.
-//	선언값을 진실로 믿고 무엇이 떠 있는지 판단하면 틀리게 된다.
-//
-// 범위: 이 시험은 "chart 가 스스로에 대해 일관된가" 만 본다. 클러스터에 실제로 무엇이
-//
-//	떠 있는지는 라이브 검증의 몫이다(여기서 클러스터를 조회하지 않는다).
-//
-// 생성일: 2026-08-06 | 수정일: 2026-10-06 (readChartKubeVersion·kubeVersionBounds 를
-//
-//	testing.T 없는 순수 함수로 분리 — envtest_server_version_test.go 의 Ginkgo 스펙이 쓴다)
-//
+// 상세: Chart.yaml 의 appVersion 은 릴리스마다 손으로 올리지만 실제 배포는 values 의 image.tag 로 결정된다. 둘이
+// 갈라져도 아무 데서도 실패하지 않아(appVersion=v0.5.79 인 채 v0.5.103 이 도는 상태가 관측된 적이 있다) 선언값만
+// 보고 무엇이 떠 있는지 판단하면 틀린다. 이 시험은 "chart 가 스스로에 대해 일관된가" 만 보고, 클러스터에 실제로
+// 무엇이 떠 있는지는 라이브 검증의 몫이다(여기서 클러스터를 조회하지 않는다).
+// 생성일: 2026-08-06 | 수정일: 2026-11-16
 // ============================================================
 package controller
 
@@ -137,11 +128,10 @@ func chartKubeVersionBounds(t *testing.T) (decl string, floor, ceil int) {
 
 // TestChartAppVersionMatchesPresets 는 이 라인 프리셋이 Chart.yaml 의 appVersion 을
 // 가리키는지 본다. 두 라인은 릴리스 번호가 따로 붙으므로(1.28 = v0.6.2-k8s1.28,
-// 기본 라인 = v0.8.0) 접미사만 붙여 유도할 수 없다.
-//
-// 반대 라인 프리셋은 더 이상 이 차트에 없다 — kubeVersion 선언과 실재를 맞추려고 뺐다.
-// 짝 릴리스 번호의 대조 상대는 deploy/integration/release.yaml 의 1.31~1.34 operatorTag
-// 이고, 그 대조는 TestChartPairedReleaseMatchesReleaseManifest 가 한다.
+// 기본 라인 = v0.8.0) 접미사만 붙여 유도할 수 없다. 반대 라인 프리셋은 kubeVersion 선언과
+// 실재를 맞추기 위해 이 차트에 두지 않는다 — 짝 릴리스 번호의 대조 상대는
+// deploy/integration/release.yaml 의 1.31~1.34 operatorTag 이고, 그 대조는
+// TestChartPairedReleaseMatchesReleaseManifest 가 한다.
 func TestChartAppVersionMatchesPresets(t *testing.T) {
 	app := chartAppVersion(t)
 	paired := chartPairedRelease(t)
@@ -165,8 +155,8 @@ func TestChartAppVersionMatchesPresets(t *testing.T) {
 
 // TestChartPairedReleaseMatchesReleaseManifest 는 Chart.yaml 의 짝 릴리스 선언이
 // deploy/integration/release.yaml 의 기본 라인 프로파일과 같은 태그를 가리키는지 본다.
-// 반대 라인 프리셋을 뺀 뒤 그 선언의 대조 상대가 사라졌다 — 상대가 없으면 선언이 묵어도
-// 아무 데서도 걸리지 않는다(실제로 한 릴리스 묵어 있었다).
+// 반대 라인 프리셋이 이 차트에 없으므로 그 선언은 이 매니페스트와 대조한다 — 대조 상대가
+// 없으면 선언이 묵어도 아무 데서도 걸리지 않는다(한 릴리스 묵은 채 남은 사례가 있다).
 func TestChartPairedReleaseMatchesReleaseManifest(t *testing.T) {
 	const relPath = "../../deploy/integration/release.yaml"
 	raw, err := os.ReadFile(relPath)
@@ -227,7 +217,9 @@ func imageCoordinateKey(k string) bool {
 	return strings.HasSuffix(k, "Image") || strings.HasSuffix(k, "Repository")
 }
 
-// findImageCoordinates 는 노드를 훑어 이미지 좌표 키의 경로를 모은다.
+// findImageCoordinates 는 노드를 훑어 이미지 좌표 키의 경로를 모은다. 이미지 좌표만 모으고 기능
+// 토글(api.enabled 등)은 보지 않는다 — 토글은 프리셋에 있어야 하는 것이라, 빠지면 차트만으로
+// 설치했을 때 라이브와 다른 구성이 뜬다.
 func findImageCoordinates(node any, path string, out *[]string) {
 	m, ok := node.(map[string]any)
 	if !ok {
@@ -249,18 +241,11 @@ func findImageCoordinates(node any, path string, out *[]string) {
 }
 
 // TestReleaseLinePresetsShareNonOperatorImages 는 두 프리셋이 operator 이외의 이미지를
-// 재정의하지 않는지 본다. 라인별로 갈리는 산출물은 operator 하나뿐이라는 것이 이 설계의
-// 전제다(k8s 라이브러리를 링크하는 것이 operator 뿐 — detector 는 k8s.io v0.29, tenstorrent
-// device-plugin 은 kubelet API 만, 나머지는 k8s 의존 없음). 프리셋에 다른 이미지가 끼면
-// 그 전제가 조용히 깨진다.
-//
-// 이미지 좌표만 막는다. 기능 토글(api.enabled 등)은 프리셋에 있어야 하는 것이다 —
-// 그것이 없어서 차트만으로 설치하면 라이브와 다른 물건이 뜨던 것을 릴리스 게이트가
-// 잡았고, 그래서 프로파일에 토글을 넣었다.
-//
-// 반대 라인 프리셋은 이 차트에 없다(기본 라인 브랜치에만 둔다). 그래서 그 파일은
-// otherLinePresetEnv 로 받는다 — `make other-line-preset-check` 가 그 ref 의 blob 을
-// 임시 파일로 꺼내 이 시험에 넘긴다.
+// 재정의하지 않는지 본다. 라인별로 갈리는 산출물은 operator 하나뿐이라는 것이 이 설계의 전제다(k8s
+// 라이브러리를 링크하는 것이 operator 뿐 — detector 는 k8s.io v0.29, tenstorrent device-plugin 은
+// kubelet API 만, 나머지는 k8s 의존 없음). 프리셋에 다른 이미지가 끼면 그 전제가 조용히 깨진다. 이미지
+// 좌표만 막는다(findImageCoordinates). 기본 라인 브랜치에만 있는 반대 라인 프리셋은 otherLinePresetEnv
+// 로 받는다 — `make other-line-preset-check` 가 그 ref 의 blob 을 임시 파일로 꺼내 이 시험에 넘긴다.
 func TestReleaseLinePresetsShareNonOperatorImages(t *testing.T) {
 	paths := []string{linePreset}
 	if p := os.Getenv(otherLinePresetEnv); p != "" {
@@ -369,11 +354,9 @@ func TestChartLintPasses(t *testing.T) {
 // TestChartCarriesNoOutOfRangePreset 은 이 차트가 kubeVersion 범위 밖 라인의 프리셋을
 // 싣지 않는지 본다. 싣고 있으면 선언과 실재가 어긋난다 — kubeVersion 은 클러스터 버전만
 // 보므로, 1.30 클러스터에서 기본 라인 프리셋을 -f 로 주면 선언은 통과하고 범위 밖 라인의
-// operator 가 뜬다(실제로 그랬다). 프리셋을 되돌려 넣는 것이 그 어긋남을 다시 만드는
-// 경로이므로 여기서 막는다.
-//
-// 이름 하나를 집지 않고 deploy/helm 의 values-k8s*.yaml 전부를 본다 — 파일 이름만
-// 막으면 values-k8s1.32.yaml 처럼 다른 이름으로 같은 어긋남이 다시 들어온다.
+// operator 가 뜬다(실제로 일어난 경로다). 이름 하나를 집지 않고 deploy/helm 의
+// values-k8s*.yaml 전부를 본다 — 파일 이름만 막으면 values-k8s1.32.yaml 처럼 다른 이름으로
+// 같은 어긋남이 다시 들어온다.
 func TestChartCarriesNoOutOfRangePreset(t *testing.T) {
 	decl, floor, ceil := chartKubeVersionBounds(t)
 	entries, err := os.ReadDir("../../deploy/helm")

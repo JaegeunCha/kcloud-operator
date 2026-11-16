@@ -1,7 +1,7 @@
 // driver_daemonset_controller.go: Driver DaemonSet 컨트롤러
 // 상세: DriverInstallPolicy.spec.driver.mode="daemonset"인 정책에 대해
 //       컨테이너화 드라이버 DaemonSet을 생성/업데이트합니다.
-// 생성일: 2026-04-13 | 수정일: 2026-09-09
+// 생성일: 2026-04-13 | 수정일: 2026-11-16
 
 package controller
 
@@ -167,7 +167,7 @@ func renderDriverDaemonSet(pol *npuv1alpha1.DriverInstallPolicy) *appsv1.DaemonS
 										LabelSelector: &metav1.LabelSelector{
 											MatchLabels: map[string]string{
 												// 차트 이름이 라벨 값이다(kcloud-operator.name). 개명 전 값 "npu-operator" 를
-												// 그대로 두면 이 셀렉터가 아무 pod 도 못 집어 anti-affinity 가 무동작이었다.
+												// 그대로 두면 이 셀렉터가 아무 pod 도 못 집어 anti-affinity 가 무동작이 된다.
 												"app.kubernetes.io/name":      "kcloud-operator",
 												"app.kubernetes.io/component": "controller",
 											},

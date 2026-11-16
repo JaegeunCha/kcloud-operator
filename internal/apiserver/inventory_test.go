@@ -1,11 +1,10 @@
 // ============================================================
 // inventory_test.go: 인벤토리 집약(BuildInventory) 단위 테스트
-// 상세: 정직성 불변식 세 개를 못박는다 — (1) time-slicing replica 는 행이 되지 않는다,
-//       (2) supported 주장만으로 Verified 가 켜지지 않는다, (3) stale/미수렴 데이터는 숨기지
-//       않는다(미수렴 ACPP 는 Stale=true 로 드러나고, 아직 장치를 보고하지 않은 관리 노드는
-//       미관리로 오분류되지 않는다). 더불어 ACPP 미관리 노드의 합성 ID·출처 표기, cordon 노드
-//       포함 여부, 멀티벤더 노드의 장치별 벤더 매칭을 본다.
-// 생성일: 2026-07-30 | 수정일: 2026-10-10 (계획서 항목 토큰 제거)
+// 상세: 정직성 불변식 세 개를 못박는다 — (1) time-slicing replica 는 행이 되지 않는다, (2) supported
+//       주장만으로 Verified 가 켜지지 않는다, (3) stale/미수렴 데이터는 숨기지 않는다(미수렴 ACPP 는
+//       Stale=true 로 드러나고, 아직 장치를 보고하지 않은 관리 노드는 미관리로 오분류되지 않는다).
+//       ACPP 미관리 노드의 합성 ID·출처 표기, cordon 노드 포함 여부, 멀티벤더 노드의 장치별 벤더 매칭도 본다.
+// 생성일: 2026-07-30 | 수정일: 2026-11-16
 // ============================================================
 
 package apiserver
@@ -42,7 +41,8 @@ func ndr(nodeName string, entries ...v1alpha1.DeviceEntry) v1alpha1.NodeDeviceRe
 
 // acppReady 는 수렴 완료(observedGeneration==generation, phase=Ready)한 정책이다. 정책/노드
 // 이름은 이 테스트 파일에서 항상 "p"/"worker1" 하나뿐이라(unparam) 파라미터로 두지 않고 고정한다.
-// readySiblingPolicyName 은 D-4 재현 픽스처의 Ready 정책명이다(라이브 실측명, "a2" < "a30" 사전순).
+// readySiblingPolicyName 은 같은 노드의 Failed 정책("worker1-a2-timeslice")보다 사전순으로 뒤인 Ready
+// 정책명이다(라이브 실측명, "a2" < "a30").
 const readySiblingPolicyName = "worker1-a30-4x1g"
 
 func acppReady(devices []v1alpha1.DeviceStatus, sharingMode string, replicas int32) v1alpha1.AcceleratorPartitionPolicy {
@@ -153,7 +153,7 @@ func TestBuildInventory_CordonedNodeStillListed(t *testing.T) {
 // TestBuildInventory_StaleACPPRowIsVisiblyStale: 정직성 계약 (3) 전반부 — 미수렴은 숨기지 않는다.
 // spec 이 바뀌어 generation 은 올랐지만(2) 컨트롤러가 아직 반영 못한(observedGeneration=1) 경우,
 // status.targets[].phase 에는 낡은 "Ready" 값이 그대로 남아 있다 — 이 낡은 phase/devices 를
-// 그대로 믿으면 안 된다는 리뷰 Critical #1 시나리오를 그대로 재현한다.
+// 그대로 믿으면 안 되는 시나리오를 재현한다.
 func TestBuildInventory_StaleACPPRowIsVisiblyStale(t *testing.T) {
 	devs := []v1alpha1.DeviceStatus{{ID: "GPU-aaa", Model: "A30"}}
 	nodes := []corev1.Node{node("worker1", false, map[string]string{"nvidia.com/gpu": "1"})}
@@ -176,7 +176,7 @@ func TestBuildInventory_StaleACPPRowIsVisiblyStale(t *testing.T) {
 	}
 }
 
-// TestBuildInventory_PendingACPPNodeNotLabeledUnmanaged: 정직성 계약 (3) 후반부 — 리뷰 Critical #2.
+// TestBuildInventory_PendingACPPNodeNotLabeledUnmanaged: 정직성 계약 (3) 후반부.
 // ACPP 가 노드를 타깃하지만 아직 장치를 하나도 보고하지 않은(Phase=Applying) 상태다. 이걸 NDR
 // 미관리 경로로 떨어뜨리면 "관리 중" 과 "관리 안 함" 이 API 상 구분 불가능해진다.
 func TestBuildInventory_PendingACPPNodeNotLabeledUnmanaged(t *testing.T) {
@@ -208,7 +208,7 @@ func TestBuildInventory_PendingACPPNodeNotLabeledUnmanaged(t *testing.T) {
 	}
 }
 
-// TestBuildInventory_MultiVendorNodeDeviceVendorMatchesModel: 리뷰 Important #3 — worker1 재현.
+// TestBuildInventory_MultiVendorNodeDeviceVendorMatchesModel: 멀티벤더 노드의 장치별 벤더.
 // NVIDIA A30/A2 + Furiosa 리소스가 같은 노드에 공존하면 리소스명 사전순(furiosa < nvidia)으로
 // nc.Vendor 가 "furiosa" 가 되므로, 장치별 벤더는 반드시 모델 매칭으로 되짚어야 한다.
 func TestBuildInventory_MultiVendorNodeDeviceVendorMatchesModel(t *testing.T) {
@@ -341,9 +341,9 @@ func TestBuildInventory_PendingRowCarriesNoInstanceCounts(t *testing.T) {
 	}
 }
 
-// TestBuildInventory_FailedSiblingDoesNotHideReadyRows — 라이브 결함 D-4(§5.2):
-// devicesForNode 의 첫-매치 단락이 Failed 정책("worker1-a2-timeslice")을 골라 같은 노드의
-// Ready 정책(readySiblingPolicyName) 장치 행을 뭉개면 안 된다(/accelerators total 4→ 정상 복원).
+// TestBuildInventory_FailedSiblingDoesNotHideReadyRows: devicesForNode 의 첫-매치 단락이
+// Failed 정책("worker1-a2-timeslice")을 골라 같은 노드의 Ready 정책(readySiblingPolicyName)
+// 장치 행을 뭉개면 안 된다. Ready 정책의 장치 행이 /accelerators 에 그대로 나와야 한다.
 func TestBuildInventory_FailedSiblingDoesNotHideReadyRows(t *testing.T) {
 	failed := v1alpha1.AcceleratorPartitionPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "worker1-a2-timeslice", Generation: 1},
