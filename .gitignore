@@ -60,3 +60,6 @@ docs/
 /footprint.json
 # measure.sh 기본 OUT — test/footprint/footprint-<날짜>.json 이 저장소 안에 떨어진다
 test/footprint/footprint-*.json
+
+# 개발 클러스터 오버라이드(로컬 전용, 예시는 values-dev.example.yaml)
+deploy/helm/values-dev.yaml
