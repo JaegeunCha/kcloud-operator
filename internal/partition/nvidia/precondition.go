@@ -1,6 +1,6 @@
 // ============================================================
 // precondition.go: MIG apply 전제 2종 분리 — 항상(PCI·관측) / hardware변경시(cordon·idle·MIG-safe)
-// 상세: no-diff Ready 는 항상-전제만. fail-closed. spec §15.1
+// 상세: no-diff Ready 는 항상-전제만. fail-closed.
 // 생성일: 2026-07-24 | 수정일: 2026-07-24
 // ============================================================
 package nvidia
@@ -37,7 +37,7 @@ func podHoldsGPU(pod corev1.Pod) bool {
 	return false
 }
 
-// migSafe 는 GI 생성 안전(모델 B)인지다: 관측 성공 + MIG mode Enabled(사전조건) + 기존 GI 없음
+// migSafe 는 GI 생성 안전인지다: 관측 성공 + MIG mode Enabled(사전조건) + 기존 GI 없음
 // (geometry 빈 문자열). Disabled/Unknown/기존-GI(geometry 비어있지 않음)는 unsafe(fail-closed).
 func migSafe(d MigDevice) bool {
 	return d.ObsError == "" && d.ModeCurrent == modeEnabled && d.Geometry == ""
@@ -68,7 +68,7 @@ func CheckHardwareChange(ctx context.Context, c client.Client, node string, devs
 	for _, d := range devs {
 		switch {
 		case d.ModeCurrent != modeEnabled:
-			// 모델 B: MIG mode 는 외부 사전조건 — 미enable 이면 별도 reason 으로 구분한다.
+			// MIG mode 는 외부 사전조건 — 미enable 이면 별도 reason 으로 구분한다.
 			r.MigModeNotEnabled = true
 		case !migSafe(d):
 			// Enabled 이나 기존 GI 존재(관리 밖) → ExistingMigConfiguration.

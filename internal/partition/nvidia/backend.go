@@ -1,5 +1,5 @@
 // ============================================================
-// backend.go: NVIDIA 파티션 backend — discovery + MIG apply/rollback/diff/verify (spec §4.2/§14)
+// backend.go: NVIDIA 파티션 backend — discovery + MIG apply/rollback/diff/verify
 // 상세: NDR 장치 → 공통 capability 형식 + per-PCI MIG target 추적. Apply/Rollback 은 exec(JobExecutor)
 //
 //	seam 으로 typed CommandStep 실행, Verify 는 verifier seam 으로 위임(stateless).
@@ -45,7 +45,7 @@ const (
 )
 
 // 공유 기능의 라이브 실측 결과를 operator 에 주입하는 env 다(RNGD 의 MultiProcessEnv 와 같은
-// 규율, 정직성 §19.3). 값이 "verified" 일 때만 검증 축이 올라가고, 그 외/미설정은 required 다.
+// 규율, 정직성 원칙). 값이 "verified" 일 때만 검증 축이 올라가고, 그 외/미설정은 required 다.
 // 코드가 스스로 verified 를 주장하지 않는 이유: 실측은 특정 하드웨어·드라이버·device-plugin
 // 조합에서 한 번 일어난 사건이고, 그것을 코드에 상수로 박으면 "이 클러스터의 A30/A2 에서
 // 됐다"가 "모든 NVIDIA GPU 가 지원한다"로 바뀐다. 주입은 그 배포를 운영하는 사람의 진술이다.
@@ -89,7 +89,7 @@ type Backend struct {
 	supported map[string]int32
 	targets   []MigDevice
 	expected  map[string]int32
-	// observations 는 operator-driven MIG 관측(PCI→Observation, spec §16). nil 이면 Discover 는
+	// observations 는 operator-driven MIG 관측(PCI→Observation, ). nil 이면 Discover 는
 	// NDR MIG 필드를, non-nil 이면 이 관측을 MIG-capable 장치의 진실 소스로 쓴다.
 	observations map[string]Observation
 	// profilesUnobservable 은 target 중 mode 가 Disabled 라 profile 목록을 관측할 수 없는 것이
@@ -109,7 +109,7 @@ func (b *Backend) withTargets(d []MigDevice) *Backend { b.targets = d; return b 
 func (b *Backend) Targets() []MigDevice { return b.targets }
 
 // WithTargetPCIs 는 snapshot PCI 만으로 targets 를 세운다 — 삭제 rollback 이 라이브 Discover 없이
-// 저장된 GPUPCIs 를 disable 대상으로 삼게 한다(spec §14.3, snapshot-only deletion).
+// 저장된 GPUPCIs 를 disable 대상으로 삼게 한다(, snapshot-only deletion).
 func (b *Backend) WithTargetPCIs(pcis []string) *Backend {
 	b.targets = make([]MigDevice, 0, len(pcis))
 	for _, p := range pcis {
@@ -127,7 +127,7 @@ func (b *Backend) WithVerifier(v partition.Verifier) *Backend { b.verifier = v; 
 // WithExpected 는 Verify 가 VerifyAllocatable 에 넘길 기대 allocatable 맵을 주입한다(mig+full-gpu, reconciler 구성).
 func (b *Backend) WithExpected(m map[string]int32) *Backend { b.expected = m; return b }
 
-// WithObservations 는 operator-driven MIG 관측(PCI→Observation)을 주입한다(spec §16.2).
+// WithObservations 는 operator-driven MIG 관측(PCI→Observation)을 주입한다.
 // 주입시 Discover 가 MIG-capable 장치의 mode/geometry/lgip 를 NDR 필드 대신 이 관측에서 읽는다.
 func (b *Backend) WithObservations(obs map[string]Observation) *Backend {
 	b.observations = obs
@@ -147,7 +147,7 @@ func (b *Backend) targetSelectors() []string {
 
 func (b *Backend) Vendor() string { return "nvidia" }
 
-// Discover 는 NDR NVIDIA 장치를 공통 capability 형식으로 변환한다(spec §4.2, criterion 12).
+// Discover 는 NDR NVIDIA 장치를 공통 capability 형식으로 변환한다(, criterion 12).
 // MIG profile 은 DeviceEntry.MigLgipOutput 파싱. MIG-capable 장치가 하나라도 있으면 b.targets/b.supported
 // 를 채우고 Apply/Rollback 을 supported=true, Advertisement.Mode="ProfileNamed" 로 보고한다.
 // b.supported 는 targets 전원의 MigLgipOutput 교집합(profile 이 전 target 에 존재해야 하고, MaxInstances 는 최소값).
@@ -173,7 +173,7 @@ func (b *Backend) Discover(t partition.Target) (*partition.DiscoverResult, error
 		if d.Vendor != "nvidia" {
 			continue
 		}
-		// 드라이버 버전은 첫 nvidia 장치에서 채운다(reconciler 의 항상-전제 DriverReady 판정 소스, spec §15.1).
+		// 드라이버 버전은 첫 nvidia 장치에서 채운다(reconciler 의 항상-전제 DriverReady 판정 소스, ).
 		if res.DriverVersion == "" && d.DriverVersion != "" {
 			res.DriverVersion = d.DriverVersion
 		}
@@ -181,7 +181,7 @@ func (b *Backend) Discover(t partition.Target) (*partition.DiscoverResult, error
 			ID: deviceID(d), PCIAddress: d.PCIeAddress, Model: d.Model,
 			Operations: unsupportedApply,
 		}
-		// MIG mode/geometry/lgip 소스: observations 주입시 관측에서(NDR MIG 필드 무시, spec §16), 아니면 NDR.
+		// MIG mode/geometry/lgip 소스: observations 주입시 관측에서(NDR MIG 필드 무시, ), 아니면 NDR.
 		mc, mp, geom, obsErr, lgip := d.MigModeCurrent, d.MigModePending, d.MigCurrentGeometry, d.MigObservationError, d.MigLgipOutput
 		if b.observations != nil {
 			obs, ok := b.observations[d.PCIeAddress]
@@ -190,7 +190,7 @@ func (b *Backend) Discover(t partition.Target) (*partition.DiscoverResult, error
 			}
 			mc, mp, geom, obsErr, lgip = obs.ModeCurrent, obs.ModePending, obs.Geometry, obs.Err, obs.LgipOutput
 		}
-		// MIG-capability 판정: observations 주입시 lgip profiles 유무로(detector model="generic" 우회, spec §16),
+		// MIG-capability 판정: observations 주입시 lgip profiles 유무로(detector model="generic" 우회, ),
 		// 관측 없으면 model regex(envtest fallback). A2 등 비-MIG 는 lgip 에 profile 이 없어 제외된다.
 		profiles := ParseMigProfiles(lgip)
 		migCap := migCapable(d.Model)
@@ -305,7 +305,7 @@ func targetFor(targets []MigDevice, pci string) MigDevice {
 
 // deviceStatusFor 는 관측된 MIG 장치 하나를 status 로 옮기며 capability 3축을 채운다.
 // time-slicing 은 device-plugin 기능이라 하드웨어 무관하게 지원이지만, 검증 축은 실측 주입
-// (TimeSlicingEnv)이 있을 때만 올라간다(정직성 §19.3). 이종 클러스터 주의: env 는 클러스터
+// (TimeSlicingEnv)이 있을 때만 올라간다(정직성 원칙). 이종 클러스터 주의: env 는 클러스터
 // 단위다. A30/A2 를 실측하고 켠 뒤 H100 노드를 추가하면 그 노드는 한 번도 측정되지 않은 채
 // 공유 워크로드를 받는다.
 func (b *Backend) deviceStatusFor(d MigDevice, model string) v1alpha1.DeviceStatus {
@@ -360,10 +360,10 @@ func (b *Backend) deviceStatusFor(d MigDevice, model string) v1alpha1.DeviceStat
 	}
 }
 
-// maxTimeSlicingReplicas 는 정책적 상한이다(하드웨어 상한 아님 — replica 는 성능 비율이 아니다, spec §4.2).
+// maxTimeSlicingReplicas 는 정책적 상한이다(하드웨어 상한 아님 — replica 는 성능 비율이 아니다, ).
 const maxTimeSlicingReplicas = 16
 
-// Validate 는 형식·단일성·count 경계·profile 지원을 검증한다(spec §4.2, §13.8).
+// Validate 는 형식·단일성·count 경계·profile 지원을 검증한다.
 // 빈 layout 은 fail-closed 로 거부한다 — sharing-only(layout 없는 순수 공유) 정책은
 // controller 가 이 함수를 부르지 않고 runSharingOnly 로 라우팅한다. 이 함수는 sharing 을 볼 수
 // 없으므로 여기서 빈 layout 을 통과시키면 아무것도 요청하지 않는 정책까지 하드웨어 경로에 들어온다.
@@ -398,7 +398,7 @@ func (b *Backend) Validate(layout []partition.Layout) error {
 	return nil
 }
 
-// Diff 는 targets 의 관측 geometry 만 비교한다(spec §14.2 note) — 소유(ownership) 술어는 reconciler 몫.
+// Diff 는 targets 의 관측 geometry 만 비교한다(note) — 소유(ownership) 술어는 reconciler 몫.
 // resolved 가 단일 항목이 아니거나 targets 가 비어있으면 안전하게 Changed=true 로 보고한다.
 func (b *Backend) Diff(_ partition.Target, resolved []partition.ResolvedEntry) (partition.DiffResult, error) {
 	if len(resolved) != 1 || len(b.targets) == 0 {
@@ -414,7 +414,7 @@ func (b *Backend) Diff(_ partition.Target, resolved []partition.ResolvedEntry) (
 	return partition.DiffResult{Changed: false, ToPolicy: want}, nil
 }
 
-// Apply 는 targets 각각에 대해 profile name 기반 GeometrySpec 을 세워 typed CommandStep 을 실행한다(spec §14.5/§14.7).
+// Apply 는 targets 각각에 대해 profile name 기반 GeometrySpec 을 세워 typed CommandStep 을 실행한다.
 // rb 는 exec 실패시에도 non-nil 로 반환한다(부분 적용 후 rollback 판단 근거).
 func (b *Backend) Apply(t partition.Target, resolved []partition.ResolvedEntry) (*partition.RollbackState, error) {
 	if len(resolved) != 1 {
@@ -440,7 +440,7 @@ func (b *Backend) Apply(t partition.Target, resolved []partition.ResolvedEntry) 
 	return rb, nil
 }
 
-// Rollback 은 targets 의 PCI 선택자로 GI 제거 시퀀스를 실행한다(모델 B §17.1: mode 유지, GI 만 제거).
+// Rollback 은 targets 의 PCI 선택자로 GI 제거 시퀀스를 실행한다(mode 유지, GI 만 제거).
 func (b *Backend) Rollback(t partition.Target, _ partition.RollbackState) error {
 	if b.exec == nil {
 		return nil
@@ -468,7 +468,7 @@ func migCapable(model string) bool {
 	return migCapableRe.MatchString(model)
 }
 
-// deviceID 는 canonical ID(PCI 우선, 없으면 model). 숫자 index 금지(spec §4.2).
+// deviceID 는 canonical ID(PCI 우선, 없으면 model). 숫자 index 금지.
 // PCI 빈 값이면 "PCI-" 접두가 비어 충돌하므로 model 로 폴백.
 func deviceID(d v1alpha1.DeviceEntry) string {
 	if d.PCIeAddress != "" {

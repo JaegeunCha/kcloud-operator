@@ -1,12 +1,12 @@
 // ============================================================
 // accelerator_capability_axes.go: 가속기 capability 3축 타입 (sharing / isolation / allocationAPI)
-// 상세: R&D v1.0 §10.1 AcceleratorCapability 의 축을 별도 CRD 없이 ACPP status 에 흡수한다.
-// 정직성 원칙(§19.3) — 미실측은 Supported=false + Verification=Required 로 남긴다.
+// 상세: AcceleratorCapability 의 축을 별도 CRD 없이 ACPP status 에 흡수한다.
+// 정직성 원칙 — 미실측은 Supported=false + Verification=Required 로 남긴다.
 // 생성일: 2026-07-29 | 수정일: 2026-10-11
 // ============================================================
 package v1alpha1
 
-// 격리 등급(R&D v1.0 §19.1). 낮은 등급 → 높은 등급 순.
+// 격리 등급. 낮은 등급 → 높은 등급 순.
 const (
 	IsolationNone      = "none"
 	IsolationProcess   = "process"
@@ -44,7 +44,7 @@ type SharingModeSupport struct {
 	Reason string `json:"reason,omitempty"`
 }
 
-// SharingCapability 는 장치의 공유 방식별 지원 상태다(R&D v1.0 §4.2~§4.6).
+// SharingCapability 는 장치의 공유 방식별 지원 상태다.
 type SharingCapability struct {
 	// +optional
 	TimeSlicing SharingModeSupport `json:"timeSlicing,omitempty"`

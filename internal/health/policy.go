@@ -1,5 +1,5 @@
 // ============================================================
-// policy.go: AcceleratorHealthPolicy 목록 → 실효 정책 (R&D base v0.1 §9.4)
+// policy.go: AcceleratorHealthPolicy 목록 → 실효 정책
 // 상세: 정책이 하나도 없어도 감시가 돌도록 기본값을 내장한다. 여러 정책이 맞으면 이름 사전순으로
 //
 //	뒤에 오는 값이 이긴다(internal/verification 의 Resolve 와 같은 규율).
@@ -132,9 +132,9 @@ func remediationFromAction(a v1alpha1.RemediationAction) Remediation {
 	}
 }
 
-// defaultRemediation 은 원인별 기본 조치다(R&D base v0.1 §9.7 표).
+// defaultRemediation 은 원인별 기본 조치다(표).
 //
-// 관측이 없거나 노드가 죽은 경우는 배치만 막고 하드웨어를 건드리지 않는다 — 계약 §10.3 이
+// 관측이 없거나 노드가 죽은 경우는 배치만 막고 하드웨어를 건드리지 않는다 — 계약 이
 // "stale NDR 만으로 파괴적 복구를 즉시 실행하지 않는다" 를 요구한다.
 func defaultRemediation(reason string) Remediation {
 	switch reason {

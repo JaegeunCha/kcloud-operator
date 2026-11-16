@@ -1,5 +1,5 @@
 // ============================================================
-// backend.go: RNGD 파티션 backend — DS env(RNGD_PARTITION_POLICY) 기반 apply (spec §2.3, §4.1)
+// backend.go: RNGD 파티션 backend — DS env(RNGD_PARTITION_POLICY) 기반 apply
 // 상세: discover/validate/diff/apply/rollback/verify. 적용 범위 = DaemonSet 전역(DaemonSetGlobal).
 // 생성일: 2026-07-23 | 수정일: 2026-10-11
 // ============================================================
@@ -33,7 +33,7 @@ const PartitionOwnerAnnotation = "npu.ai/partition-owner"
 
 // MultiProcessEnv 는 라이브 실측(test/live/rngd-multiprocess) 결과를 operator 에 주입하는 env 다.
 // 값: "verified"(동시 실행 확인) | "unsupported"(실측 결과 불가) | 미설정(미실측).
-// 코드가 임의로 지원을 주장하지 않게 하기 위한 명시 주입 경로다(정직성 §19.3).
+// 코드가 임의로 지원을 주장하지 않게 하기 위한 명시 주입 경로다(정직성 원칙).
 const MultiProcessEnv = "KCLOUD_RNGD_MULTIPROCESS"
 
 // MultiProcessSupportFromEnv 는 실측 주입값을 SharingModeSupport 로 옮긴다.
@@ -72,7 +72,7 @@ func (b *Backend) WithVerifier(v partition.Verifier) *Backend { b.verifier = v; 
 
 func (b *Backend) Vendor() string { return "furiosa" }
 
-// Validate 는 각 layout profile 을 mapping 규칙으로 검증한다(spec §4.2/§4.3).
+// Validate 는 각 layout profile 을 mapping 규칙으로 검증한다.
 func (b *Backend) Validate(layout []partition.Layout) error {
 	for _, l := range layout {
 		if err := ValidateLayout(l.Profile, l.CountPerDevice); err != nil {
@@ -82,7 +82,7 @@ func (b *Backend) Validate(layout []partition.Layout) error {
 	return nil
 }
 
-// Diff 는 현재 DS env policy 와 목표 backendPolicy 를 비교한다(spec §3 no-diff 조건부 전이).
+// Diff 는 현재 DS env policy 와 목표 backendPolicy 를 비교한다(no-diff 조건부 전이).
 func (b *Backend) Diff(t partition.Target, resolved []partition.ResolvedEntry) (partition.DiffResult, error) {
 	// 입력 검증을 API fetch 전에 수행 — 잘못된 resolved 는 DS 조회 실패보다 이 메시지가 더 유용.
 	if len(resolved) != 1 {
@@ -97,7 +97,7 @@ func (b *Backend) Diff(t partition.Target, resolved []partition.ResolvedEntry) (
 	return partition.DiffResult{Changed: cur != target, FromPolicy: cur, ToPolicy: target}, nil
 }
 
-// Discover 는 evidence 우선순위(spec §4.1)로 RNGD 상태를 조회한다:
+// Discover 는 evidence 우선순위로 RNGD 상태를 조회한다:
 // (1) 물리 inventory+UUID(NDR), (2) DP config(RNGD_PARTITION_POLICY), (3) allocatable.
 // MVP-1 은 policy env + NDR inventory 교차 확인. profiles = mapping 테이블, advertisement = Flat.
 func (b *Backend) Discover(t partition.Target) (*partition.DiscoverResult, error) {
@@ -192,7 +192,7 @@ func deviceStatusFor(_, model string) v1alpha1.DeviceStatus {
 	}
 }
 
-// deviceID 는 canonical ID(UUID 우선, 없으면 PCI). 숫자 index 금지(spec §4.2).
+// deviceID 는 canonical ID(UUID 우선, 없으면 PCI). 숫자 index 금지.
 func deviceID(d v1alpha1.DeviceEntry) string {
 	if d.PCIeAddress != "" {
 		return "PCI-" + d.PCIeAddress
@@ -220,7 +220,7 @@ func dsImageVersion(ds *appsv1.DaemonSet) string {
 }
 
 // Apply 는 DS RNGD_PARTITION_POLICY 를 목표 policy 로 patch 하고 apply 전 상태를 rollback state 로 반환한다.
-// 적용 범위 = DaemonSetGlobal(spec §2.3). owner 어노테이션으로 NPUClusterPolicy 와의 경합을 차단.
+// 적용 범위 = DaemonSetGlobal. owner 어노테이션으로 NPUClusterPolicy 와의 경합을 차단.
 func (b *Backend) Apply(t partition.Target, resolved []partition.ResolvedEntry) (*partition.RollbackState, error) {
 	if len(resolved) != 1 {
 		return nil, fmt.Errorf("rngd: expected exactly 1 resolved entry, got %d", len(resolved))
@@ -266,14 +266,14 @@ func setEnvValue(ds *appsv1.DaemonSet, name, value string) {
 	}
 }
 
-// templateHash 는 pod template 의 안정 해시다(rollback 복원 검증 기준, spec §7.2).
+// templateHash 는 pod template 의 안정 해시다(rollback 복원 검증 기준, ).
 func templateHash(ds *appsv1.DaemonSet) string {
 	b, _ := json.Marshal(ds.Spec.Template.Spec)
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:8])
 }
 
-// Rollback 은 저장된 DS UID 가 현재 DS 와 일치할 때만 prevPolicy 로 복원한다(spec §3 RollbackFailed).
+// Rollback 은 저장된 DS UID 가 현재 DS 와 일치할 때만 prevPolicy 로 복원한다(RollbackFailed).
 func (b *Backend) Rollback(t partition.Target, s partition.RollbackState) error {
 	ds, err := b.getDS(t)
 	if err != nil {

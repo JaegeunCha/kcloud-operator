@@ -82,7 +82,7 @@ spec:
                         type: string
                       replicas:
                         description: |-
-                          Replicas 는 장치 하나를 몇 갈래로 나눠 쓰는가다 — 광고 배수이지 성능 비율이 아니다(§4.2).
+                          Replicas 는 장치 하나를 몇 갈래로 나눠 쓰는가다 — 광고 배수이지 성능 비율이 아니다.
                           spec.workload.replicas(Pod 개수)와 전혀 다른 값이다. 공유 계열 모드에서 2 이상이어야 한다.
                         format: int32
                         maximum: 16
@@ -119,7 +119,7 @@ spec:
                     properties:
                       minimumIsolation:
                         description: |-
-                          MinimumIsolation 은 최소 격리 등급이다(R&D v1.0 §19.1). 실측 근거가 없는 장치는
+                          MinimumIsolation 은 최소 격리 등급이다. 실측 근거가 없는 장치는
                           IsolationCapability 가 빈 문자열이며, 그런 장치는 이 요구를 만족하지 않는 것으로 본다.
                         enum:
                         - none

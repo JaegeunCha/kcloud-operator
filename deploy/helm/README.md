@@ -208,7 +208,7 @@ Helm 은 설계상 `crds/` 디렉터리의 CRD 를 삭제하지 않습니다. `u
 --set global.vendorRegistry=<미러>/<프로젝트>  # 벤더 이미지
 ```
 
-두 값은 서로 독립입니다. kcloud 이미지만 사내에 두고 벤더 이미지는 인터넷에서 받는
+두 값은 서로 독립입니다. kcloud 이미지만 자체 미러에 두고 벤더 이미지는 인터넷에서 받는
 구성이면 `global.vendorRegistry` 를 비워 두면 됩니다.
 
 #### 부류별 이미지 목록
@@ -227,7 +227,7 @@ Helm 은 설계상 `crds/` 디렉터리의 CRD 를 삭제하지 않습니다. `u
 | `driverInstallPolicies.furiosa.driver` / `.rngd.driver` | `furiosa-driver-ds` | `ghcr.io/openkcloud/furiosa-driver-ds` |
 | `driverInstallPolicies.tenstorrent.driver` | `tenstorrent-driver-ds` | `ghcr.io/openkcloud/tenstorrent-driver-ds` |
 
-`furiosa.unified` 의 `kcloud/` 접두는 오타가 아닙니다. 사내 Harbor 에 그 경로로만
+`furiosa.unified` 의 `kcloud/` 접두는 오타가 아닙니다. 자체 Harbor 에 그 경로로만
 올라가 있어 지우면 즉시 pull 이 깨지고, `chart_image_path_test.go` 가 그 사실을
 고정하고 있습니다.
 
@@ -370,6 +370,6 @@ helm install kcloud-operator oci://<reg>/charts/kcloud-operator --version <v> \
 - **driver DS 수명주기**(v0.5.22+): driver DaemonSet 은 DriverInstallPolicy 에 ownerReference 가 걸려
   DIP 삭제 시 K8s GC 가 cascade 삭제.
 - **레지스트리 도달성**: 다른 클러스터 배포 시 노드가 이미지 레지스트리에 도달 가능해야 함. 상세 절차는
-  운영 노트(`operator/tester.md` §5) 참조.
+  운영 노트참조.
 - **CRD**: helm 자체는 `crds/` 의 CRD 를 삭제하지 않는다. 차트의 `post-delete` Job 이
   대신 지운다(`uninstall.purgeCRDs`, 기본 참). 남기려면 그 값을 거짓으로 둔다.

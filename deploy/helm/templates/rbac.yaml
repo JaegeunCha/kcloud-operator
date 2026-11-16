@@ -167,7 +167,7 @@ rules:
   - apiGroups: ["npu.ai"]
     resources: ["nodedevicereports", "nodedevicereports/status"]
     verbs: ["get", "list", "watch", "create", "update", "patch"]
-  # node-agent NFD/GFD 라벨링(§5.3): 자기 prefix(kcloud.ai/*) 라벨만 patch. 비특권 유지.
+  # node-agent NFD/GFD 라벨링: 자기 prefix(kcloud.ai/*) 라벨만 patch. 비특권 유지.
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["get", "list", "watch", "update", "patch"]

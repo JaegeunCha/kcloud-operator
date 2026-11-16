@@ -1,5 +1,5 @@
 // ============================================================
-// mapping.go: RNGD profile↔backendPolicy 매핑 테이블 + validation (spec §4.3)
+// mapping.go: RNGD profile↔backendPolicy 매핑 테이블 + validation
 // 상세: Furiosa 공식 profile 표기를 /main --policy 인자로 resolve. 숨은 등가 금지 — 명시 테이블.
 // 생성일: 2026-07-23 | 수정일: 2026-10-11
 // ============================================================
@@ -27,12 +27,12 @@ type RngdProfile struct {
 	SupportLevel      string
 }
 
-// rngdProfileTable 은 spec §4.3 의 명시적 매핑이다. 코드에 숨은 등가 가정 금지.
+// rngdProfileTable 은 의 명시적 매핑이다. 코드에 숨은 등가 가정 금지.
 // none(whole)/single-core 는 LegacyDocumented — validation 에서 거부(공식 표기 확인 전).
 var rngdProfileTable = []RngdProfile{
 	{Profile: "1core.6gb", BackendPolicy: "single-core", CountPerDevice: 8, CoresPerPartition: 1, SupportLevel: v1alpha1.SupportLegacyDocumented},
 	{Profile: "2core.12gb", BackendPolicy: "dual-core", CountPerDevice: 4, CoresPerPartition: 2, SupportLevel: v1alpha1.SupportVerified},
-	{Profile: "4core.24gb", BackendPolicy: "quad-core", CountPerDevice: 2, CoresPerPartition: 4, SupportLevel: v1alpha1.SupportVerified}, // rngd-1 실측 확인(allocatable 4→2→4)
+	{Profile: "4core.24gb", BackendPolicy: "quad-core", CountPerDevice: 2, CoresPerPartition: 4, SupportLevel: v1alpha1.SupportVerified}, // <rngd-node> 실측 확인(allocatable 4→2→4)
 }
 
 // ResolveProfile 는 사용자 profile → RngdProfile.
@@ -55,7 +55,7 @@ func ResolvePolicy(policy string) (RngdProfile, bool) {
 	return RngdProfile{}, false
 }
 
-// ValidateLayout 는 요청 profile·count 를 검증한다(spec §4.2 RNGD, §4.3 정직성).
+// ValidateLayout 는 요청 profile·count 를 검증한다(RNGD).
 // Verified/Documented 통과, LegacyDocumented 거부, count 지정 시 fixed count 와 일치해야 함.
 // countPerDevice == 0 은 "미지정"(CR 의 omitempty zero value)으로 간주해 fixed-count 일치
 // 검사를 건너뛴다. 이 함수는 요청(desired) count 검증 전용이다 — 실제 관측된 observed

@@ -1,6 +1,6 @@
 // ============================================================
 // acceleratorevidence_types.go: AcceleratorEvidence CRD 타입 (검증 근거의 1급 모델)
-// 상세: R&D base v0.1 §8.3/§8.5/§8.6. 노드당 하나 — "무엇을 관측했고(level), 어느 환경에서
+// 상세: 노드당 하나 — "무엇을 관측했고(level), 어느 환경에서
 // 나왔으며(fingerprint), 언제까지 유효한지(expiresAt)" 를 정책과 분리해 남긴다.
 // 생성일: 2026-07-31 | 수정일: 2026-11-16
 // ============================================================
@@ -29,7 +29,7 @@ const (
 	EvidenceCheckAllocationProbe   = "AllocationProbe"
 )
 
-// EnvironmentFingerprint 는 이 근거가 어느 환경에서 나왔는지다(R&D §8.6).
+// EnvironmentFingerprint 는 이 근거가 어느 환경에서 나왔는지다.
 // 하나라도 바뀌면 그 환경에서 얻은 근거는 더 이상 이 환경을 설명하지 못한다.
 type EnvironmentFingerprint struct {
 	// BootID 는 node.status.nodeInfo.bootID — 재부팅을 가장 확실하게 잡는 축이다.

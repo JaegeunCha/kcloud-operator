@@ -156,7 +156,7 @@ func applyACPPStatus(nc *NodeCapability, acpps []v1alpha1.AcceleratorPartitionPo
 // applyObservedSharing 은 ACPP 저널이 아니라 실제 광고량으로 "광고 수 > 물리 장치 수" 를 검출한다.
 // SharingMode 를 ACPP ApplyRecord 에서만 읽으면, 누가 device-plugin 의 sharing ConfigMap 을 손으로
 // 고쳤거나 ACPP 가 소유권을 주장하지 않는 기존 설정이 남아 있을 때 저널은 exclusive 라고 말하고
-// exclusive 워크로드가 복제된 장치 위에 떨어진다(정직성 §19.3 이 절대 일어나면 안 된다고 한 것) —
+// exclusive 워크로드가 복제된 장치 위에 떨어진다(정직성 원칙 이 절대 일어나면 안 된다고 한 것) —
 // 그래서 저널만 믿지 않고 이 관측도 함께 본다. 불일치 방향은 항상 "실제보다 많이 광고" 뿐이라 안전하다.
 // 이 관측이 증명하는 범위와 표시 방식은 아래 SharingModeOversubscribed 설정부에 있다.
 func applyObservedSharing(nc *NodeCapability, ndrs []v1alpha1.NodeDeviceReport) {
@@ -185,7 +185,7 @@ func applyObservedSharing(nc *NodeCapability, ndrs []v1alpha1.NodeDeviceReport) 
 		// 이 관측은 "광고가 관측된 물리 장치 수를 넘는다" 는 것만 증명하고 원인은 증명하지 않는다. device-plugin
 		// 복제(격리 없음)와 벤더의 하드웨어 서브유닛 광고(격리 있음 — 예: Furiosa RNGD 카드 1대가 PE 4개로
 		// 광고됨)가 똑같은 관측을 만든다. 그래서 SharingModeTimeSliced 를 단정하지 않고 SharingModeOversubscribed
-		// 로만 표시한다. CheckMode 는 여전히 fail-closed 로 exclusive 를 거절하므로(정직성 §19.3 이 지키려던 안전
+		// 로만 표시한다. CheckMode 는 여전히 fail-closed 로 exclusive 를 거절하므로(정직성 원칙 이 지키려던 안전
 		// 속성은 보존된다) 근거 없이 "복제 중이라 격리 없음" 이라고 주장하지 않는다. timeSliced 는 저널
 		// (ApplyRecord.SharingMode, applyACPPStatus 가 읽는 실측 증거)가 있을 때만 성립하므로 여기서 선언하지 않는다.
 		nc.SharingMode = v1alpha1.SharingModeOversubscribed

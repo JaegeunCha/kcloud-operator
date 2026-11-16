@@ -63,7 +63,7 @@ func TestUI_HasNoExternalReferences(t *testing.T) {
 	}
 }
 
-// stale/pending 행은 정상 행과 시각적으로 달라야 한다(§ inventory.go 정직성 계약). 셸 JS 를
+// stale/pending 행은 정상 행과 시각적으로 달라야 한다(inventory.go 정직성 계약). 셸 JS 를
 // 직접 실행할 수는 없으니, 그 처리 코드가 셸에 존재한다는 사실 자체를 고정한다 — 이렇게 해 두면
 // 이후 누군가 이 분기를 지워도(예: 표 리팩터 중 실수로) 이 테스트가 즉시 깨진다.
 func TestUI_RendersStaleAndPending(t *testing.T) {

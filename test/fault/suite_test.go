@@ -1,8 +1,8 @@
 // ============================================================
-// suite_test.go: 장애 주입 하네스 부트스트랩 (R&D base v0.1 §15)
+// suite_test.go: 장애 주입 하네스 부트스트랩
 // 상세: envtest 위에서 AcceleratorOperation 컨트롤러를 직접 구동하고, 작업 본체(participant)는
 // 이 패키지가 정의한 가짜로 갈아 끼워 장애 지점을 정확한 순간에 주입한다. 증명 대상은
-// 조정자의 제어 흐름뿐이고(§15.3), 하드웨어 판정은 이 시험의 책임이 아니다.
+// 조정자의 제어 흐름뿐이고, 하드웨어 판정은 이 시험의 책임이 아니다.
 // 생성일: 2026-08-04 | 수정일: 2026-10-11
 // ============================================================
 package fault
@@ -42,7 +42,7 @@ var (
 	testEnv   *envtest.Environment
 	cfg       *rest.Config
 	k8sClient client.Client
-	// report 는 지표 수집기다. 각 스펙이 결과를 적고 AfterSuite 가 파일로 떨군다(§16).
+	// report 는 지표 수집기다. 각 스펙이 결과를 적고 AfterSuite 가 파일로 떨군다.
 	report = newReport()
 )
 
@@ -77,7 +77,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	// 판정표는 사내 docs/ 트리에 쓴다. 공개 저장소에는 docs/ 가 없으므로 디렉터리가 없으면
+	// 판정표는 내부 docs/ 트리에 쓴다. 공개 저장소에는 docs/ 가 없으므로 디렉터리가 없으면
 	// 건너뛴다 — 시험 결과 자체는 위의 단언이 판정한다.
 	if _, err := os.Stat("../../docs/verification"); err == nil {
 		Expect(report.write("../../docs/verification/stage5-metrics.md")).To(Succeed())

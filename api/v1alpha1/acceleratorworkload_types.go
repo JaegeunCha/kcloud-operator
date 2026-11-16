@@ -1,6 +1,6 @@
 // ============================================================
 // acceleratorworkload_types.go: AcceleratorWorkload CRD 타입 (추상 사용자 API)
-// 상세: R&D v1.0 §10.6/§11. 사용자는 장치가 아니라 의도(exclusive|shared|partitioned|
+// 상세: 사용자는 장치가 아니라 의도(exclusive|shared|partitioned|
 // partitioned-shared)를 쓰고, operator 가 클러스터가 실제로 광고 중인 벤더 리소스로 번역한다.
 // 지원되지 않는 조합은 조용히 대체하지 않고 축을 지목해 거절한다.
 // 생성일: 2026-07-29 | 수정일: 2026-07-30
@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// 사용자 추상 접근 모드(R&D v1.0 §11).
+// 사용자 추상 접근 모드.
 const (
 	AccessModeExclusive         = "exclusive"
 	AccessModeShared            = "shared"
@@ -86,7 +86,7 @@ type AccessSpec struct {
 	// +kubebuilder:default=auto
 	// +optional
 	Implementation string `json:"implementation,omitempty"`
-	// Replicas 는 장치 하나를 몇 갈래로 나눠 쓰는가다 — 광고 배수이지 성능 비율이 아니다(§4.2).
+	// Replicas 는 장치 하나를 몇 갈래로 나눠 쓰는가다 — 광고 배수이지 성능 비율이 아니다.
 	// spec.workload.replicas(Pod 개수)와 전혀 다른 값이다. 공유 계열 모드에서 2 이상이어야 한다.
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=16

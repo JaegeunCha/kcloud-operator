@@ -132,7 +132,7 @@ bash deploy/helm/install.sh
 네임스페이스는 `deploy.env` 의 `RELEASE`, `NAMESPACE` 가 정하고, 두 값이 없을 때만 스크립트가  
 `kcloud-operator`·`kcloud` 를 씁니다. `deploy.env.example` 도 같은 두 값을 담으므로 예시를  
 그대로 복사해도 스크립트 기본값과 일치합니다.  
-커밋된 `deploy/helm/values-dev.yaml` 이 있으면 `-f` 로 함께 병합합니다.
+로컬에 `deploy/helm/values-dev.yaml` 을 두면 `-f` 로 함께 병합합니다(예시는 `values-dev.example.yaml`, 그 파일은 커밋하지 않습니다).
 
 ### 옵션 C: 폐쇄망(airgap) 사설 미러
 
@@ -153,7 +153,7 @@ helm upgrade --install kcloud-operator deploy/helm -n kcloud --create-namespace 
 | `global.registry` | kcloud 가 빌드한 이미지(operator, node-manager, kcloud-host-exec, 드라이버 설치기, Tenstorrent device-plugin, Furiosa exporter) | `ghcr.io/openkcloud` | `<global.registry>/<repository>:<tag>` |
 | `global.vendorRegistry` | 벤더 이미지(RNGD device-plugin, MPS control daemon, DRA 드라이버, CRD 갱신용 kubectl 등) | 빈 값 | 비면 각 값의 `upstream` 호스트 그대로, 채우면 `<global.vendorRegistry>/<org>/<image>:<tag>` |
 
-air-gap 클러스터는 두 값을 모두 사내 미러로 지정합니다. `nvidia.devicePluginImage` 처럼 완성 경로를 받는  
+air-gap 클러스터는 두 값을 모두 자체 미러로 지정합니다. `nvidia.devicePluginImage` 처럼 완성 경로를 받는  
 필드는 조립하지 않으므로 미러 경로를 사이트 값 파일에 직접 적습니다. 어떤 이미지를 어느 경로로 미러해야  
 하는지는 `deploy/helm/README.md` 의 레지스트리 절에 표로 있습니다.
 

@@ -20,7 +20,7 @@ import (
 // printTable은 열 폭을 데이터에서 재어 표를 낸다.
 //
 // 고정폭 서식(%-15s)은 값 하나만 넘쳐도 그 행부터 열이 밀려 표를 눈으로 훑을 수 없다.
-// 실측만 봐도 노드 rngd-1.cluster.local(20자)과 장치 tenstorrent/blackhole-p150(26자)이
+// 실측만 봐도 노드 <rngd-node>.cluster.local(20자)과 장치 tenstorrent/blackhole-p150(26자)이
 // 하드코딩한 폭을 넘겼다. 클러스터마다 이름 길이가 다르므로 폭은 잴 수밖에 없다.
 func printTable(header []string, rows [][]string) {
 	width := make([]int, len(header))
@@ -569,7 +569,7 @@ func renderNodeDetail(d *npuctl.NodeDetail) string {
 			// Vendor·Level 이 둘 다 빈 조각(라이브에서 실재)을 표 칸에 그대로 두면
 			// 만료일만 남는다. "식별자 없음" 문자열은 바이트 수(16)가 화면 폭(11)보다
 			// 커서 renderTable 이 표 폭을 재는 len() 과 어긋나 LEVEL/EXPIRES 열이
-			// 밀린다(k8s-master·k8s-worker3 실측) — 표 칸에는 다른 빈 값과 같은
+			// 밀린다(<control-plane>·<tenstorrent-node> 실측) — 표 칸에는 다른 빈 값과 같은
 			// "—" 를 쓰고, 식별자가 없다는 사실은 라벨 줄에 적는다.
 			if vendor == "" && level == "" {
 				noIdentifier = true

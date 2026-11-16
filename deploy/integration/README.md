@@ -39,4 +39,4 @@ helm uninstall kcloud-operator -n kcloud --wait
 
 ## 이미지 접근
 
-기본값은 kcloud 이미지를 `ghcr.io/openkcloud` 에서, 벤더 이미지를 각 벤더의 공개 레지스트리에서 받는다. 사내 미러를 쓰려면 `global.registry`·`global.vendorRegistry` 와 `image-manifest.yaml` 의 `fullPathValues` 다섯 필드를 미러 경로로 지정한다. 드라이버는 이미지가 아니라 노드가 apt 로 받으므로 `aptRepositories` 의 저장소 도달성(또는 apt 미러)과 Warboy 인증 Secret 이 별도로 필요하다.
+기본값은 kcloud 이미지를 `ghcr.io/openkcloud` 에서, 벤더 이미지를 각 벤더의 공개 레지스트리에서 받는다. 자체 미러를 쓰려면 `global.registry`·`global.vendorRegistry` 와 `image-manifest.yaml` 의 `fullPathValues` 다섯 필드를 미러 경로로 지정한다. 드라이버는 이미지가 아니라 노드가 apt 로 받으므로 `aptRepositories` 의 저장소 도달성(또는 apt 미러)과 Warboy 인증 Secret 이 별도로 필요하다.

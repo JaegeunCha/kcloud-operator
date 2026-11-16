@@ -68,7 +68,7 @@ func (r *AcceleratorPartitionPolicyReconciler) ensureMigModeEnabled(
 ) (bool, npuv1alpha1.TargetStatus, error) {
 	log := logf.FromContext(t.Ctx)
 	if !nvidia.NeedsModeEnable(devs) && !nvidia.NeedsReboot(devs) {
-		// 모델 B 기존 경로 — 이미 Enabled(또는 우리가 켤 대상이 아님).
+		// 기존 경로 — 이미 Enabled(또는 우리가 켤 대상이 아님).
 		// 전환이 끝났으므로 재부팅 예산을 되돌려주고 전환 phase 도 지운다. 예산을 안 지우면 나중에
 		// mode 가 다시 꺼졌을 때(spec 변경·수동 disable) 남은 카운터 탓에 재부팅 한 번 만에 상한에
 		// 걸리고, 전환 phase 를 안 지우면 저널이 "전환 중"으로 남아 이후 분류(no-diff)가 끝난 전환을

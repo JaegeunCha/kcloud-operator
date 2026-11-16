@@ -1,7 +1,7 @@
 // ============================================================
-// acceleratorhealth_controller.go: 노드 health 감시 컨트롤러 (R&D base v0.1 §9)
+// acceleratorhealth_controller.go: 노드 health 감시 컨트롤러
 // 상세: 노드마다 신호를 모아 상태를 판정하고 AcceleratorHealth 에 기록한다. 부작용은 자기 CR status·
-// 격리 라벨·AcceleratorOperation 생성 셋뿐이고 장치·DaemonSet·ConfigMap·재부팅은 건드리지 않는다(계약 §9.6).
+// 격리 라벨·AcceleratorOperation 생성 셋뿐이고 장치·DaemonSet·ConfigMap·재부팅은 건드리지 않는다.
 // 생성일: 2026-08-04 | 수정일: 2026-11-16
 // ============================================================
 package controller

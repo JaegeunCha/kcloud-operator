@@ -296,7 +296,7 @@ kubectl -n kube-system get pod -l app.kubernetes.io/part-of=kcloud-operator -w
 
 ```bash
 # 각 벤더의 리소스가 정상 할당되었는지 확인
-kubectl describe node k8s-worker1 | grep -A 20 "Allocatable" | grep -E "nvidia|furiosa|rebellions"
+kubectl describe node <nvidia-node> | grep -A 20 "Allocatable" | grep -E "nvidia|furiosa|rebellions"
 
 # 예상 출력:
 # furiosa.ai/rngd:  1

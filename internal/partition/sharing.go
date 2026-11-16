@@ -1,5 +1,5 @@
 // ============================================================
-// sharing.go: 벤더 중립 sharing 계약 (R&D v1.0 §14)
+// sharing.go: 벤더 중립 sharing 계약
 // 상세: SharingBackend 는 옵셔널 인터페이스다 — 미구현 backend 는 타입 assertion 실패로
 // ErrSharingUnsupported 를 정직 보고한다(Backend 인터페이스 자체는 그대로 둔다).
 // 생성일: 2026-07-29 | 수정일: 2026-10-11

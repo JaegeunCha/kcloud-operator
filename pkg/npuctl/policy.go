@@ -36,7 +36,7 @@ type PolicyRequest struct {
 
 var errEmptyPolicy = errors.New("layout 도 sharing 도 없다 — 아무것도 하지 않는 정책이다")
 
-// BuildPartitionPolicy 는 화면 어휘를 정책 필드로 옮긴다. 번역표는 설계 문서 §3.2.1 이 정본이다.
+// BuildPartitionPolicy 는 화면 어휘를 정책 필드로 옮긴다. 번역표는 설계 문서 이 정본이다.
 // AcceleratorPartitionPolicy 는 cluster-scoped 라 네임스페이스를 정하지 않는다.
 func BuildPartitionPolicy(req PolicyRequest) (*npuv1alpha1.AcceleratorPartitionPolicy, error) {
 	if req.Name == "" {
@@ -65,7 +65,7 @@ func BuildPartitionPolicy(req PolicyRequest) (*npuv1alpha1.AcceleratorPartitionP
 	}
 	switch req.Sharing {
 	case "":
-		// 독점 요청이면 sharing.mode 를 exclusive 로 적는다(설계 §3.2.1 번역표). 필드를
+		// 독점 요청이면 sharing.mode 를 exclusive 로 적는다(설계 문서 번역표). 필드를
 		// 만들지 않고 두면 layout 도 sharing 도 없는 정책이 되어 errEmptyPolicy 로 거절되는데,
 		// 그러면 화면의 첫 선택지("한 작업이 통째로 씁니다")가 반드시 실패한다.
 		// 노드를 독점으로 되돌리는 것은 정당한 관리 조작이고 CRD enum 에도 값이 있다.

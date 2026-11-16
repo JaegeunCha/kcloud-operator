@@ -41,7 +41,7 @@ func TestParseObservation_FailClosed(t *testing.T) {
 		t.Errorf("Disabled must be clean geometry=disabled, got %+v", got)
 	}
 
-	// 모델 B: Enabled + GI 없음 → geometry ""(안전 baseline), 에러 아님.
+	// Enabled + GI 없음 → geometry ""(안전 baseline), 에러 아님.
 	got = parseObservation(obsTestPCI, "Enabled, Enabled", "No GPU instances found.", "")
 	if got.Err != "" || got.Geometry != "" || got.ModeCurrent != modeEnabled {
 		t.Errorf("Enabled+no-GI must be clean geometry=\"\" (enabled-no-GI), got %+v", got)

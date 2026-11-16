@@ -1,5 +1,5 @@
 // ============================================================
-// metrics_test.go: 장애 주입 결과 지표 수집 (R&D base v0.1 §16)
+// metrics_test.go: 장애 주입 결과 지표 수집
 // 상세: 각 시나리오가 판정과 관측값을 여기에 적고, 스위트 종료 시 마크다운 표로 떨군다.
 //
 //	숫자를 "좋아 보이게" 고르지 않는다 — 미실행 항목은 미실행으로 남긴다.
@@ -27,7 +27,7 @@ type caseResult struct {
 	Note     string
 }
 
-// counters 는 §16.1 정확성 지표다.
+// counters 는 정확성 지표다.
 type counters struct {
 	WrongSucceeded    int // 실제로 실패했는데 Succeeded 로 끝난 횟수
 	StaleWriterWins   int // 옛 epoch 의 결과가 반영된 횟수
@@ -102,7 +102,7 @@ func (r *suiteReport) write(path string) error {
 		fmt.Fprintf(&b, "| %s | %s | **%s** | %s | %s | %s |\n",
 			c.ID, c.Title, c.Verdict, c.Expected, c.Observed, c.Note)
 	}
-	b.WriteString("\n## 정확성 지표 (§16.1)\n\n")
+	b.WriteString("\n## 정확성 지표\n\n")
 	b.WriteString("| 지표 | 값 |\n|---|--:|\n")
 	fmt.Fprintf(&b, "| 잘못된 Succeeded | %d |\n", r.c.WrongSucceeded)
 	fmt.Fprintf(&b, "| stale writer 반영 성공 | %d |\n", r.c.StaleWriterWins)
@@ -111,7 +111,7 @@ func (r *suiteReport) write(path string) error {
 	fmt.Fprintf(&b, "| rollback 도달 | %d |\n", r.c.Rollbacks)
 	fmt.Fprintf(&b, "| ManualRecoveryRequired 도달 | %d |\n", r.c.ManualRecovery)
 	if len(r.compares) > 0 {
-		b.WriteString("\n## 비교군 B0~B3 (§16.4)\n\n")
+		b.WriteString("\n## 비교군 B0~B3\n\n")
 		b.WriteString("같은 장애를 기능별 게이트만 바꿔 네 구성에 주입했다. `잘못된 판정` 은 그 구성에서 " +
 			"안전 기대가 깨진 표본 수다.\n\n")
 		byBase := map[string][]compareResult{}

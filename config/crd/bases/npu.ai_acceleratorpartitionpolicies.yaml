@@ -119,7 +119,7 @@ spec:
                     type: object
                   timeSlicing:
                     description: TimeSlicingSpec 는 시간공유 요청이다. replicas 는 성능 비율이 아니라
-                      광고 배수다(§4.2).
+                      광고 배수다.
                     properties:
                       failRequestsGreaterThanOne:
                         description: FailRequestsGreaterThanOne 은 replica 1개 초과 요청을
@@ -152,7 +152,7 @@ spec:
               applyRecords:
                 items:
                   description: ApplyRecord 는 nvidia MIG apply 의 durable journal +
-                    삭제 복원 snapshot 이다(spec §15.2/§15.7).
+                    삭제 복원 snapshot 이다.
                   properties:
                     baselineGPUCount:
                       format: int32
@@ -244,7 +244,7 @@ spec:
                           type: string
                       type: object
                     backend:
-                      description: BackendRef 는 apply 대상 + rollback 기준(spec §7.2).
+                      description: BackendRef 는 apply 대상 + rollback 기준.
                       properties:
                         configurationScope:
                           type: string
@@ -255,7 +255,7 @@ spec:
                         namespace:
                           type: string
                         rollback:
-                          description: RollbackInfo 는 apply 전 저장하는 복원 기준(spec §7.2).
+                          description: RollbackInfo 는 apply 전 저장하는 복원 기준.
                           properties:
                             generation:
                               format: int64
@@ -410,8 +410,7 @@ spec:
                           pciAddress:
                             type: string
                           sharingCapability:
-                            description: SharingCapability 는 공유 방식별 지원·검증 상태다(R&D
-                              v1.0 §10.1).
+                            description: SharingCapability 는 공유 방식별 지원·검증 상태다.
                             properties:
                               brokered:
                                 description: SharingModeSupport 는 한 공유 방식의 지원·검증 상태다.

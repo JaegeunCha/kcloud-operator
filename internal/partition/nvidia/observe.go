@@ -1,5 +1,5 @@
 // ============================================================
-// observe.go: operator-driven MIG 관측 — privileged nsenter Job + fail-closed parse (spec §16)
+// observe.go: operator-driven MIG 관측 — privileged nsenter Job + fail-closed parse
 // 상세: detector 가 host nvidia-smi 실행 불가라, operator 가 kcloud-host-exec Job(nsenter)으로
 // MIG mode/geometry/lgip 를 per-PCI 관측해 Backend.WithObservations 로 in-memory 주입한다.
 // 생성일: 2026-07-27 | 수정일: 2026-10-11
@@ -31,13 +31,13 @@ const (
 	geomDisabled = "disabled"
 )
 
-// Observation 은 단일 GPU(PCI)의 operator-관측 MIG 상태다(fail-closed, spec §16.2/§15.3).
+// Observation 은 단일 GPU(PCI)의 operator-관측 MIG 상태다(fail-closed, ).
 type Observation struct {
 	PCI, ModeCurrent, ModePending, Geometry, LgipOutput, Err string
 }
 
 // Observer 는 노드의 per-PCI MIG 상태를 관측하는 seam 이다(reconciler 가 fresh 관측을 Backend 에
-// 주입할 때 사용, spec §16.3). 실 구현은 *MigObserver(Job), 테스트는 fake 로 대체한다.
+// 주입할 때 사용, ). 실 구현은 *MigObserver(Job), 테스트는 fake 로 대체한다.
 type Observer interface {
 	Observe(ctx context.Context, nodeName string, pcis []string) ([]Observation, error)
 }
@@ -62,7 +62,7 @@ func normalizeMigMode(s string) string {
 	}
 }
 
-// parseObservation 은 fail-closed 로 관측을 판정한다(spec §15.3): mode csv 파싱 실패, current/pending
+// parseObservation 은 fail-closed 로 관측을 판정한다: mode csv 파싱 실패, current/pending
 // Unknown, 또는 Enabled 인데 -lgi 를 파싱 못하면 전부 Unknown+Err 를 반환하고 절대 조용히
 // "disabled" 로 보고하지 않는다(detector parseMigObservation 포팅).
 func parseObservation(pci, modeCsv, lgi, lgip string) Observation {
@@ -96,13 +96,13 @@ func parseObservation(pci, modeCsv, lgi, lgip string) Observation {
 
 // summarizeMigGeometryStrict 는 `mig -lgi` 원문을 요약한다. current=Enabled 인데 파싱 불가면
 // error 를 반환한다(fail-closed) — Enabled 상태에서 조용히 "disabled" 로 보고하지 않는다.
-// 모델 B: Enabled + "No GPU instances found"(GI 없음) → "" (enabled-no-GI, 안전 baseline).
+// Enabled + "No GPU instances found"(GI 없음) → "" (enabled-no-GI, 안전 baseline).
 func summarizeMigGeometryStrict(lgi string) (string, error) {
 	if strings.Contains(lgi, "No MIG-enabled devices") {
 		return geomDisabled, nil
 	}
 	if strings.Contains(lgi, "No GPU instances found") {
-		return "", nil // MIG enabled 이나 GI 없음 — 안전 baseline(모델 B).
+		return "", nil // MIG enabled 이나 GI 없음 — 안전 baseline.
 	}
 	if strings.TrimSpace(lgi) == "" {
 		return "", fmt.Errorf("empty lgi")
@@ -130,7 +130,7 @@ const (
 	observeCreateWait   = 30 * time.Second
 )
 
-// MigObserver 는 privileged nsenter Job 으로 대상 노드의 per-PCI MIG 상태를 관측한다(spec §16.2).
+// MigObserver 는 privileged nsenter Job 으로 대상 노드의 per-PCI MIG 상태를 관측한다.
 type MigObserver struct {
 	c         client.Client
 	namespace string
@@ -172,7 +172,7 @@ func observeJobName(stream, nodeName string) string {
 const observePCIsPerJob = 1
 
 // Observe 는 nodeName 의 각 pci 에 대해 mode/-lgi/-lgip 를 privileged Job 으로 조회하고
-// fail-closed 로 parse 한 Observation 을 pci 당 하나씩 반환한다(spec §16.2). Job 실패·pod 소실·빈
+// fail-closed 로 parse 한 Observation 을 pci 당 하나씩 반환한다. Job 실패·pod 소실·빈
 // 메시지·section 누락은 조용히 드롭하지 않고 Err 를 채운 Observation 으로 표면화한다(apply 차단용).
 //
 // PCI 는 observePCIsPerJob 단위로 나눠 Job 을 돌린다. 반환 순서는 입력 pcis 순서와 같다.
@@ -305,7 +305,7 @@ func failClosed(pcis []string, reason string) []Observation {
 }
 
 // parseDelimitedMessage 는 Job 이 termination-log 에 쓴 구분자 포맷을 pci 별 Observation 으로 파싱한다.
-// pci 마다 하나씩 반환하며, section 이 없으면 Err 를 채운다(조용히 드롭 금지, spec §16.3 fail-closed).
+// pci 마다 하나씩 반환하며, section 이 없으면 Err 를 채운다(조용히 드롭 금지, fail-closed).
 func parseDelimitedMessage(msg string, pcis []string) []Observation {
 	sections := map[string]string{}
 	var curPCI string

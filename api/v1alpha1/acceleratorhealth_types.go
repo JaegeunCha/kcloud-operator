@@ -1,5 +1,5 @@
 // ============================================================
-// acceleratorhealth_types.go: 노드별 health 상태 CR (R&D base v0.1 §9.5)
+// acceleratorhealth_types.go: 노드별 health 상태 CR
 // 상세: 이름은 노드 이름이다(노드당 하나). status 만 쓰이며 spec 은 관측 대상 식별만 담는다.
 // AcceleratorEvidence 가 "그때 정말 그랬는가" 라면 이것은 "지금도 그런가" 다.
 // 생성일: 2026-08-04

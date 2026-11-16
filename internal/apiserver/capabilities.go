@@ -1,6 +1,6 @@
 // ============================================================
 // capabilities.go: 노드 단위 capability 조회(/api/v1/capabilities)
-// 상세: R&D v1.0 §10.1 AcceleratorCapability 의 조회 표면. 트랙 ①이 별도 CRD 대신 ACPP status 에
+// 상세: AcceleratorCapability 의 조회 표면. 트랙 ①이 별도 CRD 대신 ACPP status 에
 //       흡수한 3축을 노드 기준으로 모은다. 핵심은 "후보에서 빠진 노드를 목록에서 지우지 않는
 //       것" — 지우면 사용자는 노드가 왜 안 보이는지 알 수 없다. Candidate=false + 사유를 단다.
 // 생성일: 2026-07-30 | 수정일: 2026-11-16

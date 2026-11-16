@@ -49,16 +49,16 @@ type DeviceEntry struct {
 	MemoryMiB         int64  `json:"memoryMiB,omitempty"`         // 디바이스 메모리(MiB)
 	ComputeCapability string `json:"computeCapability,omitempty"` // NVIDIA sm_xx / 벤더 capability 문자열
 	PCIeAddress       string `json:"pcieAddress,omitempty"`       // 대표 PCI 주소(라벨/디버깅용)
-	// MigModeCurrent/Pending 은 NVIDIA MIG 모드 관측값이다(detector per-PCI, spec §14.1).
+	// MigModeCurrent/Pending 은 NVIDIA MIG 모드 관측값이다(detector per-PCI, ).
 	// Disabled 만 apply 안전. Unknown(조회/파싱 실패) 또는 Enabled 는 apply 차단.
 	MigModeCurrent string `json:"migModeCurrent,omitempty"`
 	MigModePending string `json:"migModePending,omitempty"`
-	// MigCurrentGeometry 는 현 GI 요약("1g.6gb x4"). ""/"disabled" = 없음. truthful Diff 진실 소스(§14.2).
+	// MigCurrentGeometry 는 현 GI 요약("1g.6gb x4"). ""/"disabled" = 없음. truthful Diff 진실 소스.
 	MigCurrentGeometry string `json:"migCurrentGeometry,omitempty"`
 	// MigObservationError 는 관측 실패 사유(fail-closed 근거). 비어있지 않으면 apply 차단.
 	MigObservationError string `json:"migObservationError,omitempty"`
 	FirmwareVersion     string `json:"firmwareVersion,omitempty"` // 가용 시 펌웨어/BIOS 버전
-	// MigLgipOutput 은 `nvidia-smi mig -lgip` 원문입니다(ACPP §4.2 MIG profile discovery 소스).
+	// MigLgipOutput 은 `nvidia-smi mig -lgip` 원문입니다(MIG profile discovery 소스).
 	// node-manager(detector) 가 채웁니다. NVIDIA 이외 벤더는 공란.
 	MigLgipOutput string `json:"migLgipOutput,omitempty"`
 }
@@ -80,7 +80,7 @@ type NodeDeviceReportStatus struct {
 	Validation *ValidationStatus `json:"validation,omitempty"`
 	// ObservedAt 은 node-agent 가 이 보고서를 마지막으로 갱신한 시각입니다. 비어 있으면 "관측 시각
 	// 미상" 이고, health 판정은 그 상태를 Healthy 로 승격하지 않습니다(모르는 것을 아는 것처럼
-	// 다루지 않는다 — R&D base v0.1 §10.3).
+	// 다루지 않는다 — ).
 	// +optional
 	ObservedAt *metav1.Time `json:"observedAt,omitempty"`
 }

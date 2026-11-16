@@ -1189,7 +1189,7 @@ func (m *UpgradeStateMachine) handleRebootRequired(ctx context.Context, state *v
 		return m.transitionTo(state, v1alpha1.UpgradeStateValidating, "needsReboot 해소 — 검증으로 복귀", 0)
 	}
 
-	// kured executor 는 1차 미구현(계획 §5, 수요 시). 기본 Job 만 실행.
+	// kured executor 는 1차 미구현(수요 시). 기본 Job 만 실행.
 	if policy.Spec.RebootExecutor == "kured" {
 		m.Recorder.Eventf(state, corev1.EventTypeWarning, "RebootExecutorUnsupported",
 			"kured executor 는 1차 미구현(후속 과제) — DIP.driver.rebootExecutor=Job 사용")

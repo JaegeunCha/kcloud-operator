@@ -217,7 +217,7 @@ var _ = Describe("AcceleratorHealth", func() {
 		Expect(ah.Status.State).To(Equal("Unknown"))
 		Expect(ah.Status.AllocationAllowed).To(BeFalse())
 		Expect(healthOpsForNode(node)).To(BeEmpty(),
-			"관측이 끊긴 것만으로 파괴적 복구를 만들면 안 된다(계약 §10.3)")
+			"관측이 끊긴 것만으로 파괴적 복구를 만들면 안 된다")
 	})
 
 	// 증명: device-plugin 이 죽으면 복구 작업이 **정확히 하나** 만들어지고 반복 reconcile 로도 늘지 않는다.
