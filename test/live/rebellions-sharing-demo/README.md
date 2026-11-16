@@ -17,7 +17,7 @@ device-plugin 코드 없이 `rebellions/atom` 을 replicas 개로 광고하고, 
 
 ## 전제
 
-- kubectl context 가 node5 가 속한 `.91` 클러스터(kubernetes-admin@cluster.local).
+- kubectl context 가 node5 가 속한 클러스터(kubernetes-admin@cluster.local).
 - NPUClusterPolicy `kcloud/npuclusterpolicy-sample` 의 `spec.rebellions.enabled=true`,
   `advertiseBy=devicePlugin`, namespace `kube-system`(관리 device-plugin `rbln-device-plugin`).
 - node5 의 `atomplus-vllm.service` 가 중지(inactive/disabled)돼 카드가 유휴.

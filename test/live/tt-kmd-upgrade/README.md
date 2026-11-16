@@ -4,7 +4,7 @@
 
 ## 왜
 
-`.91` k8s-worker3-tenstorrent 는 그동안 tt-kmd 2.8.0 이 현재=목표 버전으로 고정돼 있어
+k8s-worker3-tenstorrent 노드는 그동안 tt-kmd 2.8.0 이 현재=목표 버전으로 고정돼 있어
 상태기계의 실제 업그레이드 전이(install Job → 검증 → Idle 수렴, 실패 시 자동 롤백)를 실제
 하드웨어로 켠 적이 없다. `test/live/tt-install-job/README.md` 와
 `test/live/tt-upgrade-transition`(kind 재현)이 같은 누락을 기록했다. 이 디렉터리는 그 누락을
@@ -98,7 +98,7 @@ bash test/live/tt-kmd-upgrade/run.sh
 - 성공 경로의 `helm_set false` 는 `--reset-then-reuse-values` 와 `--set` 조합이라 tenstorrent 값
   네 개(`driver.tag`·`driver.version`·`verifiedVersions`·`upgradePolicy.autoUpgrade`)가 릴리스
   user values 에 영구히 남는다(라이브 `helm get values` 로 확인). 이후 차트 기본값을 올려도 이 네
-  값을 직접 reset 하기 전까지는 `.91` 에 반영되지 않는다. 정리는 `helm get values -o yaml` 을 저장해
+  값을 직접 reset 하기 전까지는 운영 클러스터에 반영되지 않는다. 정리는 `helm get values -o yaml` 을 저장해
   `driverInstallPolicies.tenstorrent` 블록을 지운 파일로 `helm upgrade --reset-values -f <파일>` 을
   한 번 실행하는 것이다.
 - 전제 확인의 파드 검사는 `containers` 만 센다. `initContainers` 로 tenstorrent 자원을 요청하는

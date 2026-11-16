@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # setup.sh: kind 실험 클러스터(kcloud-lab) 부트스트랩 — CRD 적용 + operator 클러스터 밖 구동
-# 상세: `.91` 운영 클러스터와 분리된 kind 클러스터를 만들고 operator CRD 를 적용한 뒤,
+# 상세: 운영 클러스터와 분리된 kind 클러스터를 만들고 operator CRD 를 적용한 뒤,
 #       operator 를 `make run` 으로 호스트에서 백그라운드 구동한다(이미지 로드·웹훅
 #       인증서 설정 불필요). docker 가 sudo 전용인 호스트라 kind 도 sudo 로 구동하고
 #       kubeconfig 만 현재 사용자 소유로 바꾼다. 재실행 안전, DRY_RUN=1 지원.

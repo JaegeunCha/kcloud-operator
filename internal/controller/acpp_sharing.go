@@ -2,7 +2,7 @@
 // acpp_sharing.go: ACPP 공유(sharing) 경로 — apply → DP 재시작 → verify → rollback
 // 상세: 파티션 경로(runNvidiaTarget)와 같은 규율(저널 선영속 → mutation, 실패시 원복)을 따르되
 // 하드웨어는 건드리지 않는다(device-plugin 설정/배선만 변경).
-// 생성일: 2026-07-29 | 수정일: 2026-10-13
+// 생성일: 2026-07-29 | 수정일: 2026-11-16
 // ============================================================
 package controller
 
@@ -378,10 +378,10 @@ func (r *AcceleratorPartitionPolicyReconciler) precheckSharing(ctx context.Conte
 	}
 	// 장치별 MPS capability 게이트 — 없으면 Discover 가 "MPS 불가" 로 적어 둔 장치에도 적용이 배수를
 	// 요청해 DP 거부 시 이유가 안 보이거나 multiProcess.supported:false 와 모순되는 Ready+Verified
-	// 가 찍힌다. mps 에만 건다. 아래 장치 단위 판정은 mixed-strategy 가드가 먼저 거절해 지금은
-	// 미실행이지만, 노드별 DP 분리가 들어오면 다시 유일한 게이트가 되므로 지우지 않는다 — "같은
-	// 벤더 전체" 가 아니라 "다른 정책이 소유하지 않은 장치" 만 봐야 한다. 장치 셀렉터가 CRD 에
-	// 없어 미소유 장치 중 일부만 MPS 지원하면 지금은 fail-closed 거절하고, 셀렉터가 생기면 좁혀야 한다.
+	// 가 찍힌다. mps 에만 건다. MIG 활성 노드에서는 mixed-strategy 가드가 먼저 거절해 아래 장치 단위
+	// 판정에 오지 않고, flat DS 노드에서는 이 판정이 유일한 게이트다 — "같은 벤더 전체" 가 아니라
+	// "다른 정책이 소유하지 않은 장치" 만 봐야 한다. 장치 셀렉터가 CRD 에 없어 미소유 장치 중 일부만
+	// MPS 지원하면 지금은 fail-closed 거절하고, 셀렉터가 생기면 좁혀야 한다.
 	if layout.Mode == npuv1alpha1.SharingModeMPS {
 		// spec §6d.4 — 장치 단위보다 먼저 프로세스 단위 배타를 본다.
 		blocked, berr := r.mpsBlockedByMigStrategy(ctx, ts.NodeName)

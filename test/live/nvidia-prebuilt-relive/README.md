@@ -17,7 +17,7 @@ k8s-worker1 에 떠 있던 `-v2` 이미지는 그 제거보다 먼저 빌드돼,
    `cat /sys/module/nvidia/version`, `kubectl logs`.
 2. 쓰기: DIP `nvidia-gpu-ds` 의 `spec.driver.kernelImages["5.15.0-171-generic"]` patch,
    `kubectl cordon`/`uncordon k8s-worker1`, `sudo apt-get remove -y` **정확히 이 9개
-   패키지**(`PACKAGES` 배열, 순서·이름 고정), `sudo reboot`(`.91` 관리 노드 무승인).
+   패키지**(`PACKAGES` 배열, 순서·이름 고정), `sudo reboot`(관리 노드 무승인).
    `autoremove`·`purge`·다른 패키지 제거·수동 dpkg/apt 재설치는 하지 않는다.
 3. 복구 수단(실패했을 때만): `PHASE=rollback-dip` 으로 DIP 를 이전 값(`-v2`)으로 되돌리고
    operator 자기복구가 다시 돌 때까지 기다린다(30분). 그래도 안 되면 수동 정리 절차를

@@ -23,7 +23,7 @@ k8s-worker1 에 남은 세 패키지는 실행 중 드라이버와 무관해 해
 2. 쓰기: `sudo apt-get remove -y nvidia-firmware-580-580.178.04
    nvidia-firmware-595-595.91.07 nvidia-kernel-source-580` **정확히 이 세 이름**.
    `autoremove`·`purge`·다른 패키지 제거·드라이버 재설치는 하지 않는다.
-3. 복구 수단(필요할 때만): `.91` 관리 노드(k8s-worker1 포함) 무승인 재부팅 1회. 그 밖의
+3. 복구 수단(필요할 때만): 관리 노드(k8s-worker1 포함) 무승인 재부팅 1회. 그 밖의
    드라이버 재설치·`apt install`은 하지 않는다 — 사후 게이트가 실패하면 멈추고
    컨트롤러에 보고한다(이 하네스가 스스로 재부팅하거나 재설치하지 않는다).
 4. 노드 대상은 `kubectl get node k8s-worker1 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}'`

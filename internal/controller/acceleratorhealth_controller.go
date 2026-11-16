@@ -4,7 +4,7 @@
 // status·격리 라벨·AcceleratorOperation 생성 셋뿐이다 — 장치·DaemonSet·ConfigMap·재부팅은
 // 안 건드린다. 수집이 이 파일에 있는 이유: internal/health 는 internal/partition 을 import
 // 할 수 없어, 이 컨트롤러가 mutation 금지 계약을 컴파일 그래프로 강제하며 수집을 맡는다.
-// 생성일: 2026-08-04 | 수정일: 2026-11-03
+// 생성일: 2026-08-04 | 수정일: 2026-11-16
 // ============================================================
 package controller
 
@@ -146,13 +146,12 @@ func quarantineWorthy(state string) bool {
 	return state != health.StateUnknown && state != health.StateHealthy && state != ""
 }
 
-// acceleratorPresentLabels 는 node-device-detector 가 실제로 쓰는 present 라벨 전체
-// 집합이다(node-device-detector/label.go computeLabels 가 정본). accelerator.present 와 그 옛
-// 이름 gpu.present(0.9 에서 제거, 구 node-manager 혼용 대비) 는 장치가 있으면 항상,
-// furiosa-family.present 는 PCI 0x1ed2 를 공유하는 Warboy·RNGD 공통으로
-// 붙는다. 나머지는 등록된 벤더마다 vendorPresentLabel(vendor) 하나씩이다 — 단 furiosa
-// 안에서 rngd 만 detector 의 vendorKey 가 별도 키("rngd")를 쓰는 유일한 product 라 따로
-// 더한다(Warboy 는 vendorKey 가 "furiosa" 그대로라 "kcloud.ai/warboy.present" 는 안 쓴다).
+// acceleratorPresentLabels 는 node-device-detector 가 실제로 쓰는 present 라벨 전체 집합이다
+// (node-device-detector/label.go computeLabels 가 정본). accelerator.present 와 그 옛 이름 gpu.present(0.9 에서
+// 제거, 구 node-manager 혼용 대비)는 장치가 있으면 항상, furiosa-family.present 는 PCI 0x1ed2 를 공유하는
+// Warboy·RNGD 공통으로 붙는다. 나머지는 등록된 벤더마다 vendorPresentLabel(vendor) 하나씩이다 — 단 furiosa
+// 안에서 rngd 만 detector 의 vendorKey 가 별도 키("rngd")를 쓰는 유일한 product 라 따로 더한다(Warboy 는
+// vendorKey 가 "furiosa" 그대로라 "kcloud.ai/warboy.present" 는 안 쓴다).
 func acceleratorPresentLabels() map[string]bool {
 	m := map[string]bool{
 		npuv1alpha1.AcceleratorPresentLabel:   true,

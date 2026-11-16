@@ -4,7 +4,7 @@
 
 ## 왜 kind 에서 재현하는가
 
-`.91` k8s-worker3-tenstorrent 는 tt-kmd 2.8.0 이 현재=목표 버전으로 고정돼 있어, 상태기계의
+k8s-worker3-tenstorrent 노드는 tt-kmd 2.8.0 이 현재=목표 버전으로 고정돼 있어, 상태기계의
 업그레이드 전이(`Upgrading→Validating→Uncordoning` 성공 경로, `Validating→Rollback→Failed`
 실패 경로)를 실제 하드웨어로 켤 방법이 없다. 이 제약은 새로 발견한 것이 아니라
 `test/live/tt-install-job/README.md` 가 이미 같은 결론을 남겼다 —
@@ -34,7 +34,7 @@ install Job 생성, validator 체인, 롤백 소진, 자기치유 가드)을 재
    TARGET_VERSION 이 같으면 설치를 건너뛴다(`entrypoint.sh:176-178`, "설치 단계 건너뜀").
    initContainer `driver-manager.sh` 도 같은 규칙으로 모듈 해제 자체를 skip 한다
    (`driver-manager.sh:51`, `if [[ "$CURRENT_VER" == "$DRIVER_VERSION" ]]`).
-4. **`.91` 의 tt-kmd 는 2.8.0 이 baked 값이다.** 억지로 버전 문자열만 올리면(이미지는 그대로 두고
+4. **운영 클러스터의 tt-kmd 는 2.8.0 이 baked 값이다.** 억지로 버전 문자열만 올리면(이미지는 그대로 두고
    `DIP.spec.driver.version` 만 상향) 실제 설치된 커널 모듈은 그대로 2.8.0 인데 상태기계는
    `desiredVersion` 을 새 값으로 보고 전이를 시작하고, `handleValidatingJob`
    (`internal/upgrade/state_machine_job.go:134`, validator 체인은 `:212-233`)의
@@ -50,10 +50,10 @@ install Job 생성, validator 체인, 롤백 소진, 자기치유 가드)을 재
 **판정 분기 A(새 버전 존재)의 전제가 실제로 참이다.** 이 작업의 판정 분기는 "새 tt-kmd 버전이
 실행 시점에 존재하면 A(라이브 업그레이드), 없으면 B(kind 재현)" 인데, GitHub tt-kmd 릴리스를
 읽기전용으로 조회한 결과(`api.github.com/repos/tenstorrent/tt-kmd/releases/latest`)
-**`ttkmd-2.11.0`(정식 릴리스, draft/prerelease 아님)이 이미 나와 있다** — `.91` 의 baked
+**`ttkmd-2.11.0`(정식 릴리스, draft/prerelease 아님)이 이미 나와 있다** — 운영 클러스터의 baked
 값(2.8.0)보다 최신이므로, 코드가 정의한 분기 조건만 보면 A 의 전제가 성립한다.
 
-그럼에도 이 작업은 B(kind 재현)로 진행했다 — 이 작업의 지시가 "`.91` 을 절대 건드리지 않는다"
+그럼에도 이 작업은 B(kind 재현)로 진행했다 — 이 작업의 지시가 "운영 클러스터를 절대 건드리지 않는다"
 로 명시적으로 못박혀 있고, 이미지 재빌드 + 라이브 업그레이드/롤백 실행은 그 경계를 넘는 별도
 작업이기 때문이다. 그래서 "새 버전이 없다"가 아니라 **"새 버전은 있지만 이 작업 권한 밖"**
 이 정확한 상태다.
@@ -65,7 +65,7 @@ install Job 생성, validator 체인, 롤백 소진, 자기치유 가드)을 재
 범위 밖이며 실행하지 않았다:
 
 1. `TT_KMD_VERSION=2.11.0` 으로 `driver-installer/tenstorrent` 이미지 재빌드·배포.
-2. **`verifiedVersions` 화이트리스트에 `"2.11.0"` 추가.** `.91` 의 Tenstorrent
+2. **`verifiedVersions` 화이트리스트에 `"2.11.0"` 추가.** 운영 클러스터의 Tenstorrent
    `DriverInstallPolicy` 는 `verifiedVersions: ["2.8.0", "2.9.0"]` 만 선언해 뒀다
    (`deploy/helm/values.yaml:633-636`). `handleIdle` 은 `desiredVersion` 이 이 목록에
    없으면 업그레이드를 거부하고 터미널 `UnverifiedVersion` 상태로 보낸다
@@ -77,7 +77,7 @@ install Job 생성, validator 체인, 롤백 소진, 자기치유 가드)을 재
 3. `DriverInstallPolicy.spec.driver.version` 을 `2.11.0` 으로 올려 실제 업그레이드 트리거.
 4. 검증·롤백 결과를 이 kind 재현과 같은 방식(`test/collect/evidence.sh`)으로 기록.
 
-1·3·4 단계(이미지 재빌드·`.91` 라이브 검증) 자체는 후속 작업으로 분리해 사용자/조정자의
+1·3·4 단계(이미지 재빌드·운영 클러스터 라이브 검증) 자체는 후속 작업으로 분리해 사용자/조정자의
 결정을 받아야 한다 — 5주 전에 나온 tt-kmd 2.11.0 반영 여부가 이 프로젝트의 별도 결정
 사항이다.
 
@@ -145,7 +145,7 @@ self-heal 분기(`driverNotLoaded`, 같은 파일 :215-243)가 버전-불일치 
 ```bash
 # 사전: kind 랩이 떠 있어야 한다(test/lab/kind 공용 부트스트랩)
 bash test/lab/kind/setup.sh
-export KUBECONFIG=/tmp/kcloud-lab/kubeconfig   # 기본 ~/.kube/config(.91)는 절대 쓰지 않는다
+export KUBECONFIG=/tmp/kcloud-lab/kubeconfig   # 기본 ~/.kube/config(운영 클러스터)는 절대 쓰지 않는다
 
 bash test/live/tt-upgrade-transition/run.sh
 # 또는 미리보기(클러스터 접근 0회, 로컬 docker build/kind load 도 생략)
@@ -218,7 +218,7 @@ UpgradeRequired 진입(13:39:53)부터 Failed 도달(13:43:09)까지 3분 16초(
 - **DUS 자동 생성 경로(`ensureUpgradeStates`)는 이 kind 랩에서 검증되지 않는다.** 단일 노드
   kind 클러스터의 유일한 노드가 `node-role.kubernetes.io/control-plane` 라벨을 가져
   `ensureUpgradeStates` 가 건너뛰기 때문에(위 "가짜 리소스" 절 참고), 이 재현은 DUS 를
-  직접 만든다. NDR+DIP 만으로 DUS 가 자동으로 생겨야 하는 라이브 경로 자체는 `.91`(워커
+  직접 만든다. NDR+DIP 만으로 DUS 가 자동으로 생겨야 하는 라이브 경로 자체는 운영 클러스터(워커
   노드, control-plane 라벨 없음)의 기존 운영 이력으로 이미 검증돼 있다 — 이 재현이 새로
   검증하는 것은 아니다.
 - **`drainEnabled: false` 로 drain/evict 흐름은 범위 밖이다.** daemonset 경로와 공유하는

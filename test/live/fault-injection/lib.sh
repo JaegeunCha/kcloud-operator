@@ -58,7 +58,7 @@ poll_and_log() {
 
 # preflight_kind_node — kubectl 컨텍스트가 kind 인지 확인하고 NODE/CLUSTER_NAME 전역을
 # 채운다. 실패하면 BLOCKED=true BLOCKED_REASON=... 을 설정하고 1 을 반환한다 — 중단(그 뒤
-# demo 를 부르지 않는 것)은 호출부 책임이다. `.91` 등 다른 클러스터를 잘못 건드리지 않기
+# demo 를 부르지 않는 것)은 호출부 책임이다. 다른 클러스터를 잘못 건드리지 않기
 # 위한 마지막 방어선이다.
 preflight_kind_node() {
   if [ "${DRY_RUN:-0}" = "1" ]; then
@@ -75,7 +75,7 @@ preflight_kind_node() {
     kind-*) : ;;
     *)
       BLOCKED=true
-      BLOCKED_REASON="현재 kubectl context='$ctx' 가 kind 클러스터가 아님 — .91 등 다른 클러스터를 건드리지 않기 위해 중단"
+      BLOCKED_REASON="현재 kubectl context='$ctx' 가 kind 클러스터가 아님 — 다른 클러스터를 건드리지 않기 위해 중단"
       log "BLOCKED: $BLOCKED_REASON"; return 1
       ;;
   esac

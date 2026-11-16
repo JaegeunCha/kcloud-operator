@@ -137,7 +137,7 @@ preflight() {
     kind-*) : ;;
     *)
       BLOCKED=true
-      BLOCKED_REASON="현재 kubectl context='$ctx' 가 kind 클러스터가 아님 — .91 등 다른 클러스터를 건드리지 않기 위해 중단"
+      BLOCKED_REASON="현재 kubectl context='$ctx' 가 kind 클러스터가 아님 — 다른 클러스터를 건드리지 않기 위해 중단"
       log "BLOCKED: $BLOCKED_REASON"; return 1
       ;;
   esac

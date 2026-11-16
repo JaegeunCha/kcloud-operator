@@ -4,7 +4,7 @@
 
 Tenstorrent 업그레이드 전이 재현, 결함 주입 시나리오 3종, 벤더 차트 설치
 자국 비교 등 뒤 검증 작업이 공유하는 실험용 kind 클러스터 부트스트랩이다.
-`.91` 운영 클러스터와 완전히 분리된 별도 kind 클러스터에서 operator 를
+운영 클러스터와 완전히 분리된 별도 kind 클러스터에서 operator 를
 구동해, 실제 가속기 없이 제어 흐름만 재현한다.
 
 ## 전제
@@ -70,10 +70,10 @@ DRY_RUN=1 bash test/lab/kind/teardown.sh
   `teardown.sh` 는 이 값으로 `make` → `go run` → 컴파일된 바이너리 전체를
   한 번에 정리한다.
 
-## `.91` 과의 분리
+## 운영 클러스터와의 분리
 
 두 스크립트는 `kubectl`/`make` 호출마다 `KUBECONFIG=$LAB_DIR/kubeconfig` 를
-명시적으로 넘긴다. 사용자 기본 `~/.kube/config`(운영 클러스터 `.91` 을
+명시적으로 넘긴다. 사용자 기본 `~/.kube/config`(운영 클러스터를
 가리킴)는 어느 스크립트도 읽거나 쓰지 않는다. 두 스크립트를 몇 번 돌려도
 `kubectl config current-context` 는 그대로 `kubernetes-admin@cluster.local`
 로 남는다.
