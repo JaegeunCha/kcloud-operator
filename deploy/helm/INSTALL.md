@@ -29,14 +29,14 @@ serverVersion:
 
 | Service K8s | 차트 | 프리셋 | 설치용 values 주소 |
 |---|---|---|---|
-| 1.31+ | 0.8.4 | `values-k8s1.34.yaml` | `.../74982fdf67fd1fd22e06642756e5f7bf211da12a/deploy/helm/values-k8s1.34.yaml` |
+| 1.31+ | 0.8.4 | `values-k8s1.34.yaml` | `.../30b7b9af519e32f53fee48d6d8d6464b9fce08dd/deploy/helm/values-k8s1.34.yaml` |
 | 1.26~1.30 | 0.6.3 | `values-k8s1.28.yaml` | `.../5fe5394a11f5889b9fed0d53a4f8df3f261436f5/deploy/helm/values-k8s1.28.yaml` |
 
 브랜치 주소(`release.yaml` 의 `valuesBrowseURL`)는 최신 내용을 사람이 확인할 때만 씁니다. 브랜치는 새 커밋이 들어오면 같은 주소가 다른 내용을 돌려주므로 설치에는 쓰지 않습니다.
 
 ```bash
 export CHART_VERSION=0.8.4
-export VALUES_SHA=74982fdf67fd1fd22e06642756e5f7bf211da12a
+export VALUES_SHA=30b7b9af519e32f53fee48d6d8d6464b9fce08dd
 export VALUES_URL="https://raw.githubusercontent.com/openkcloud/kcloud-operator/$VALUES_SHA/deploy/helm/values-k8s1.34.yaml"
 ```
 
