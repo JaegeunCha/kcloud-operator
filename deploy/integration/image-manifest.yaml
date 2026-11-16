@@ -13,7 +13,7 @@ kcloud:  # global.registry 로 조립. 기본 ghcr.io/openkcloud
     condition: 항상. pre-delete hook Job 도 이 이미지. K8s 1.26~1.30 프로파일은 v0.6.3-k8s1.28 (digest 발행 뒤 갱신, 나머지 이미지는 동일)
   - image: kcloud-node-manager
     tag: "0.6.20"
-    digest: sha256:62e876120a3e39d05ba02573a52c0a5dbc56d2e45fd063047eb97dd607bbca8b  # 발행 뒤 갱신
+    digest: sha256:1dc6874f0f0e939854f1d0ac93ced56b59c2d16a248486710e4e5a565691c1cb
     condition: 항상(전 노드 DaemonSet)
   - image: kcloud-host-exec
     tag: v0.1.0
