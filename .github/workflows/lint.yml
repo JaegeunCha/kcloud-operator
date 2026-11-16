@@ -39,7 +39,7 @@ jobs:
       - name: Sibling docs path gate
         run: make docs-path-check
 
-      # 추적 파일에 사내 내부 주소·계정이 들어가면 공개 릴리스로 새어나간다.
+      # 추적 파일에 내부 주소·계정이 들어가면 공개 릴리스로 새어나간다.
       - name: Private address gate
         run: make private-ip-check
 

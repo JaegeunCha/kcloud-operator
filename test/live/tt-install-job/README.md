@@ -8,13 +8,13 @@
 이거나 **NDR 이 driverLoaded=false 를 보고하는 self-heal** 일 때만 install Job 을 렌더한다
 (`internal/upgrade/state_machine_job.go` `handleUpgradingJob`, `driverNotLoaded`). 이번 검증은 버전을
 2.8.0 에 고정하고 모듈을 언로드하지 않는 것이 안전 조건이라 둘 다 금지된다 — 상태기계를 통해서는
-트리거할 방법이 없다. 그래서 설치 Job 은 driverjob.RenderInstallJob(policy, k8s-worker3, 2.8.0-v1,
+트리거할 방법이 없다. 그래서 설치 Job 은 driverjob.RenderInstallJob(policy, <tenstorrent-node>, 2.8.0-v1,
 2.8.0) 로 렌더해 -manual 접미로 직접 적용한다(상태 기계는 정확한 이름으로만 Job 을 찾으므로 채택되지
 않는다); 버전이 같아 entrypoint 가 SKIP_INSTALL 로 멱등 종료한다.
 
 대신 `images/kcloud-operator-images/driver-installer/tenstorrent/entrypoint.sh:164-192` 를 보면,
 현재 DKMS 버전이 target(DIP 가 선언한 버전)과 같으면 설치 단계를 건너뛴다(`SKIP_INSTALL=1` →
-"설치 단계 건너뜀"). k8s-worker3 는 이미 2.8.0 이 로드돼 있고 DIP 도 2.8.0 을 선언하므로, 상태기계를
+"설치 단계 건너뜀"). <tenstorrent-node> 는 이미 2.8.0 이 로드돼 있고 DIP 도 2.8.0 을 선언하므로, 상태기계를
 거치지 않고 **정책이 이미 선언한 image/version 그대로** `internal/driverjob.RenderInstallJob` 을
 호출해 나온 Job 을 그대로 적용해도 entrypoint 는 스킵 분기만 탄다 — 멱등·비파괴. 이게 이 디렉터리가
 쓰는 라이브 검증 방법이다.
@@ -27,7 +27,7 @@
   않을 수 있으니 재실행 전 `kubectl get dip tenstorrent-blackhole-ds -o yaml` 로 대조할 것.
 - `render/main.go` — 라이브 DIP 를 읽어 `internal/driverjob.RenderInstallJob` 으로 Job YAML 을
   뽑아 stdout 에 낸다. 상태기계를 거치지 않는다. 플래그: `-dip`(기본 `tenstorrent-blackhole-ds`),
-  `-node`(기본 `k8s-worker3`), `-namespace`(기본 `kcloud`). `-namespace` 는 DIP 조회에는 쓰이지
+  `-node`(기본 `<tenstorrent-node>`), `-namespace`(기본 `kcloud`). `-namespace` 는 DIP 조회에는 쓰이지
   않는다(DIP 는 cluster-scoped 라 controller-runtime 이 조용히 무시한다) — 대신 렌더된 Job 의
   namespace 를 이 값으로 덮어쓴다. `internal/driverjob.Namespace` 는 `OPERATOR_NAMESPACE`
   Downward API env(클러스터 안에서만 채워짐)로 정해지는데, 이 프로그램은 로컬 `go run` 이라 그
@@ -45,13 +45,13 @@
 - **TT 워크로드 파드 없음** — `kubectl get pods -A -o json` 을 훑어 어떤 컨테이너의
   `resources.limits`/`requests` 에도 `tenstorrent` 문자열을 포함한 리소스 키가 없어야 한다(있으면
   적용 자체를 하지 않는다 — install Job 은 host-privileged 라 동시 워크로드가 있으면 안전하지 않다).
-- **노드 라벨** `kcloud.ai/driver-tenstorrent.version=2.8.0`(`kubectl get node k8s-worker3 -o json`).
+- **노드 라벨** `kcloud.ai/driver-tenstorrent.version=2.8.0`(`kubectl get node <tenstorrent-node> -o json`).
 
 ## 실행
 
 ```bash
 cd kcloud-operator
-DIP=tenstorrent-blackhole-ds NODE=k8s-worker3 NAMESPACE=kcloud DUS=k8s-worker3-tenstorrent \
+DIP=tenstorrent-blackhole-ds NODE=<tenstorrent-node> NAMESPACE=kcloud DUS=<tenstorrent-node> \
   bash test/live/tt-install-job/run.sh
 ```
 
@@ -64,7 +64,7 @@ DUS/노드 전후 스냅샷, 렌더된 Job YAML, `kubectl apply` 결과, Job 로
 마지막 줄에 JSON 요약 하나:
 
 ```json
-{"job":"kcloud-tenstorrent-blackhole-p150-install-<8hex>-manual","namespace":"kcloud","node":"k8s-worker3","phase":"Succeeded","skipBranch":"skip","stateUnchanged":true,"verdict":"PASS","date":"..."}
+{"job":"kcloud-tenstorrent-blackhole-p150-install-<8hex>-manual","namespace":"kcloud","node":"<tenstorrent-node>","phase":"Succeeded","skipBranch":"skip","stateUnchanged":true,"verdict":"PASS","date":"..."}
 ```
 
 - `phase`: `Succeeded`/`Failed`/`Timeout`/`Aborted`/`ApplyFailed`.

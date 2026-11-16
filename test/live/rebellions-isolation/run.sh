@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# run.sh: Rebellions ATOM 격리 네 항목(연산·용량·대역폭·장애) 라이브 실측 하네스(node5)
+# run.sh: Rebellions ATOM 격리 네 항목(연산·용량·대역폭·장애) 라이브 실측 하네스(<rebellions-node>)
 # 상세: preflight→measure(ssh 로 measure-node.sh 실행)→verdict→cleanup 순서로 돈다. PHASE=verdict
 #       RUN_DIR=<dir> 로 부르면 라이브 접근 없이 저장된 json 만 읽어 ISOLATION 줄만 낸다.
 # 생성일: 2026-09-28 | 수정일: 2026-10-11
@@ -217,7 +217,7 @@ preflight() {
   record "no_pod_claims_rebellions_atom" "$([ "$claimants" = "0" ] && echo true || echo false)" "요구 파드 수=$claimants"
   [ "$claimants" = "0" ] || { set_blocked "ENVIRONMENT" "$NODE 에서 rebellions/atom 을 요구하는 파드 ${claimants}개 존재"; return 1; }
 
-  # 디스크 여유 확인(§ 안전 조건) — node5 루트 가용량.
+  # 디스크 여유 확인(안전 조건) — <rebellions-node> 루트 가용량.
   local avail_line avail_h avail_num
   avail_line="$(node_ssh "df -h / 2>/dev/null | tail -1" 2>/dev/null || echo "")"
   log "  df -h /: $avail_line"

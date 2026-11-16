@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# run.sh: k8s-worker3 tt-kmd 사전 컴파일 이미지 왕복(2.11.0→2.8.0→2.11.0) 실행·관측
+# run.sh: <tenstorrent-node> tt-kmd 사전 컴파일 이미지 왕복(2.11.0→2.8.0→2.11.0) 실행·관측
 # 상세: values 오버레이로 kernelImages·allowDowngrade·autoUpgrade 를 줘 전이를 시작한다(phase 별
 #       기록 항목은 README 참고). DRY_RUN=1 은 명령만 출력한다(클러스터 무변경).
 # 생성일: 2026-09-22 | 수정일: 2026-10-11

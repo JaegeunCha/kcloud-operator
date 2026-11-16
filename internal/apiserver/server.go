@@ -140,7 +140,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/accelerators", s.authzAll(invGates, s.handleAccelerators))
 	mux.HandleFunc("GET /api/v1/accelerators/{uid...}", s.authzAll(invGates, s.handleAcceleratorByUID))
 	mux.HandleFunc("GET /api/v1/nodes/{node}/accelerators", s.authzAll(invGates, s.handleNodeAccelerators))
-	// capability 조회: memoryMiB/sharingReplicas 는 NDR 로 되짚은 값이라(§ intent.applyObservedSharing)
+	// capability 조회: memoryMiB/sharingReplicas 는 NDR 로 되짚은 값이라(intent.applyObservedSharing)
 	// accelerators 와 같은 이유로 nodedevicereports 인가도, node 파생 필드(schedulable/advertised) 때문에
 	// nodes 인가도 함께 요구한다.
 	mux.HandleFunc("GET /api/v1/capabilities", s.authzAll(capGates, s.handleCapabilities))

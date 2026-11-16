@@ -2,7 +2,7 @@
 
 # Rebellions 시분할 실 워크로드 동시 실행 하네스
 
-node5 의 Rebellions ATOM 한 장을 operator 의 descriptor 공유 경로로 SW 시분할(replicas 2)
+<rebellions-node> 의 Rebellions ATOM 한 장을 operator 의 descriptor 공유 경로로 SW 시분할(replicas 2)
 했을 때, 실제 워크로드 두 개가 같은 장치에서 동시에 도는지, 처리량이 어떻게 나뉘는지를
 라이브로 측정한다. 장치를 혼자 쓰는 solo 처리량과, 프로세스 두 개가 같은 장치(DEVICE_ID=0)를
 동시에 쓰는 co-run 처리량을 비교한다.
@@ -26,11 +26,11 @@ Rebellions 에도 적용하는 것이 이 하네스다.
 
 ## 같은 장치 고정
 
-node5 는 ATOM 이 두 장(`/dev/rbln0`, `/dev/rbln1`)이다. 두 프로세스를 같은 장치에 고정하지
+<rebellions-node> 는 ATOM 이 두 장(`/dev/rbln0`, `/dev/rbln1`)이다. 두 프로세스를 같은 장치에 고정하지
 않으면 서로 다른 장치를 잡고 통과해 시분할을 전혀 증명하지 못한다. 두 가지 방법으로 함께 고정한다.
 
 1. descriptor 의 `deviceNodes` 를 `/dev/rbln0`(물리 NPU)·`/dev/rsd0`(공유 제어 장치) 둘로
-   고정한다. 그러면 두 소비자가 같은 물리 장치를 받는다. 두 장치 노드는 node5 의
+   고정한다. 그러면 두 소비자가 같은 물리 장치를 받는다. 두 장치 노드는 <rebellions-node> 의
    `/etc/cdi/rbln.yaml` 이 정의하는 벤더 CDI 컨테이너 편집과 같은 목록이다. 이 고정은 `pods`
    모드에서만 의미가 있고, `host` 모드는 descriptor 가 주입하는 장치 노드를 쓰지 않는다.
 2. `workload.py` 가 `create_runtime(device=0)` 으로 0번을 명시적으로 연다.
@@ -42,13 +42,13 @@ NPU 0 만 사용률이 오르고 NPU 1 은 유휴인지 확인한다.
 
 `run.sh` 는 다음을 차례로 한다.
 
-1. preflight: node5 Ready, NodeDeviceReport 의 rebellions 장치, `/dev/rbln0`, 서비스 존재 확인.
+1. preflight: <rebellions-node> Ready, NodeDeviceReport 의 rebellions 장치, `/dev/rbln0`, 서비스 존재 확인.
 2. advertise: `rebellions.enabled=false` 로 벤더 device-plugin 을 잠시 회수하고, descriptor 를
    적용해 `rebellions/atom` 이 2개로 광고되는지 확인한 뒤, descriptor 를 거두고 벤더를 되살린다.
    광고가 켜진다는 것은 컨트롤러의 `sharingRefusal` 이 rebellions timeSlicing=Software 를
    받아들였다는 뜻이다. 실측의 전제는 아니므로 이 단계 실패는 측정을 막지 않는다.
 3. measure: `MEASURE_MODE` 에 따라 둘 중 하나로 실측한다(아래 "파드 경로" 참고).
-   - `host`(기본): node5 에서 `atomplus-vllm.service` 를 멈추고 장치가 free 인지 확인한 뒤,
+   - `host`(기본): <rebellions-node> 에서 `atomplus-vllm.service` 를 멈추고 장치가 free 인지 확인한 뒤,
      solo 1회 → co-run 2회(같은 DEVICE_ID, 같은 START_AT 배리어)로 `workload.py` 를 원격
      프로세스로 돌린다.
    - `pods`: 같은 절차를 descriptor 가 광고한 `rebellions/atom` 자원으로 스케줄한 파드
@@ -66,14 +66,14 @@ NPU 0 만 사용률이 오르고 NPU 1 은 유휴인지 확인한다.
 
 겹쳤으면 동시 실행 성립을 본다: 두 프로세스가 모두 완주하고 각각 solo 의 0.3배 이상 처리량을
 낸다(실질적 진행). 직렬화면 진 프로세스가 배리어를 놓쳐 `error` 로 죽거나 진행이 0 에
-수렴한다(Tenstorrent 선례). node5 실측값은 solo 394.73 it/s, co-run 각각 약 0.92배,
+수렴한다(Tenstorrent 선례). <rebellions-node> 실측값은 solo 394.73 it/s, co-run 각각 약 0.92배,
 합 약 1.83배(같은 장치인데 합이 solo 를 크게 넘음 = 진짜 동시 실행, 시분할 직렬화 아님)로
 `verdict=pass` 다.
 
 ## 실행
 
 ```bash
-# 라이브 실행, host 모드(기본값: node5, 30초, kubernetes-admin@cluster.local 컨텍스트)
+# 라이브 실행, host 모드(기본값: <rebellions-node>, 30초, kubernetes-admin@cluster.local 컨텍스트)
 bash test/live/rebellions-timeslice/run.sh
 
 # 라이브 실행, pods 모드(descriptor 가 광고한 rebellions/atom 으로 파드 3개 스케줄)
@@ -87,8 +87,8 @@ DRY_RUN=1 MEASURE_MODE=pods bash test/live/rebellions-timeslice/run.sh
 # SSH 접근 없음). OUT 은 그 세 json(과 mode 를 담은 verdict.json)이 있는 디렉터리.
 PHASE=verdict OUT=/tmp/rebellions-timeslice-evidence bash test/live/rebellions-timeslice/run.sh
 
-# §3.6 evidence 레코드 생성(라이브 실행 포함)
-bash test/collect/evidence.sh --node node5 --vendor rebellions \
+# evidence 레코드 생성(라이브 실행 포함)
+bash test/collect/evidence.sh --node <rebellions-node> --vendor rebellions \
   --command "bash test/live/rebellions-timeslice/run.sh" --expected "verdict=pass" \
   --mode sharing --backend devicePlugin --resource rebellions/atom \
   -o <결과 디렉터리>/<날짜>-rebellions-timeslice
@@ -106,7 +106,7 @@ bash test/collect/evidence.sh --node node5 --vendor rebellions \
 
 - `workload.py` 는 rebel 런타임으로 장치를 열고 반복 연산해 처리량·초기화 시간을 내는 워크로드다.
   `PHASE=compile-only` 로 호스트 사전 컴파일 진입점도 겸한다(아래 "파드 경로" 참조).
-- `measure-node.sh` 는 node5 에서 서비스를 멈추고 solo·co-run 을 돌리는 원격 실행부다(자체 trap
+- `measure-node.sh` 는 <rebellions-node> 에서 서비스를 멈추고 solo·co-run 을 돌리는 원격 실행부다(자체 trap
   복원, `host` 모드 전용).
 - `run.sh` 는 운영자 광고 확인, 실측(host 원격 프로세스 또는 pods) 오케스트레이션, 판정, 정리를
   수행한다.
@@ -119,10 +119,10 @@ bash test/collect/evidence.sh --node node5 --vendor rebellions \
 
 파드 경로는 이미지 저장소의 `rbln-workload:ubuntu22.04-v1`(호스트와 같은 Ubuntu 22.04 계열,
 glibc 2.35) 이미지로 열려 있다 — `pods` 모드가 이 이미지로 같은 측정을 파드 3개(solo, corun-a,
-corun-b)로 돌린다. 사내 python 이미지(Debian 13, glibc 2.41)는 네이티브 초기화 중 SIGSEGV 로
-죽는다. `host` 모드(node5 호스트 프로세스로 직접 실행)가 기본값인 이유다.
+corun-b)로 돌린다. 내부 python 이미지(Debian 13, glibc 2.41)는 네이티브 초기화 중 SIGSEGV 로
+죽는다. `host` 모드(<rebellions-node> 호스트 프로세스로 직접 실행)가 기본값인 이유다.
 
-파드는 node5 의 `/etc/cdi/rbln.yaml` 이 정의하는 벤더 CDI 컨테이너 편집을 범용 device-plugin
+파드는 <rebellions-node> 의 `/etc/cdi/rbln.yaml` 이 정의하는 벤더 CDI 컨테이너 편집을 범용 device-plugin
 으로 재현해 받는다(각 장치 노드는 호스트 경로==컨테이너 경로로 주입된다).
 
 | 종류 | 무엇 | 컨테이너 경로 | 근거 |
@@ -137,14 +137,14 @@ corun-b)로 돌린다. 사내 python 이미지(Debian 13, glibc 2.41)는 네이�
 | dist-packages | 호스트 site-packages 둘 | `/host-local`·`/host-lib`(읽기 전용) | `import rebel` 에 필요 |
 | 사전 컴파일 캐시 | `/home/kcloud/rbln-ts-cache` | `/models`(읽기 전용) | 아래 "컴파일은 어디서" 참조 |
 
-근거는 node5 라이브 실행이다 — 마운트 중 하나라도 빠지면 컨테이너 안 NPU 자동탐지·런타임
+근거는 <rebellions-node> 라이브 실행이다 — 마운트 중 하나라도 빠지면 컨테이너 안 NPU 자동탐지·런타임
 초기화가 실패한다.
 
 컴파일은 파드 안이 아니라 호스트에서 한다. 이 CDI 마운트를 전부 갖춰도 파드 안
 `compile_from_torch` 는 벤더가 실패 원인을 봉인해 둔 채(암호화된 진단 파일) 항상
 실패한다.
 그래서 기본 설계는 **호스트 사전 컴파일 + 파드 적재**다: `run.sh` 의 `precompile_host` 가
-측정 전에 ssh 로 node5 에서 `workload.py` 를 `PHASE=compile-only` 로 한 번 실행해
+측정 전에 ssh 로 <rebellions-node> 에서 `workload.py` 를 `PHASE=compile-only` 로 한 번 실행해
 `/home/kcloud/rbln-ts-cache/matmul-<MATMUL_DIM>-<RBLN_NPU_NAME>.rbln` 을 만들고(있으면
 재사용, 컴파일은 CPU 측 20~60초), 세 파드는 `RBLN_COMPILED_PATH` 로 그 파일을
 `rebel.RBLNCompiledModel` 로 적재만 한다(파드 안 컴파일 없음).
@@ -161,7 +161,7 @@ apply` 로 직접 쓸 때의 기본값이다. `MATMUL_DIM=1024 MEASURE_MODE=pods
 `RBLN_NPU_NAME` 은 `rebel.get_npu_name()` 자동탐지가 실패할 때만 쓰이는 폴백이며, 실제로는
 자동탐지가 성공한다.
 
-서비스 복원은 시작값 기준을 따른다. node5 의 `atomplus-vllm.service` 는 이 하네스가 아닌 다른
+서비스 복원은 시작값 기준을 따른다. <rebellions-node> 의 `atomplus-vllm.service` 는 이 하네스가 아닌 다른
 계정이 운영한다. `preflight` 가 기록한 시작값(`active`/`inactive`)이 복원 기준이고, 시작값이
 `inactive` 였으면 측정이 끝나도 켜지 않는다(이 하네스가 멈춘 것만 다시 켠다). `host`·`pods`
 두 모드 모두 이 규칙을 따른다. 측정 중 다른 계정이 이 서비스를 되살리면(예상과 다른 상태) 그
@@ -178,7 +178,7 @@ sum=<비> overlap=<초> smi_pids=<n>` 한 줄을 더 찍는다(`jq` 가 있으�
 판정한다(클러스터·SSH 접근 없음, `trap` 을 걸기 전에 끝낸다). `OUT` 의 `verdict.json` 에
 있던 `mode` 값을 그대로 이어받는다.
 
-이 경로가 변경하는 대상은 닫힌 목록이다: 자체 descriptor, node5 의 `atomplus-vllm.service`,
+이 경로가 변경하는 대상은 닫힌 목록이다: 자체 descriptor, <rebellions-node> 의 `atomplus-vllm.service`,
 `default` 네임스페이스의 `rbln-ts-solo`/`rbln-ts-corun-a`/`rbln-ts-corun-b` 파드와
 `rbln-ts-workload` ConfigMap, `/home/kcloud/rbln-ts-cache/` 아래 파일 생성이다. 그 밖의
 노드·드라이버·펌웨어·재부팅은 변경하지 않는다.
@@ -189,10 +189,10 @@ sum=<비> overlap=<초> smi_pids=<n>` 한 줄을 더 찍는다(`jq` 가 있으�
   진행은 장치가 여러 컨텍스트를 멀티플렉싱하기 때문이다(격리가 아니다).
 - 측정 1회다. 반복 표본이 아니며, `atomplus-vllm.service` 를 멈추고 측정하므로 유휴 노드 상태를
   가정한다.
-- 이 하네스는 자체 descriptor 와 NPUClusterPolicy 의 `rebellions.enabled` 필드, node5 의
+- 이 하네스는 자체 descriptor 와 NPUClusterPolicy 의 `rebellions.enabled` 필드, <rebellions-node> 의
   `atomplus-vllm.service` 를 변경한다(`pods` 모드는 여기에 더해 `rbln-ts-*` 파드 셋과
   `rbln-ts-workload` ConfigMap, `/home/kcloud/rbln-ts-cache/` 아래 파일 생성도 포함한다).
   다른 노드·드라이버·펌웨어·재부팅은 변경하지 않는다.
-- node5 는 rebellions 워크로드 검증 노드다. 이 서비스는 다른 계정이 운영하므로, 측정 동안
+- <rebellions-node> 는 rebellions 워크로드 검증 노드다. 이 서비스는 다른 계정이 운영하므로, 측정 동안
   잠시 내려가더라도 복원은 시작값(`active`/`inactive`) 기준이다. 시작값이 `inactive` 였으면
   측정 뒤에도 켜지 않는다.

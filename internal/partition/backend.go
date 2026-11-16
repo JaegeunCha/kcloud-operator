@@ -1,5 +1,5 @@
 // ============================================================
-// backend.go: 벤더 중립 파티션 backend 계약 (spec §8)
+// backend.go: 벤더 중립 파티션 backend 계약
 // 상세: Discover/Validate/Diff/Apply/Verify/Rollback. 미지원 op 는 ErrUnsupported 반환.
 // 생성일: 2026-07-23 | 수정일: 2026-10-11
 // ============================================================
@@ -62,7 +62,7 @@ type DiffResult struct {
 	ToPolicy   string
 }
 
-// RollbackState 는 apply 전 저장하는 복원 기준(spec §7.2).
+// RollbackState 는 apply 전 저장하는 복원 기준.
 type RollbackState struct {
 	DaemonSetUID    string
 	PrevPolicy      string
@@ -88,7 +88,7 @@ type Verifier interface {
 	VerifyAllocation(t Target, resourceName string) (*VerifyResult, error)
 }
 
-// Backend 는 벤더별 파티션 backend 계약이다(spec §8).
+// Backend 는 벤더별 파티션 backend 계약이다.
 type Backend interface {
 	Vendor() string
 	Discover(t Target) (*DiscoverResult, error)

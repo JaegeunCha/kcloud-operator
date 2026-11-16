@@ -206,7 +206,7 @@ func (r *AcceleratorPartitionPolicyReconciler) runSharing(
 	return sharingReady(ts, acpp, expected, layout.Mode, layout.Replicas, true), nil
 }
 
-// runSharingOnly 는 layout 없는(순수 공유) 정책의 전체 경로다(spec §5.1).
+// runSharingOnly 는 layout 없는(순수 공유) 정책의 전체 경로다.
 // 파티션 apply 경로(runNvidiaTarget: owner-lock·cordon·MIG mode enable·GI)는 타지 않는다 —
 // 공유는 device-plugin 설정만 바꾸므로 cordon 이 필요 없다(DP 재시작만 필요). backend Validate 도
 // 부르지 않는다: 검증할 파티션 레이아웃이 없고, NVIDIA Validate 는 빈 layout 을 fail-closed 로
@@ -383,7 +383,7 @@ func (r *AcceleratorPartitionPolicyReconciler) precheckSharing(ctx context.Conte
 	// "다른 정책이 소유하지 않은 장치" 만 봐야 한다. 장치 셀렉터가 CRD 에 없어 미소유 장치 중 일부만
 	// MPS 지원하면 지금은 fail-closed 거절하고, 셀렉터가 생기면 좁혀야 한다.
 	if layout.Mode == npuv1alpha1.SharingModeMPS {
-		// spec §6d.4 — 장치 단위보다 먼저 프로세스 단위 배타를 본다.
+		// 장치 단위보다 먼저 프로세스 단위 배타를 본다.
 		blocked, berr := r.mpsBlockedByMigStrategy(ctx, ts.NodeName)
 		if berr != nil {
 			return nil, ts, false, berr

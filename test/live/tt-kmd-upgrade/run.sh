@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# run.sh: k8s-worker3 tt-kmd 2.8.0 → 2.11.0 라이브 업그레이드(DriverInstallPolicy 경로) 실행·관측
+# run.sh: <tenstorrent-node> tt-kmd 2.8.0 → 2.11.0 라이브 업그레이드(DriverInstallPolicy 경로) 실행·관측
 # 상세: values 네 값(tag·version·verifiedVersions·autoUpgrade)을 바꿔 helm upgrade 로 전이를
 #       시작한다. 성공하면 autoUpgrade 만 되돌리고, 실패하면 README 의 복구 절차를 따른다.
 # 생성일: 2026-09-21 | 수정일: 2026-10-11

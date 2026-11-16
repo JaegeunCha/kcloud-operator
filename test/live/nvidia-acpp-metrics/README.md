@@ -1,26 +1,26 @@
 <!-- README.md: NVIDIA ACPP 시분할 적용·해제로 kcloud_acpp_apply_total 라이브 표본을 남기는
      하네스 사용법 | 생성일: 2026-09-23 | 수정일: 2026-10-11 -->
 
-# NVIDIA ACPP 지표 표본 하네스 (k8s-worker1)
+# NVIDIA ACPP 지표 표본 하네스 (<nvidia-node>)
 
 ## 왜
 
 `kcloud_acpp_apply_total{vendor,mode,result}` (`result` = ready|disabled|rejected|rollback)는
 `internal/metrics/operator.go` 에 정의돼 있고, 훅은 `internal/controller/acpp_sharing.go` 의
 `sharingReady`(→ready)와 `runSharingOnly`/`runSharing`의 exclusive 분기(→disabled)에 있다(단위
-테스트로는 확인됐으나 라이브 표본은 없다). 이 하네스는 NVIDIA A30 를 가진 k8s-worker1 에
+테스트로는 확인됐으나 라이브 표본은 없다). 이 하네스는 NVIDIA A30 를 가진 <nvidia-node> 에
 layout 없는 순수 공유(sharing-only) `AcceleratorPartitionPolicy` 를 적용·해제해 `ready`·`disabled`
 두 result 를 실제로 한 번씩 찍고, 스크레이프 방식(`kubectl port-forward` + `curl`)으로
 그 증가를 라이브 확인한다.
 
 ## 승인
 
-**k8s-worker1 라이브 실행은 승인 대기(AWAITING USER)다.** 적용·patch·삭제 세 시점 모두 k8s-worker1 의
+**<nvidia-node> 라이브 실행은 승인 대기(AWAITING USER)다.** 적용·patch·삭제 세 시점 모두 <nvidia-node> 의
 NVIDIA device-plugin(`kube-system/nvidia-device-plugin-flat`)이 재시작되고 `nvidia.com/gpu` 광고가
 바뀐다. 그 순간 그 노드의 GPU 를 요청하는 새 파드는 스케줄되지 못한다. 승인자는 다음을 확인하고
 허가한다:
 
-- k8s-worker1 에 지금 `nvidia.com/gpu` 를 요청 중인 파드가 없다(하네스 preflight 가 재확인하고,
+- <nvidia-node> 에 지금 `nvidia.com/gpu` 를 요청 중인 파드가 없다(하네스 preflight 가 재확인하고,
   있으면 BLOCKED 로 중단한다).
 - device-plugin 재시작 3회(적용 1·해제 1·삭제 후 원복 1) 동안 그 노드의 GPU 스케줄링이 일시
   불가한 것을 감수한다.
@@ -34,7 +34,7 @@ NVIDIA device-plugin(`kube-system/nvidia-device-plugin-flat`)이 재시작되고
 
 - kubectl context `kubernetes-admin@cluster.local`. 네임스페이스 `kcloud`, helm 릴리스
   `kcloud-operator`.
-- k8s-worker1 에 NVIDIA A30, device-plugin `kube-system/nvidia-device-plugin-flat`
+- <nvidia-node> 에 NVIDIA A30, device-plugin `kube-system/nvidia-device-plugin-flat`
   (label `kcloud.ai/dp-vendor=nvidia`)이 Running.
 - 실행 전 클러스터에 `AcceleratorPartitionPolicy`/`AcceleratorDescriptor` 가 없어야 한다(현재
   둘 다 0개 확인됨). preflight 가 동명 ACPP 잔존을 재확인하고, 있으면 BLOCKED 로 멈춘다.
@@ -56,7 +56,7 @@ DRY_RUN=1 bash test/live/nvidia-acpp-metrics/run.sh
 bash test/live/nvidia-acpp-metrics/run.sh
 ```
 
-절차: (1) preflight — context·노드·ACPP 잔존 0·k8s-worker1 의 GPU 요청 파드 0 확인, baseline
+절차: (1) preflight — context·노드·ACPP 잔존 0·<nvidia-node> 의 GPU 요청 파드 0 확인, baseline
 allocatable·`helm get values`·현재 `image.tag` 기록(빈 파일이면 BLOCKED) (2) `metrics.enabled=true,
 metrics.service.enabled=true` 로 helm upgrade(`--reset-then-reuse-values`) (3) operator pod 로 포트포워드
 (`18083:8080`) 열고 baseline 스크레이프 (4) `acpp-timesliced.yaml` 적용 → `status.phase=Ready`
@@ -102,7 +102,7 @@ DRY_RUN 에서는 빈 파일이라 두 핵심 증가 검사는 항상 FAIL 로 �
 ## 한계
 
 - 적용 범위는 device-plugin ConfigMap/DaemonSet 전체(클러스터 전역)이지만, 재시작·검증은
-  `nodeSelector` 가 가리키는 k8s-worker1 만 본다. 다른 nvidia 노드가 있다면 그 노드의
+  `nodeSelector` 가 가리키는 <nvidia-node> 만 본다. 다른 nvidia 노드가 있다면 그 노드의
   device-plugin 은 재시작되지 않아 새 ConfigMap 을 당장 반영하지 않는다.
   `acpp-timesliced.yaml` 의 `spec.nodeSelector`(`kubernetes.io/hostname`)가 가리키는
   `spec.nodeSelector` 를 바꾸면 대상 노드를 옮길 수 있다.

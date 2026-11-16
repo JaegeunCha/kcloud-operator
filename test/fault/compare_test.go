@@ -1,5 +1,5 @@
 // ============================================================
-// compare_test.go: 비교군 B0~B3 측정 (R&D base v0.1 §16.4)
+// compare_test.go: 비교군 B0~B3 측정
 // 상세: 같은 장애를 네 구성에 주입해 "조정자가 없었으면 어땠는가" 를 수치로 답한다. 옛 코드를
 // 되살리는 대신 축별 게이트(internal/operation/gates.go)를 끄는 방식이라, 되살린 코드가
 // 정말 B0 인지 증명하는 문제가 새로 생기지 않는다.
@@ -164,7 +164,7 @@ func phaseOf(name string) string {
 	return op.Status.Phase
 }
 
-var _ = Describe("비교군 B0~B3 (§16.4)", func() {
+var _ = Describe("비교군 B0~B3", func() {
 	It("measures the same faults under each configuration", func() {
 		for _, b := range operation.Baselines() {
 			for _, p := range compareProbes() {

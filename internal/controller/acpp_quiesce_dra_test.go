@@ -21,7 +21,7 @@ func cordonedNode(name string) *corev1.Node {
 	return &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name}, Spec: corev1.NodeSpec{Unschedulable: true}}
 }
 
-// nodeSelectorForHostname 은 DRA 드라이버가 노드-로컬 장치를 낼 때 쓰는 실제 관례(§resourceslice
+// nodeSelectorForHostname 은 DRA 드라이버가 노드-로컬 장치를 낼 때 쓰는 실제 관례(resourceslice
 // tracker)를 재현한다 — matchFields metadata.name 로 정확히 그 노드를 지정한다.
 func nodeSelectorForHostname(name string) *corev1.NodeSelector {
 	return &corev1.NodeSelector{NodeSelectorTerms: []corev1.NodeSelectorTerm{{

@@ -106,7 +106,7 @@ spec:
                 type: string
               fingerprint:
                 description: |-
-                  EnvironmentFingerprint 는 이 근거가 어느 환경에서 나왔는지다(R&D §8.6).
+                  EnvironmentFingerprint 는 이 근거가 어느 환경에서 나왔는지다.
                   하나라도 바뀌면 그 환경에서 얻은 근거는 더 이상 이 환경을 설명하지 못한다.
                 properties:
                   bootID:

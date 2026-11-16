@@ -695,7 +695,7 @@ func (r *NPUClusterPolicyReconciler) buildNvidiaDevicePluginDS(policy *npuv1alph
 	nvidiaRuntime := vendorNvidia
 	args := []string{}
 	if mixed {
-		// worker1 은 A30(MIG 가능)+A2(비 MIG) 혼재 노드라 single 전략은 무효.
+		// <nvidia-node> 은 A30(MIG 가능)+A2(비 MIG) 혼재 노드라 single 전략은 무효.
 		// mixed 는 A30 에 nvidia.com/mig-<profile> 을, A2 에는 기존 nvidia.com/gpu 를 광고한다.
 		args = []string{"--mig-strategy=mixed"}
 	}
@@ -915,7 +915,7 @@ interval: 10`,
 // rngdDevicePluginArgs returns the binary args for the Furiosa RNGD device plugin DaemonSet.
 // 빈 문자열 또는 "none" 이면 --policy flag 를 안 붙인다. 그 외(single-core/dual-core/quad-core)
 // 는 `--policy=<value>` 를 append 한다(libfuriosa-kubernetes PartitioningPolicy enum 과 1:1).
-// 벤더 이미지 세대마다 받는 flag 가 다르다 — 사내 파티션 지원 빌드는 --debugMode·--policy 를
+// 벤더 이미지 세대마다 받는 flag 가 다르다 — 내부 파티션 지원 빌드는 --debugMode·--policy 를
 // 모두 받지만 공개 ghcr.io/furiosa-ai/furiosa-device-plugin 은 둘 다 unknown flag 로 거부해
 // 죽는다. 그래서 둘 다 끄면 args 를 비운다 — 비-none 정책은 파티션 지원 이미지가 필요하다.
 func rngdDevicePluginArgs(partitionPolicy string, debugMode *bool) []string {

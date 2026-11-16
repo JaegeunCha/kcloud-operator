@@ -47,10 +47,10 @@ kubectl -n kcloud patch npuclusterpolicy npuclusterpolicy-sample \
 ## 실행
 
 ```bash
-# 기본 프로파일: tenstorrent (k8s-worker3)
+# 기본 프로파일: tenstorrent (<tenstorrent-node>)
 bash test/live/external-mode/run.sh
 
-# nvidia 프로파일 (k8s-worker1)
+# nvidia 프로파일 (<nvidia-node>)
 VENDOR=nvidia bash test/live/external-mode/run.sh
 ```
 
@@ -63,7 +63,7 @@ VENDOR=nvidia bash test/live/external-mode/run.sh
 | `NCP` | `npuclusterpolicy-sample` | `npuclusterpolicy-sample` | NPUClusterPolicy 이름 |
 | `DS_NS` | `kcloud` | `kube-system` | device-plugin DaemonSet 네임스페이스 |
 | `DS_NAME` | `kcloud-tt-device-plugin` | `nvidia-device-plugin-flat` | device-plugin DaemonSet 이름 |
-| `NODE` | `k8s-worker3` | `k8s-worker1` | 관측 노드 |
+| `NODE` | `<tenstorrent-node>` | `<nvidia-node>` | 관측 노드 |
 | `RESOURCE` | `tenstorrent.com/blackhole` | `nvidia.com/gpu` | allocatable 리소스 이름 |
 | `T_DELETE` `T_EXTERNAL` `T_DESC` `T_RESTORE` `IV` | 240 / 120 / 90 / 300 / 10 | 좌동 | 단계별 대기 상한·간격(초) |
 
@@ -85,7 +85,7 @@ VENDOR=nvidia bash test/live/external-mode/run.sh
 스크립트는 마지막에 JSON 요약 한 줄을 낸다.
 
 ```json
-{"test":"external-mode","vendor":"tenstorrent","node":"k8s-worker3","ns":"kcloud","ncp":"npuclusterpolicy-sample","phase":"cleanup","checks":{"ds_deleted_on_disable":true,"ds_absent_while_external":true,"present_label_kept":true,"ready_reason_externalmanaged":true,"descriptor_refused":true,"restored_ds_ready":true,"restored_allocatable":true},"fails":0,"verdict":"PASS","date":"..."}
+{"test":"external-mode","vendor":"tenstorrent","node":"<tenstorrent-node>","ns":"kcloud","ncp":"npuclusterpolicy-sample","phase":"cleanup","checks":{"ds_deleted_on_disable":true,"ds_absent_while_external":true,"present_label_kept":true,"ready_reason_externalmanaged":true,"descriptor_refused":true,"restored_ds_ready":true,"restored_allocatable":true},"fails":0,"verdict":"PASS","date":"..."}
 ```
 
 - `verdict=PASS` 는 demo 가 끝까지 실행됐고(`DEMO_DONE=true`) 모든 검사가 통과한 경우다. 이때만 종료코드 0.

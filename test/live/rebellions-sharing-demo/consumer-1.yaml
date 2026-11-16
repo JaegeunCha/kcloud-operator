@@ -1,6 +1,6 @@
 # ============================================================
 # consumer-1.yaml: descriptor 가 광고한 rebellions/atom 1개를 받아 /dev/rbln0 을 여는 소비자 1
-# 상세: node5 에 배치돼 rebellions/atom 1개를 요청하고, python3 로 /dev/rbln0 을 O_RDWR 로
+# 상세: <rebellions-node> 에 배치돼 rebellions/atom 1개를 요청하고, python3 로 /dev/rbln0 을 O_RDWR 로
 #       연 뒤 OPEN_OK 와 UTC 시각을 찍고 잠시 보유한다(consumer-2 와 시간상 겹치는지 확인용).
 # 생성일: 2026-09-22 | 수정일: 2026-10-11
 # ============================================================

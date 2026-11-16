@@ -9,15 +9,15 @@
 그대로 쓴다(회귀 0). 이 디렉터리는 그 표를 **라이브에서 켜는 절차**와 **적용 샘플**을
 함께 담는다.
 
-nvidia probe 는 k8s-worker1 A30 에 적용한다. 두 단계로 나뉜다 — 1단계는
+nvidia probe 는 <nvidia-node> A30 에 적용한다. 두 단계로 나뉜다 — 1단계는
 `deletionPolicy: Retain`(`acpp-a30-mig-retain.yaml`), 2단계는 baseline 복원용 `RestoreMode`
-(`acpp-a30-mig-restoremode.yaml`)이며, 둘 다 `avp-allocation-probe-worker1.yaml`(k8s-worker1 에만
+(`acpp-a30-mig-restoremode.yaml`)이며, 둘 다 `avp-allocation-probe-worker1.yaml`(<nvidia-node> 에만
 AllocationProbe 를 켠 검증 정책)과 함께 적용한다. 적용 뒤 NodeDeviceReport 관측 지연으로 약 4분간
 `Verified=False`/`EvidenceDisagreement`(report geometry 가 기대 지오메트리와 불일치)를 거치는데, 이
 구간에도 AllocationProbe 는 이미 `exit=0` 으로 통과한다. 수렴하면 `Verified=True`/
 `AllocatableConverged` → evidence Level `AllocationVerified` 로 올라간다. probe 파드는 매 검증
 pass 마다 다시 뜬다. `Retain` 은 MIG mode 를 `Enabled` 로 남겨 GPU 0 이 다시 광고되지 않으므로
-(gpu 1 유지), baseline(gpu 2)으로 되돌리려면 `RestoreMode` 로 재적용해야 한다(k8s-worker1 재부팅
+(gpu 1 유지), baseline(gpu 2)으로 되돌리려면 `RestoreMode` 로 재적용해야 한다(<nvidia-node> 재부팅
 동반).
 
 매 pass 마다 다시 뜨는 문제는 `internal/verification/verifier.go`(`reusableProbe`)가
@@ -51,7 +51,7 @@ probe 한다).
    `AllocationProbe` 체크는 기본 꺼져 있다(`internal/verification/policy.go` `DefaultPolicy()` —
    매 검증마다 테스트 Pod 를 띄우면 노드가 불안정해진다). 이 checks 를 정책으로 켜야 근거 재계산
    시에도 벤더 probe 가 돈다. `avp-allocation-probe.yaml`(전 노드)과
-   `avp-allocation-probe-worker1.yaml`(k8s-worker1 한정)이 그 정책 샘플이다.
+   `avp-allocation-probe-worker1.yaml`(<nvidia-node> 한정)이 그 정책 샘플이다.
 
 ## 켜는 절차
 
@@ -69,7 +69,7 @@ helm upgrade kcloud-operator deploy/helm -n kcloud --reset-then-reuse-values \
 kubectl -n kcloud rollout status deploy/kcloud-operator   # env 반영 재시작 확인
 
 # 2) (선택) capability status 재검증에도 같은 probe 를 쓰려면 정책을 적용한다. 노드 한정 정책
-#    avp-allocation-probe-worker1.yaml 을 k8s-worker1 에 적용한다(전 노드 샘플은
+#    avp-allocation-probe-worker1.yaml 을 <nvidia-node> 에 적용한다(전 노드 샘플은
 #    avp-allocation-probe.yaml).
 kubectl apply -f test/live/acpp-probe/avp-allocation-probe-worker1.yaml
 ```

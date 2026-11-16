@@ -1,9 +1,9 @@
 <!-- README.md: test/collect/ evidence 수집 스크립트 사용법 | 생성일: 2026-09-20 | 수정일: 2026-10-11 -->
 
-# test/collect — §3.6 evidence 레코드 수집
+# test/collect — evidence 레코드 수집
 
 `evidence.sh` 는 라이브 클러스터 메타데이터와 한 테스트 명령의 실행 결과를 모아
-증거 수집 설계 §3.6
+증거 수집 설계 문서
 의 최소 필드를 JSON·Markdown 짝으로 남긴다. 측정값을 지어내지 않는다 — NodeDeviceReport
 에 없는 필드는 `미수집` 으로 남긴다.
 
@@ -58,7 +58,7 @@ bash test/collect/read-commit-test.sh   # commit 폴백 순서 자체 점검(클
 
 ## 두 레코드 형식(이 스키마가 검증하지 않는 것)
 
-이 `schema.json` 은 **점검 단위(per-check) §3.6 레코드**를 고정한다 — (노드, 벤더, 명령)
+이 `schema.json` 은 **점검 단위(per-check) 레코드**를 고정한다 — (노드, 벤더, 명령)
 하나에 레코드 하나. **라운드 요약(round summary) 레코드**는 형식이 달라 이 스키마로
 검증되지 않는다(요약 파일의 `verdict` 는 `PASS` 대문자에 사유 산문이 붙고, `nodes[]`·
 `tests[]` 배열을 담는다). 두 형식의 필드 대응:
@@ -88,11 +88,11 @@ bash test/collect/read-commit-test.sh   # commit 폴백 순서 자체 점검(클
 
 ```bash
 cd kcloud-operator
-./test/collect/evidence.sh --node k8s-worker3 --vendor tenstorrent \
+./test/collect/evidence.sh --node <tenstorrent-node> --vendor tenstorrent \
   --command "bash test/live/tt-install-job/run.sh" \
   --expected '"verdict":"PASS"' --backend devicePlugin \
   -o <결과 디렉터리>/<날짜>-tt-install-job
 ```
 
 `test/live/tt-install-job/run.sh` 는 현재 로드된 드라이버 버전과 DIP 선언 버전이 같을 때
-설치를 건너뛰는 멱등 경로다(k8s-worker3 에 Job 하나를 만들고 지운다).
+설치를 건너뛰는 멱등 경로다(<tenstorrent-node> 에 Job 하나를 만들고 지운다).

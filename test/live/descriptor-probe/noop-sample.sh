@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # noop-sample.sh: AcceleratorEvidence no-op 쓰기 게이트 라이브 표본 스크립트
-# 상세: aev k8s-worker3 의 resourceVersion·observedAt 을 15초 간격 6회 표본 떠
+# 상세: aev <tenstorrent-node> 의 resourceVersion·observedAt 을 15초 간격 6회 표본 떠
 #       재조정에도 값이 그대로인지 본다(3번째 표본 뒤 descriptor annotate 로 재조정 1회 강제).
 # 생성일: 2026-09-21 | 수정일: 2026-10-11
 # ============================================================

@@ -10,9 +10,9 @@ Dockerfile 2개다. 아래 표는 파일별 요약이고, 실행·정리 명령�
 
 | 파일 | 대상 클러스터 | 장치 | 이미지 | 비고 |
 |------|---------------|------|--------|------|
-| `rngd-pod.yaml` | 사내 개발 클러스터 | `furiosa.ai/rngd` | `<레지스트리>:5100/kcloud/rngd-smi:2026.1.1` | `sleep infinity` 후 `exec` 로 확인 |
+| `rngd-pod.yaml` | 개발 클러스터 | `furiosa.ai/rngd` | `<레지스트리>:5100/kcloud/rngd-smi:2026.1.1` | `sleep infinity` 후 `exec` 로 확인 |
 | `rngd-smi.Dockerfile` | (이미지 빌드용) | — | `rngd-smi` 이미지 정의 | 벤더 apt 로 `furiosa-smi` 만 설치, 드라이버는 호스트 커널 모듈 사용 |
-| `tt-pod.yaml` | 사내 개발 클러스터 | `tenstorrent.com/blackhole` | `<레지스트리>:5100/kcloud/tt-smi:latest` | `sleep infinity` 후 `exec` 로 확인 |
+| `tt-pod.yaml` | 개발 클러스터 | `tenstorrent.com/blackhole` | `<레지스트리>:5100/kcloud/tt-smi:latest` | `sleep infinity` 후 `exec` 로 확인 |
 | `tt-smi.Dockerfile` | (이미지 빌드용) | — | `tt-smi` 이미지 정의 | PyPI `tt-smi` 만 설치, `/dev/tenstorrent/N` 은 device-plugin 이 주입 |
 | `under-gpu-pod.yaml` | under k8s | `nvidia.com/gpu` | `harbor.io:7443/library/cuda:12.9.1-base-ubuntu22.04` | `compute6` 에서 `NVIDIA L40S` 출력 확인 |
 | `under-rngd-pod.yaml` | under k8s | `furiosa.ai/rngd` | `harbor.io:7443/library/furiosa-smi-demo:jammy` | RNGD 광고 노드 없음, 이미지 받기만 확인 |

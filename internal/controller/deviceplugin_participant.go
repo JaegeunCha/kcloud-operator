@@ -1,5 +1,5 @@
 // ============================================================
-// deviceplugin_participant.go: DevicePluginRestart 작업 본체 (R&D base v0.1 §9.7)
+// deviceplugin_participant.go: DevicePluginRestart 작업 본체
 // 상세: 대상 노드의 device-plugin pod 을 지워 DaemonSet 이 새로 띄우게 한다. ConfigMap·DS 스펙은
 //
 //	건드리지 않는다 — 광고 설정을 바꾸는 것은 다른 작업 종류의 몫이다.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
-# measure-node.sh: node5 에서 vLLM 서비스를 멈추고 두 rebel 프로세스를 같은 장치(0)에 붙여
-#                  동시 실행 여부를 실측(run.sh 가 ssh 로 이 스크립트를 node5 에서 실행)
+# measure-node.sh: <rebellions-node> 에서 vLLM 서비스를 멈추고 두 rebel 프로세스를 같은 장치(0)에 붙여
+#                  동시 실행 여부를 실측(run.sh 가 ssh 로 이 스크립트를 <rebellions-node> 에서 실행)
 # 상세: workload.py 를 solo 1회→co-run 2회로 돌리고 SOLO_RESULT/CORUN_A_RESULT/... 접두 줄로
 #       낸다(run.sh 가 파싱). 트랩이 EXIT·시그널에서 SERVICE 를 복원해 ssh 세션이 끊겨도 되살아난다.
 # 생성일: 2026-09-25 | 수정일: 2026-10-11

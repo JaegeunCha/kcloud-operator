@@ -1,9 +1,9 @@
 <!-- README.md: Rebellions ATOM descriptor SW 시분할 라이브 데모 사용법 | 생성일: 2026-09-22 | 수정일: 2026-10-11 -->
-# Rebellions ATOM descriptor SW 시분할 데모 (node5)
+# Rebellions ATOM descriptor SW 시분할 데모 (<rebellions-node>)
 
 ## 왜
 
-node5 의 ATOM 카드가 유휴일 때(외부 holder `atomplus-vllm.service` 중지) 두 프로세스가 같은
+<rebellions-node> 의 ATOM 카드가 유휴일 때(외부 holder `atomplus-vllm.service` 중지) 두 프로세스가 같은
 `/dev/rbln0` 을 동시에 열 수 있음을 `test/live/concurrent-open/probe.sh` 가 hold 모드로
 확인한다(confound 없음). 이 데모는
 그 근거가 실제 광고로 이어지는지를 라이브로 보인다 — AcceleratorDescriptor `spec.sharing` 하나로
@@ -17,10 +17,10 @@ device-plugin 코드 없이 `rebellions/atom` 을 replicas 개로 광고하고, 
 
 ## 전제
 
-- kubectl context 가 node5 가 속한 클러스터(kubernetes-admin@cluster.local).
+- kubectl context 가 <rebellions-node> 가 속한 클러스터(kubernetes-admin@cluster.local).
 - NPUClusterPolicy `kcloud/npuclusterpolicy-sample` 의 `spec.rebellions.enabled=true`,
   `advertiseBy=devicePlugin`, namespace `kube-system`(관리 device-plugin `rbln-device-plugin`).
-- node5 의 `atomplus-vllm.service` 가 중지(inactive/disabled)돼 카드가 유휴.
+- <rebellions-node> 의 `atomplus-vllm.service` 가 중지(inactive/disabled)돼 카드가 유휴.
 - **레지스트리 `internal/vendorcap/registry.go` 의 rebellions `timeSlicing` 이 `Software`** 이고
   그 값을 담은 operator 가 배포돼 있어야 컨트롤러(`sharingRefusal`)가 sharing 광고를 켠다.
   `Unknown` 인 operator 가 돌면 `descriptor.status.refusals` 에 sharing 거절이 남고 광고가

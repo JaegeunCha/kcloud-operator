@@ -35,7 +35,7 @@ func TestHealthyWhenEverySignalHolds(t *testing.T) {
 }
 
 // TestStaleObservationIsUnknownNotUnhealthy 는 관측이 끊긴 것을 고장으로 부르지 않는지 본다.
-// 이 구분이 무너지면 detector 가 잠깐 죽은 클러스터에서 파괴적 복구가 쏟아진다(계약 §10.3).
+// 이 구분이 무너지면 detector 가 잠깐 죽은 클러스터에서 파괴적 복구가 쏟아진다.
 func TestStaleObservationIsUnknownNotUnhealthy(t *testing.T) {
 	now := time.Now()
 	in := baseInputs(now)

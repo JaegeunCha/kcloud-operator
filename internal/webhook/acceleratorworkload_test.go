@@ -123,7 +123,7 @@ func TestValidateAcceleratorWorkloadSharedWarns(t *testing.T) {
 }
 
 // 번역이 더는 성립하지 않아도 metadata 만 고치는 업데이트는 통과해야 한다 — 그렇지 않으면
-// 문서 §8 의 quiesce opt-in 라벨조차 붙일 수 없고, DELETE 는 검증하지 않으므로 복구책이
+// quiesce opt-in 라벨조차 붙일 수 없고, DELETE 는 검증하지 않으므로 복구책이
 // delete-and-recreate 밖에 없게 된다.
 func TestAWValidatorUpdateSkipsUnchangedSpec(t *testing.T) {
 	v := &AWValidator{Client: build(t)} // 클래스도 노드도 없다 — 지금 번역하면 반드시 실패한다.

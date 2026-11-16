@@ -11,7 +11,7 @@ libfuriosa-kubernetes 소스 확인), 공유를 제공하려면
 ## 방법(호스트 레벨)
 컨테이너 이미지(`furiosa-smi`)로 파드에서 관찰하는 방법은 Harbor 에 그 이미지가 없어(카탈로그
 확인, air-gap 이라 대체 불가) 쓸 수 없다.
-대신 **컨테이너 없이 rngd-1 을 SSH 로 직접 접속**해, PE 캐릭터 디바이스(`/dev/rngd/npu0peN`,
+대신 **컨테이너 없이 <rngd-node> 을 SSH 로 직접 접속**해, PE 캐릭터 디바이스(`/dev/rngd/npu0peN`,
 world-rw)를 두 프로세스가 동시에 `open()` 할 수 있는지로 판정한다(`probe.sh`):
 
 1. baseline 기록(`pe_occupancy`, `furiosa-smi ps`).
@@ -25,7 +25,7 @@ world-rw)를 두 프로세스가 동시에 `open()` 할 수 있는지로 판정�
 "2단계 측정" 절에 남겨둔다.
 
 ## 전제
-- 노드 `rngd-1`(<rngd-node>), SSH 접근(`NODE_HOST`, 기본 `<user>@<rngd-node>`)
+- 노드 `<rngd-node>`(<rngd-node>), SSH 접근(`NODE_HOST`, 기본 `<user>@<rngd-node>`)
 - PE 디바이스 노드가 world-rw 로 노출돼 있어야 함(실제 권한 `crw-rw-rw-`)
 - 다른 테넌트가 해당 PE 를 쓰고 있지 않아야 함(`pe_occupancy` 전부 0, idle 이면 충족)
 
@@ -53,4 +53,4 @@ NODE_HOST=<user>@<rngd-node> HOLD_SECONDS=20 bash test/live/rngd-multiprocess/pr
 ## 결과 기록 양식
 | 날짜 | 노드 | 방법 | B(동일 PE) | C(대조군) | 판정 |
 |---|---|---|---|---|---|
-| <날짜> | rngd-1 | host-level open() (`probe.sh`, `HOLD_SECONDS=15`) | `OPEN_FAIL errno=2` | `OPEN_FAIL errno=2` | **계측기 무효** — A 자신의(동시성 없는 단독) open 도 `A_OPEN_FAIL errno=2` 로 실패. `dmesg -T`: 오픈 시각과 정확히 일치하는 `furiosa_rngd 0000:27:00.0: admin cmd failed. FW returns err(-2)` / `NPU0 (E) [_npu_init:122] PEn. npu init command failed: -2` (PE0~7 전부). root 로도 동일 실패(권한 문제 아님). 동시성과 무관한 드라이버/FW 레벨 admin-cmd 실패로 판단 — `MultiProcess` capability 는 `VerificationRequired` 로 유지, env 미설정. |
+| <날짜> | <rngd-node> | host-level open() (`probe.sh`, `HOLD_SECONDS=15`) | `OPEN_FAIL errno=2` | `OPEN_FAIL errno=2` | **계측기 무효** — A 자신의(동시성 없는 단독) open 도 `A_OPEN_FAIL errno=2` 로 실패. `dmesg -T`: 오픈 시각과 정확히 일치하는 `furiosa_rngd 0000:27:00.0: admin cmd failed. FW returns err(-2)` / `NPU0 (E) [_npu_init:122] PEn. npu init command failed: -2` (PE0~7 전부). root 로도 동일 실패(권한 문제 아님). 동시성과 무관한 드라이버/FW 레벨 admin-cmd 실패로 판단 — `MultiProcess` capability 는 `VerificationRequired` 로 유지, env 미설정. |

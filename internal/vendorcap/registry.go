@@ -110,7 +110,7 @@ func withAssurance(level AssuranceLevel, s Support) Support {
 	return s
 }
 
-// registry 는 정본이다. 근거 없는 Native/Software 를 적지 않는다(spec §5.2, §6.1).
+// registry 는 정본이다. 근거 없는 Native/Software 를 적지 않는다.
 var registry = map[Key]map[Capability]Support{
 	{"nvidia", ""}: {
 		CapDiscovery:        native("NodeDeviceReport nvidia, kcloud-node-manager PCI 스캔"),

@@ -65,7 +65,7 @@ func TestRelateSortsOnlyLists(t *testing.T) {
 
 // rngdDevNodes 는 두 backend 가 똑같이 주입하는 36개다. rngd-1 에서 `ls -1 /dev/rngd` 로
 // 실측해 고정한 목록이며 손으로 지어낸 이름은 하나도 없다. 개수가 36 인 것과, 벤더가
-// 빼는 12개가 이 안에 전부 들어 있는 것이 손 대조표 §4·§5 와 맞물린다.
+// 빼는 12개가 이 안에 전부 들어 있는 것이 손 대조표 와 맞물린다.
 func rngdDevNodes() []string {
 	return []string{
 		"/dev/rngd/npu0bar0", "/dev/rngd/npu0bar2", "/dev/rngd/npu0bar4",
@@ -98,7 +98,7 @@ func TestRngdFixtureMatchesLiveCount(t *testing.T) {
 	}
 }
 
-// 손 대조표 §4 재현: 네 축 모두 일치.
+// 손 대조표 재현: 네 축 모두 일치.
 func TestCompareReproducesGeneratedPairTable(t *testing.T) {
 	c := Compare(generatedObservation("devicePlugin"), generatedObservation("dra"))
 	if !c.AllMatch {
@@ -114,7 +114,7 @@ func TestCompareReproducesGeneratedPairTable(t *testing.T) {
 	}
 }
 
-// 손 대조표 §5 재현: 벤더 집합이 생성 집합의 진부분집합.
+// 손 대조표 재현: 벤더 집합이 생성 집합의 진부분집합.
 func TestCompareReproducesVendorSubsetTable(t *testing.T) {
 	onlyGenerated := []string{
 		"/dev/rngd/npu0p2pmem", "/dev/rngd/npu0pe0-3", "/dev/rngd/npu0pe2",

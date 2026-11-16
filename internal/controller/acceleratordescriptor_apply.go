@@ -122,7 +122,7 @@ func autoApplyDiscoveryRefusal(
 // mixedModelRefusal 은 혼재 모델 노드 때문에 auto-apply 를 거절할 사유를 낸다(없으면 빈 문자열).
 // {{id}} 열거는 파일명 글롭뿐이라 제품을 가르지 못해, 한 노드에 같은 벤더의 다른 모델이 있으면
 // 그 노드의 광고에 다른 제품이 섞인다. PCI vendor:device 필터는 NVIDIA 가 char 장치를 커널
-// 장치 모델에 등록하지 않아(k8s-worker1 실측: /sys/dev/char 에 major 195 항목 없음) 벤더
+// 장치 모델에 등록하지 않아(<nvidia-node> 실측: /sys/dev/char 에 major 195 항목 없음) 벤더
 // 중립 기전이 없어 거절됐다 — 그래서 혼재 노드는 이 함수가 사유와 함께 거절한다. 판정 질문은
 // discoverableForAutoApply 와 같고, NodeDeviceReport 만 받아 클러스터 자체는 보지 않는다.
 func mixedModelRefusal(

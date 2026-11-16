@@ -120,7 +120,7 @@ func TestNvidiaValidate_Scope(t *testing.T) {
 			t.Errorf("malformed profile %q should be ErrUnsupported, got %v", bad, err)
 		}
 	}
-	// resolved=nil(!=1 항목) 은 mixed-placement 미지원으로 거부한다(§14).
+	// resolved=nil(!=1 항목) 은 mixed-placement 미지원으로 거부한다.
 	if _, err := b.Apply(partition.Target{}, nil); err != ErrMixedPlacementUnsupported {
 		t.Errorf("Apply with resolved!=1 must be ErrMixedPlacementUnsupported, got %v", err)
 	}
@@ -599,7 +599,7 @@ func TestRollback_DisablesViaPci(t *testing.T) {
 	if err := b.Rollback(target, partition.RollbackState{}); err != nil {
 		t.Fatal(err)
 	}
-	// 모델 B: rollback 은 GI 제거(-dgi)만, mode 는 끄지 않는다(-mig 0 금지).
+	// rollback 은 GI 제거(-dgi)만, mode 는 끄지 않는다(-mig 0 금지).
 	wantRemoveGI := []string{"nvidia-smi", "mig", "-i", "0000:41:00.0", "-dgi"}
 	foundGI := false
 	for _, s := range exec.gotSteps {

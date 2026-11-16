@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ============================================================
-# evidence.sh: §3.6 evidence 레코드 수집 (JSON+MD, 스키마 검증)
+# evidence.sh: evidence 레코드 수집 (JSON+MD, 스키마 검증)
 # 상세: 라이브 클러스터 메타데이터(kcloud 버전·커밋·K8s·노드·NodeDeviceReport)와
-#       한 테스트 명령의 실행 결과를 모아 §3.6 필드의 JSON/Markdown 짝을 만든다.
+#       한 테스트 명령의 실행 결과를 모아 evidence 레코드 필드의 JSON/Markdown 짝을 만든다.
 #       측정값을 지어내지 않는다 — NDR 에 없는 필드는 "미수집" 으로 남긴다.
 #       --validate 는 schema.json 의 필수 키·verdict enum 으로 레코드를 검사한다.
 # 생성일: 2026-09-20 | 수정일: 2026-10-11
@@ -326,7 +326,7 @@ fi
 {
   printf -- '---\n'
   printf -- 'title: "evidence: %s / %s — %s%s"\n' "$vendor" "$node" "$date_str" "$title_suffix"
-  printf -- 'description: "§3.6 evidence 레코드(JSON 짝: %s.json). test/collect/evidence.sh 자동 생성, 라이브 실행 UTC %s."\n' "$(basename "$out")" "$run_utc"
+  printf -- 'description: "evidence 레코드(JSON 짝: %s.json). test/collect/evidence.sh 자동 생성, 라이브 실행 UTC %s."\n' "$(basename "$out")" "$run_utc"
   printf -- 'created: %s\n' "$date_str"
   printf -- 'updated: %s\n' "$date_str"
   printf -- 'status: evidence\n'

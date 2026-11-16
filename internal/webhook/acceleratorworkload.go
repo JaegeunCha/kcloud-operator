@@ -33,7 +33,7 @@ func (v *AWValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (a
 
 // ValidateUpdate 는 spec 이 바뀐 업데이트만 검증한다. 매번 다시 번역하면, 클래스가 지워졌거나
 // 클러스터가 나빠져 번역이 더는 성립하지 않는 순간부터 라벨 하나 붙이는 것조차 거절된다
-// (예: 문서 §8 의 quiesce opt-in). DELETE 는 검증하지 않으므로 그때의 유일한 복구책이
+// (예: quiesce opt-in). DELETE 는 검증하지 않으므로 그때의 유일한 복구책이
 // delete-and-recreate 가 되어 버린다. 덤으로 metadata 만 바뀐 쓰기의 헛번역도 사라진다.
 func (v *AWValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	oldAW, okOld := oldObj.(*npuv1alpha1.AcceleratorWorkload)

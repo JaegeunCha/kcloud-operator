@@ -92,7 +92,7 @@ func validateACPP(ctx context.Context, c client.Client, obj runtime.Object) erro
 	}
 
 	// 명세서 층 검사: 레지스트리가 그 벤더의 파티션을 Native/Software 로 선언하지 않으면
-	// 형식 검사보다 먼저, 사유·근거와 함께 거절한다(spec §5.6). Unknown 도 거절한다. furiosa 는
+	// 형식 검사보다 먼저, 사유·근거와 함께 거절한다. Unknown 도 거절한다. furiosa 는
 	// 벤더 아래 제품이 둘(rngd/warboy)이라 파티션 능력이 갈리므로 nodeSelector 가 고르는
 	// 노드의 NDR 로 제품을 알아낼 수 있으면 product-aware 로 본다(vendorCapability).
 	if len(spec.Layout) > 0 {

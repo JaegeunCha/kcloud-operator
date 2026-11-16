@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# investigate-pcie.sh: tt-smi -r 급정지 원인 조사용 읽기 전용 수집기(k8s-worker3)
+# investigate-pcie.sh: tt-smi -r 급정지 원인 조사용 읽기 전용 수집기(<tenstorrent-node>)
 # 상세: SEL 상세·BMC/BIOS 버전·tenstorrent PCIe 장치와 루트 포트의 AER/DPC 설정·
 #       커널의 AER 소유(_OSC)·이전 부팅 마지막 커널 줄·tt 펌웨어/kmd 버전을 모아
 #       runs/<UTC>-investigate/ 에 남기고 ROOTCAUSE 판정 줄을 찍는다. 쓰기 명령 없음.

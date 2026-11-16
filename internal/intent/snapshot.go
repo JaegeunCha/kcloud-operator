@@ -162,7 +162,7 @@ func applyACPPStatus(nc *NodeCapability, acpps []v1alpha1.AcceleratorPartitionPo
 
 // applyObservedSharing 은 ACPP 저널이 아니라 실제 광고량으로 "광고 수 > 물리 장치 수" 를 검출한다 —
 // 저널만 읽으면 손으로 고친 sharing ConfigMap 이나 ACPP 가 소유하지 않는 기존 설정을 놓쳐 exclusive
-// 워크로드가 복제된 장치에 떨어질 수 있다(정직성 §19.3 위반). 이 관측은 광고가 물리 장치 수를 넘는다는
+// 워크로드가 복제된 장치에 떨어질 수 있다(정직성 원칙 위반). 이 관측은 광고가 물리 장치 수를 넘는다는
 // 것만 증명하고 원인(device-plugin 복제 vs 벤더 하드웨어 서브유닛, 예: RNGD 1대가 PE 4개로 광고)은
 // 증명하지 못하므로 SharingModeTimeSliced 로 단정하지 않고 Oversubscribed 로만 표시한다 — CheckMode 는
 // 그래도 fail-closed 로 exclusive 를 거절한다. 파티션 적용 노드는 대상이 아니다(조각 리소스라 비교 불가).

@@ -27,7 +27,7 @@ func TestDefaultPolicyIsUsableWithoutCRD(t *testing.T) {
 		t.Fatal("기본값에서 device-plugin 장애는 복구 작업을 만들어야 한다")
 	}
 	if p.RemediationFor(ReasonObservationStale).CreateOperation {
-		t.Fatal("관측 부재만으로 파괴적 복구를 만들면 안 된다(계약 §10.3)")
+		t.Fatal("관측 부재만으로 파괴적 복구를 만들면 안 된다")
 	}
 }
 

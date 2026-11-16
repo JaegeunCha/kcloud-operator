@@ -4,7 +4,7 @@
 
 ## 왜 kind 에서 재현하는가
 
-k8s-worker3-tenstorrent 노드는 tt-kmd 2.8.0 이 현재=목표 버전으로 고정돼 있어, 상태기계의
+<tenstorrent-node> 노드는 tt-kmd 2.8.0 이 현재=목표 버전으로 고정돼 있어, 상태기계의
 업그레이드 전이(`Upgrading→Validating→Uncordoning` 성공 경로, `Validating→Rollback→Failed`
 실패 경로)를 실제 하드웨어로 켤 방법이 없다. 이 제약은 새로 발견한 것이 아니라
 `test/live/tt-install-job/README.md` 가 이미 같은 결론을 남겼다 —
@@ -224,4 +224,4 @@ UpgradeRequired 진입(13:39:53)부터 Failed 도달(13:43:09)까지 3분 16초(
 - **`drainEnabled: false` 로 drain/evict 흐름은 범위 밖이다.** daemonset 경로와 공유하는
   기존 코드라 이 재현이 다시 확인할 필요가 적다고 판단했다.
 - **실제 하드웨어 업그레이드는 `AWAITING USER(재빌드 2.11.0 → verifiedVersions 추가 →
-  k8s-worker3 라이브)`.** 위 "이번 실행 시점 재확인" 참고.
+  <tenstorrent-node> 라이브)`.** 위 "이번 실행 시점 재확인" 참고.

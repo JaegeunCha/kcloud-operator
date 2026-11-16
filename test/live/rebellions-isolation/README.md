@@ -2,7 +2,7 @@
 
 # Rebellions ATOM 격리 4축 실측 하네스
 
-node5 의 Rebellions ATOM 두 장(장치 0=`0000:c3:00.0`, 장치 1=`0000:c4:00.0`)에 각각 프로세스
+<rebellions-node> 의 Rebellions ATOM 두 장(장치 0=`0000:c3:00.0`, 장치 1=`0000:c4:00.0`)에 각각 프로세스
 하나씩을 붙여 "장치 1 의 부하가 장치 0 으로 새는가"를 잰다. `rebellions-timeslice/`(같은 장치를
 두 프로세스가 시분할로 공유하는지)와는 다른 물음이다 — 여기서는 **서로 다른 물리 장치** 사이의
 간섭만 본다.
@@ -27,16 +27,16 @@ dim=2048 — 컴파일 소요가 3.73초로 확인된 크기) 한 점만 잰다.
 
 ## 실행 순서 (`run.sh`)
 
-1. **preflight**: node5 Ready, `NodeDeviceReport` 에 rebellions 장치 2개, `/dev/rbln0`·
+1. **preflight**: <rebellions-node> Ready, `NodeDeviceReport` 에 rebellions 장치 2개, `/dev/rbln0`·
    `/dev/rbln1` 존재, 안전 게이트(이 노드에서 `rebellions/atom` 을 요구하는 파드 0개),
    디스크 여유(`df -h /`, 기본 5GiB 이상) 확인.
-2. **measure**: `workload.py`·`measure-node.sh` 를 node5 에 `scp` 하고 `measure-node.sh` 를
+2. **measure**: `workload.py`·`measure-node.sh` 를 <rebellions-node> 에 `scp` 하고 `measure-node.sh` 를
    `ssh` 로 실행 — `atomplus-vllm.service` 를 멈추고 장치가 free 인지 확인한 뒤 네 축을
    순서대로 돈다(각 축 solo 1회·co-run 1회, 장애 축은 1회). 축별 결과를 `RUN_DIR`(로컬,
    기본 `./​.run/`)에 `<축>.json` 으로 저장한다.
 3. **verdict**: 저장된 축별 json 만 읽어 기계 줄 `ISOLATION: compute=<비율> capacity=<same|
    shrinks> bandwidth=<비율> fault=<contained|leaks>` 를 낸다(`verdict.json` 도 함께 남김).
-4. **cleanup**: `atomplus-vllm.service` 복원과 node5 산출물 디렉터리(`/home/kcloud/
+4. **cleanup**: `atomplus-vllm.service` 복원과 <rebellions-node> 산출물 디렉터리(`/home/kcloud/
    rebellions-isolation-<RUN_ID>/`) 삭제를 이중 확인한다 — `measure-node.sh` 자체 트랩이
    이미 하고, `run.sh` 가 한 번 더 본다.
 
@@ -44,7 +44,7 @@ dim=2048 — 컴파일 소요가 3.73초로 확인된 크기) 한 점만 잰다.
 
 `RUN_DIR` 에 이미 축별 결과가 있으면(이전 라이브 실행이 남긴 것) 장치·클러스터에 다시
 접근하지 않고 그 파일만 읽어 `ISOLATION:` 한 줄을 다시 낼 수 있다. `test/collect/evidence.sh`
-의 `--command` 로 이 모드를 쓴다 — evidence 레코드를 나중에 다시 검증할 때 node5 를 다시
+의 `--command` 로 이 모드를 쓴다 — evidence 레코드를 나중에 다시 검증할 때 <rebellions-node> 를 다시
 건드리지 않는다.
 
 ```bash
@@ -54,14 +54,14 @@ PHASE=verdict RUN_DIR=/absolute/path/to/.run bash test/live/rebellions-isolation
 ## 실행
 
 ```bash
-# 라이브 실행(기본값: node5, device0=0/device1=1, kubernetes-admin@cluster.local 컨텍스트)
+# 라이브 실행(기본값: <rebellions-node>, device0=0/device1=1, kubernetes-admin@cluster.local 컨텍스트)
 bash test/live/rebellions-isolation/run.sh
 
 # 명령만 확인(클러스터·노드 미접근)
 DRY_RUN=1 bash test/live/rebellions-isolation/run.sh
 
 # evidence 레코드 생성(라이브 재접근 없이 RUN_DIR 재판정)
-bash test/collect/evidence.sh --node node5 --vendor rebellions \
+bash test/collect/evidence.sh --node <rebellions-node> --vendor rebellions \
   --command "RUN_DIR=$(pwd)/test/live/rebellions-isolation/.run PHASE=verdict bash test/live/rebellions-isolation/run.sh" \
   --expected "ISOLATION: compute=<실측값> capacity=<실측값> bandwidth=<실측값> fault=<실측값>" \
   --id-suffix isolation \
@@ -81,7 +81,7 @@ bash test/collect/evidence.sh --node node5 --vendor rebellions \
 - `workload.py` — `rebel` 런타임으로 장치를 열고 반복 실행해 처리량·초기화 시간을 내는
   워크로드. `OP=matmul`(연산·장애 축)·`OP=chain`(용량 축, `CHAIN_K` 겹 Linear+ReLU)·
   `OP=scale`(대역폭 축, 원소별 곱)와 `BAD_SHAPE=1`(장애 축의 잘못된 입력 단계)을 지원한다.
-- `measure-node.sh` — node5 에서 서비스를 멈추고 네 축 solo·co-run 을 순서대로 돌리는
+- `measure-node.sh` — <rebellions-node> 에서 서비스를 멈추고 네 축 solo·co-run 을 순서대로 돌리는
   원격 실행부. 컴파일 소요가 불확실한 용량 축은 고정 `sleep` 대신 워크로드가 찍는
   `PHASE_READY` 줄을 기다렸다가 `rbln-smi` 를 찍는다(`wait_ready`). 장애 축은 `kill -9`
   대상을 래퍼 서브셸이 아니라 실제 `python3` 워커 PID(pidfile 로 전달)로 정확히 지정한다.
@@ -90,9 +90,9 @@ bash test/collect/evidence.sh --node node5 --vendor rebellions \
 
 ## 이미지 요건 (파드 경로의 한계)
 
-`rebellions-timeslice/README.md` 와 같다 — 벤더 런타임 `rebel` 은 node5 호스트에만 설치돼
+`rebellions-timeslice/README.md` 와 같다 — 벤더 런타임 `rebel` 은 <rebellions-node> 호스트에만 설치돼
 있고, 든 컨테이너 이미지가 없다(있는 Debian 기반 이미지는 `create_runtime` 에서 glibc ABI
-불일치로 SIGSEGV). 그래서 이 하네스도 node5 호스트 프로세스로 측정한다 — 장치 경합은 파드든
+불일치로 SIGSEGV). 그래서 이 하네스도 <rebellions-node> 호스트 프로세스로 측정한다 — 장치 경합은 파드든
 호스트 프로세스든 `/dev/rbln*` + KMD 수준에서 같다.
 
 ## 한계와 안전
@@ -103,6 +103,6 @@ bash test/collect/evidence.sh --node node5 --vendor rebellions \
   큰 할당에서도 같은 결론인지는 확인하지 않는다.
 - 연산·대역폭이 격리 기준(≥0.95)에 못 미쳐도 그 원인(PCIe 대역폭 공유 대 전력·발열 예산
   공유 대 호스트 CPU 디스패치 경합)은 이 하네스가 특정하지 않는다 — 새는지 여부만 잰다.
-- 이 하네스는 자체가 띄운 `workload.py` 프로세스와 node5 의 `atomplus-vllm.service` 만
+- 이 하네스는 자체가 띄운 `workload.py` 프로세스와 <rebellions-node> 의 `atomplus-vllm.service` 만
   변경한다. 다른 노드·드라이버·펌웨어·재부팅은 변경하지 않는다.
-- node5 는 rebellions 워크로드 검증 노드다. 측정 동안 서비스가 잠시 내려갔다 복원된다.
+- <rebellions-node> 는 rebellions 워크로드 검증 노드다. 측정 동안 서비스가 잠시 내려갔다 복원된다.

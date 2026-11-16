@@ -44,7 +44,7 @@ func dsWithPolicy(policy string) *appsv1.DaemonSet {
 }
 
 // TestMultiProcessSupportFromEnv 는 실측 주입 env(KCLOUD_RNGD_MULTIPROCESS)가 3가지 상태를
-// 정직하게(임의 추정 없이) SharingModeSupport 로 옮기는지 검증한다(정직성 §19.3).
+// 정직하게(임의 추정 없이) SharingModeSupport 로 옮기는지 검증한다(정직성 원칙).
 func TestMultiProcessSupportFromEnv(t *testing.T) {
 	t.Setenv(MultiProcessEnv, "")
 	if got := MultiProcessSupportFromEnv(); got.Supported || got.Verification != v1alpha1.VerificationRequired {
@@ -168,7 +168,7 @@ func TestRngdApply(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
-	// rollback state = apply 전 값 (전 5필드 검증 — TemplateHash 는 rollback 기준, spec §7.2)
+	// rollback state = apply 전 값 (전 5필드 검증 — TemplateHash 는 rollback 기준, )
 	if rb.DaemonSetUID != "ds-uid-1" || rb.PrevPolicy != testDualCorePolicy || rb.Generation != 7 {
 		t.Errorf("rollback state: %+v", rb)
 	}

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# run.sh: 라이브 재확인 — 사전 컴파일 이미지로 k8s-worker1 빈 노드 전이
+# run.sh: 라이브 재확인 — 사전 컴파일 이미지로 <nvidia-node> 빈 노드 전이
 # 상세: 새 이미지(-v3)를 DIP kernelImages 에 등록하고 패키지 제거+재부팅으로 노드를 비운
 #       뒤 operator 자기복구 설치 Job 을 관찰해 madison 미조회·dpkg 설치·모듈 복귀를
 #       확인한다(PHASE 목록은 case 문 참고, rollback-dip 은 실패 판단 시에만 따로 부른다).

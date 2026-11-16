@@ -1,5 +1,5 @@
 // ============================================================
-// migjob.go: NVIDIA MIG apply 용 JobExecutor — command-hash 기반 1회성 Job (spec §14.4/§15.4/§13.9)
+// migjob.go: NVIDIA MIG apply 용 JobExecutor — command-hash 기반 1회성 Job
 // 상세: CommandStep 시퀀스를 nsenter 스크립트로 렌더해 privileged/hostPID 1회성 Job 으로
 // 실행한다. Job 이름은 (uid,generation,node,action,cmdHash) 로 결정론적이라 동일 의도는 재사용된다.
 // 생성일: 2026-07-24 | 수정일: 2026-10-11
@@ -44,7 +44,7 @@ const (
 var Namespace = naming.OperatorNamespace()
 
 const (
-	migJobTTLSeconds    int32         = 600 // 완료 후 로그 보존 window(spec §14.4)
+	migJobTTLSeconds    int32         = 600 // 완료 후 로그 보존 window
 	migJobBackoffLimit  int32         = 0   // 재시도는 상태기계 재조정(requeue) 몫 — Job 자체 재시도 없음
 	defaultPollInterval time.Duration = 2 * time.Second
 	defaultWaitTimeout  time.Duration = 10 * time.Minute
@@ -321,7 +321,7 @@ func renderMigJob(name, cmdHash, nodeName string, steps []CommandStep, image str
 	}
 }
 
-// scriptFor 는 steps 를 순서대로 nsenter 실행 + 기대값 assert 로 렌더한다(spec §14.4).
+// scriptFor 는 steps 를 순서대로 nsenter 실행 + 기대값 assert 로 렌더한다.
 // ExpectEmpty → 출력이 비어야 함(있으면 exit 1). ExpectOneOf → 공백 제거 후 후보값 중 하나와 일치해야 함.
 func scriptFor(steps []CommandStep) string {
 	var b strings.Builder
@@ -330,7 +330,7 @@ func scriptFor(steps []CommandStep) string {
 		ns := "nsenter --target 1 --mount --pid -- " + strings.Join(s.Argv, " ")
 		switch {
 		case s.Optional:
-			// best-effort: 대상 없음 등 non-zero 종료를 관용(모델 B 의 -dci/-dgi).
+			// best-effort: 대상 없음 등 non-zero 종료를 관용(-dci/-dgi).
 			b.WriteString(ns + " || true\n")
 		case s.ExpectEmpty:
 			b.WriteString("if " + ns + " | grep -q .; then echo 'expected empty output' >&2; exit 1; fi\n")

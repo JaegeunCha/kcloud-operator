@@ -1,6 +1,6 @@
-<!-- README.md: rngd-1 Furiosa RNGD 사전 컴파일 이미지 같은 버전 왕복 실행·복구 절차 | 생성일: 2026-09-24 | 수정일: 2026-11-04 -->
+<!-- README.md: <rngd-node> Furiosa RNGD 사전 컴파일 이미지 같은 버전 왕복 실행·복구 절차 | 생성일: 2026-09-24 | 수정일: 2026-11-04 -->
 
-# Furiosa RNGD 사전 컴파일 이미지 라이브 왕복 (rngd-1)
+# Furiosa RNGD 사전 컴파일 이미지 라이브 왕복 (<rngd-node>)
 
 ## 왜
 
@@ -12,7 +12,7 @@
 `.ko` 를 그대로 적재하며, 로그에 `prebuilt module found for <kernel>` 와
 `prebuilt module for <kernel> installed (dkms skipped)` 줄을 남긴다.
 
-`run.sh` 는 rngd-1 에서 같은 버전(2026.3.1)의 이미지 왕복을 실행한다. 사전 컴파일 이미지로
+`run.sh` 는 <rngd-node> 에서 같은 버전(2026.3.1)의 이미지 왕복을 실행한다. 사전 컴파일 이미지로
 설치되는지(resolvedImage·Job 이미지·prebuilt 로그), 드라이버가 실제로 다시 적재되는지(NDR
 driverLoaded·driverVersion·`furiosa-smi info`)를 확인한 뒤, DIP 를 기준선으로 되돌린다. 왕복은
 승인된 작업이다.
@@ -40,7 +40,7 @@ driverLoaded·driverVersion·`furiosa-smi info`)를 확인한 뒤, DIP 를 기�
    kernelImages·drainEnabled 값이 사라진다. 시험 중 helm 업그레이드가 없으면 문제없으나,
    뒤에 읽는 사람이 영구 설정으로 오해하지 않도록 restore 단계에서 명시적으로 원복한다.
 
-3. **`drainEnabled=false` 로 낮춰 cordon 만 한다.** rngd-1 은 taint 가 없어 argocd·kubeflow·
+3. **`drainEnabled=false` 로 낮춰 cordon 만 한다.** <rngd-node> 은 taint 가 없어 argocd·kubeflow·
    istio-ingressgateway 등 무관한 워크로드가 함께 실행된다. DIP 기본값 `drainEnabled=true` 로
    전이하면 이들이 전부 evict 된다. `handleDraining` 은 `drainEnabled=false` 면 evict 없이 바로
    Upgrading 으로 넘어간다. 오버레이가 이 값을 false 로 주고, 원복 때 true 로 되돌린다.
@@ -48,12 +48,12 @@ driverLoaded·driverVersion·`furiosa-smi info`)를 확인한 뒤, DIP 를 기�
 ## 전제
 
 - 오퍼레이터 v0.7.53 이상이 라이브(helm 릴리스 `kcloud-operator`, 네임스페이스 `kcloud`).
-  kernelImages → resolvedImage 코드가 이 이미지에 있어야 한다. rngd-1 실측은 v0.7.54.
-- rngd-1: 커널 `6.8.0-138-generic`(kernelAllowlist `6.8.*` 안), furiosa-driver-rngd 2026.3.1
-  로드, DUS `rngd-1.cluster.local-furiosa` Idle/2026.3.1, Secure Boot 비활성.
+  kernelImages → resolvedImage 코드가 이 이미지에 있어야 한다. <rngd-node> 실측은 v0.7.54.
+- <rngd-node>: 커널 `6.8.0-138-generic`(kernelAllowlist `6.8.*` 안), furiosa-driver-rngd 2026.3.1
+  로드, DUS `<rngd-node>.cluster.local-furiosa` Idle/2026.3.1, Secure Boot 비활성.
 - 레지스트리에 사전 컴파일 이미지 존재:
   `<레지스트리>:5100/kcloud/furiosa-driver-ds:2026.3.1-rngd-k6.8.0-138-generic-v1`.
-- **모듈 보유자가 삭제 가능한 테스트 파드 하나뿐이어야 한다.** rngd-1 에서 `/dev/rngd/*` 를
+- **모듈 보유자가 삭제 가능한 테스트 파드 하나뿐이어야 한다.** <rngd-node> 에서 `/dev/rngd/*` 를
   여는 프로세스가 `default/rngd-pod`(소유자 없는 `sleep infinity` 테스트 파드) 하나뿐이라,
   이를 지우면 참조 카운트가 0 으로 떨어져 모듈을 깨끗이 내릴 수 있다. 호스트 데몬이나 다른
   파드가 모듈을 잡고 있으면 preflight 가 그 사실을 기록하고 transition 이 참조 카운트 0
@@ -63,7 +63,7 @@ driverLoaded·driverVersion·`furiosa-smi info`)를 확인한 뒤, DIP 를 기�
   컴파일의 빌드 절약은 헤더 없는 호스트에서만 나타난다. 또한 같은 버전 재설치라 설치기가 APT
   설치를 skip 하므로 APT-postinst 의 dkms 정직 로그 줄은 찍히지 않는다. 사전 컴파일 경로의
   dkms 판정 증거는 `... installed (dkms skipped)` 한 줄이다. 이 한계는 아래 한계 절 참고.
-- 실행 호스트에 `helm` v4, `kubectl`, `python3`(PyYAML), rngd-1 로의 SSH(`ssh
+- 실행 호스트에 `helm` v4, `kubectl`, `python3`(PyYAML), <rngd-node> 로의 SSH(`ssh
   <노드 IP>`, 무암호 sudo), 레지스트리 조회 수단(`sudo -n docker manifest inspect
   --insecure` 또는 `skopeo`).
 
@@ -88,9 +88,9 @@ DRY_RUN=1 bash "$S" restore
 bash "$S" preflight
 bash "$S" transition
 # 전이 성공 후, 되돌리기 전에 증거를 수집한다:
-bash test/collect/evidence.sh --node rngd-1.cluster.local --vendor furiosa \
+bash test/collect/evidence.sh --node <rngd-node>.cluster.local --vendor furiosa \
   --command "kubectl --context kubernetes-admin@cluster.local -n kcloud get jobs \
-    -l npu.ai/vendor=furiosa,npu.ai/node=rngd-1.cluster.local \
+    -l npu.ai/vendor=furiosa,npu.ai/node=<rngd-node>.cluster.local \
     -o jsonpath={.items[0].spec.template.spec.containers[0].image}" \
   --expected "2026.3.1-rngd-k6.8.0-138-generic-v1" \
   -o <docs 절대경로>/development/evidence/<날짜>-furiosa-prebuilt-roundtrip
@@ -132,14 +132,14 @@ EXIT 트랩이 1·4·5·6 을 best-effort 로 자동 수행하지만, 실행자�
 지켜본다.
 
 1. **DUS 상태를 읽는다.** `bash test/live/furiosa-prebuilt/run.sh status` 또는
-   `kubectl --context kubernetes-admin@cluster.local get dus rngd-1.cluster.local-furiosa -o
+   `kubectl --context kubernetes-admin@cluster.local get dus <rngd-node>.cluster.local-furiosa -o
    yaml`. Idle/2026.3.1 이면 전이는 끝난 것이다.
 2. **자동 롤백 관측.** 검증 실패 시 상태기계가 롤백 Job 을 돌린다. Idle 로 돌아오면 이번
    실행은 FAIL 로 남기되 노드는 복구된 것이다.
 3. **모듈이 안 올라온다.** 수동 재적재: `ssh <노드 IP> sudo modprobe furiosa_rngd` 후
    `/sys/module/furiosa_rngd` 확인. furiosa-rngd device-plugin 파드를 삭제해 재적재를 유도한다.
    **재부팅하지 않는다.**
-4. **노드가 cordon 채로 남았다.** `kubectl uncordon rngd-1.cluster.local`.
+4. **노드가 cordon 채로 남았다.** `kubectl uncordon <rngd-node>.cluster.local`.
 5. **DIP 잔재.** `kubectl patch dip furiosa-rngd-ds --type=json -p '[{"op":"remove","path":
    "/spec/driver/kernelImages"}]'` + `--type=merge -p
    '{"spec":{"upgradePolicy":{"drainEnabled":true}}}'`. `dip-before.yaml` 과 대조.
@@ -147,7 +147,7 @@ EXIT 트랩이 1·4·5·6 을 best-effort 로 자동 수행하지만, 실행자�
 
 ## 한계
 
-- 노드 하나(rngd-1), 커널 하나(`6.8.0-138-generic`)의 같은 버전 왕복이다. 다른 커널의
+- 노드 하나(<rngd-node>), 커널 하나(`6.8.0-138-generic`)의 같은 버전 왕복이다. 다른 커널의
   kernelImages 매칭, 다른 버전으로의 전이는 이 실행에서 검증되지 않는다.
 - 같은 버전 재설치라 설치기가 APT 설치를 skip 한다. 따라서 APT-postinst 의 dkms 정직 로그
   (`DKMS 가 … 빌드함` / `DKMS 빌드 없음`)는 나타나지 않는다. 사전 컴파일 경로의 dkms 판정은

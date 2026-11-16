@@ -274,7 +274,7 @@ func (r *DriverUpgradeReconciler) ensureUpgradeStates(ctx context.Context) error
 const modelUnknown = v1alpha1.DriverModelUnknown
 
 // vendorRepresentativeModels 는 벤더별 대표 model 이다. DriverUpgradeState 는 (노드, 벤더) 당 하나인데
-// 장치는 벤더당 여럿일 수 있어(라이브 worker1 = nvidia a30 + a2) 장치마다 spec.model 을 쓰면 두 장치가
+// 장치는 벤더당 여럿일 수 있어(라이브 <nvidia-node> = nvidia a30 + a2) 장치마다 spec.model 을 쓰면 두 장치가
 // 같은 DUS 를 겨눠 매 reconcile 마다 서로 덮어쓰는 영구 쓰기 루프가 된다. 벤더 안에서 model 이 갈리면
 // "generic" 이다. generic 은 이름이 아니라 "모른다" 는 표시이고, 혼재 노드는 벤더 단위로 정말 단일
 // 제품명이 없다(detector 도 같은 이유로 벤더 단위 라벨을 generic 으로 둔다). upgrade.DeviceModelMatches

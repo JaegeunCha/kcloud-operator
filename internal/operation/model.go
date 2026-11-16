@@ -1,5 +1,5 @@
 // ============================================================
-// model.go: operation type · resource key · 충돌 판정 (R&D base v0.1 §7.2/§7.7)
+// model.go: operation type · resource key · 충돌 판정
 // 상세: Coordinator 가 따르는 충돌 판정 계약의 코드 정본이다. 이 패키지는 controller/partition 을
 // import 하지 않는다(최하위, 순환 금지).
 // 생성일: 2026-07-31 | 수정일: 2026-10-11
@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// Type 은 Coordinator 가 관리하는 작업 종류다(문서 §7.2).
+// Type 은 Coordinator 가 관리하는 작업 종류다.
 type Type string
 
 const (
@@ -46,7 +46,7 @@ var destructive = map[Type]bool{
 	Revalidate: false, Quarantine: false, // Quarantine 은 스케줄 차단(라벨/taint)이라 장치를 안 바꾼다.
 }
 
-// ResourceKey 는 작업이 읽고 쓰는 자원의 이름이다(문서 §7.7).
+// ResourceKey 는 작업이 읽고 쓰는 자원의 이름이다.
 type ResourceKey string
 
 func NodeCordonKey(node string) ResourceKey { return ResourceKey(fmt.Sprintf("node/%s/cordon", node)) }
@@ -101,7 +101,7 @@ func Conflicts(a, b Type, keysA, keysB []ResourceKey) Verdict {
 	return VerdictParallel
 }
 
-// isDependentPair 는 "충돌이 아니라 순서"인 쌍이다(문서 §7.7 종속 행).
+// isDependentPair 는 "충돌이 아니라 순서"인 쌍이다(종속 행).
 func isDependentPair(a, b Type) bool {
 	return (a == DevicePluginRestart && b == PartitionReconfigure) ||
 		(b == DevicePluginRestart && a == PartitionReconfigure)

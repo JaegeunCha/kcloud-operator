@@ -41,12 +41,12 @@ func TestPodHoldsGPU(t *testing.T) {
 }
 
 func TestMigSafe(t *testing.T) {
-	// 모델 B: Enabled + GI 없음(geometry "") 만 safe.
+	// Enabled + GI 없음(geometry "") 만 safe.
 	if !migSafe(MigDevice{ModeCurrent: "Enabled"}) {
 		t.Fatal("Enabled+no-GI 는 safe")
 	}
 	if migSafe(MigDevice{ModeCurrent: "Disabled", ModePending: "Disabled", Geometry: "disabled"}) {
-		t.Fatal("Disabled 는 unsafe(모델 B: MIG mode 사전 enable 필요)")
+		t.Fatal("Disabled 는 unsafe(MIG mode 사전 enable 필요)")
 	}
 	if migSafe(MigDevice{ModeCurrent: "Enabled", Geometry: "1g.6gb x4"}) {
 		t.Fatal("Enabled+기존 GI 는 unsafe")

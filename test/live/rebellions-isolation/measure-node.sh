@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# measure-node.sh: node5 에서 vLLM 서비스를 멈추고 ATOM 두 장치(0·1)에 각각 프로세스를 붙여
+# measure-node.sh: <rebellions-node> 에서 vLLM 서비스를 멈추고 ATOM 두 장치(0·1)에 각각 프로세스를 붙여
 #                  연산·용량·대역폭·장애 네 축의 격리를 실측(run.sh 가 ssh 로 이 스크립트를 실행)
 # 상세: 각 축의 RESULT/INIT 줄을 축별 접두사로 stdout 에 내고(run.sh 가 grep 으로 파싱), 트랩이
 #       EXIT·시그널에서 SERVICE 복원과 OUT 삭제를 함께 해 ssh 세션이 끊겨도 정리된다.

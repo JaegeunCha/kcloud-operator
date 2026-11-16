@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # run.sh: 벤더 장치 리셋 명령을 실제 노드에서 실행해 판정하는 하네스
-# 상세: nvidia(k8s-worker1)·tenstorrent(k8s-worker3) 전용. 안전 게이트 뒤 리셋 전/후 상태를
+# 상세: nvidia(<nvidia-node>)·tenstorrent(<tenstorrent-node>) 전용. 안전 게이트 뒤 리셋 전/후 상태를
 #       evidence.txt 에 남긴다. PHASE 목록은 아래 case 문, FORCE_FAIL_AT 은 force_fail_check()
 #       주석 참고.
 # 용법: VENDOR=<nvidia|tenstorrent> [NODE=] [TARGET=] [DRY_RUN=1] [PHASE=] run.sh
@@ -265,7 +265,7 @@ dus_state() {
   kubectl get driverupgradestate "${NODE}-${VENDOR}" -o jsonpath='{.status.state}' 2>/dev/null || echo "미수집"
 }
 # device_plugin_ready — 이 벤더의 device-plugin(류) 파드(DP_LABELS)가 그 노드에서 전부
-# Ready 인지. 리셋 전 상태로 돌아온다는 성공 기준(팀장 지시 §)에 device-plugin 파드
+# Ready 인지. 리셋 전 상태로 돌아온다는 성공 기준에 device-plugin 파드
 # 상태도 포함되므로 NDR·health·DUS 와 함께 본다.
 device_plugin_ready() {
   local l
@@ -527,7 +527,7 @@ YAML
   return 1
 }
 
-# bmc_sel — ipmitool 로 BMC SEL 을 읽는다. k8s-worker3
+# bmc_sel — ipmitool 로 BMC SEL 을 읽는다. <tenstorrent-node>
 # 만 허용(닫힌 목록) — 다른 노드(예: VENDOR=nvidia 로 잘못 호출)면 그 자리에서 거절한다.
 # 실행하는 명령은 읽기 4종뿐이다: sel elist(sel-<stage>.txt 로
 # 저장 — before/after diff 대상은 이 출력만), sel info·mc info·chassis status(evidence.txt

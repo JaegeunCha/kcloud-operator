@@ -18,7 +18,7 @@
   뒤 같은 장치를 여는 2차 open)를 모두 SSH 로 띄운다. B 의 결과가 판정 대상이다. 노드에 그
   장치를 이미 쓰는 다른 프로세스가 없을 때 쓴다.
 - **`MODE=single`**: 장치를 이미 외부 프로세스가 쥐고 있어 A 를 새로 띄우면 그 외부 프로세스를
-  방해할 때 쓴다(예: node5 의 `atomplus-vllm.service`). 이 스크립트는 B 역할의 단발 open 만
+  방해할 때 쓴다(예: <rebellions-node> 의 `atomplus-vllm.service`). 이 스크립트는 B 역할의 단발 open 만
   한다 — 우리 쪽 첫 open 이 곧 "두 번째 opener" 다. 이 경우 호출자가 `CONFOUND=` 로 confound
   사유를 채워야 한다(외부 holder 가 이미 A 역할이라 통제된 2-프로세스 프로토콜이 아니라는 뜻).
   **`CONFOUND` 가 비어 있으면 스크립트는 아무것도 열지 않고 사용법 오류(exit 1)로 종료한다** —
@@ -73,12 +73,12 @@ B 가 성공했어도 `verdict` 는 `error` 다** — 보유자가 없는 상태
 
 ```bash
 # Warboy — 장치가 root:root 0600
-USE_SUDO=1 bash test/live/concurrent-open/probe.sh warboy k8s-worker1 /dev/npu0
+USE_SUDO=1 bash test/live/concurrent-open/probe.sh warboy <nvidia-node> /dev/npu0
 
 # Tenstorrent — 0666, sudo 불필요
 bash test/live/concurrent-open/probe.sh tenstorrent <노드 IP> /dev/tenstorrent/0
 
-# Rebellions node5 — 외부 holder(vLLM) 로 confound, single 모드
+# Rebellions <rebellions-node> — 외부 holder(vLLM) 로 confound, single 모드
 MODE=single CONFOUND="external holder atomplus-vllm.service already held the device" \
   bash test/live/concurrent-open/probe.sh rebellions <노드 IP> /dev/rbln0
 ```

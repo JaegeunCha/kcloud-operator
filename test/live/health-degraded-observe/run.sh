@@ -122,7 +122,7 @@ PYEOF
 # 움직이는지의 기준이다.
 print_past_reference() {
   log ""
-  log "과거 라이브 evidence 가 기록한 저하 전이 (인용: $EVIDENCE_CITE §5)"
+  log "과거 라이브 evidence 가 기록한 저하 전이"
   log "  T0        device-plugin 광고 붕괴 주입 (nvidia.com/gpu 4 → 0)"
   log "  +32s      state=Recovering, allocationAllowed=false  ← 신규 할당 차단(게이트 작동)"
   log "  +48s      state=Healthy 복귀"

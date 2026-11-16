@@ -758,7 +758,7 @@ var _ = Describe("ACPP NVIDIA bypasses RNGD conflict guard", func() {
 	})
 })
 
-// ACPP deletion(Retain, spec §7.3) — owner lock 은 해제하되 파티션(env) 은 유지한다(자동 rollback 위험 회피).
+// ACPP deletion(Retain, ) — owner lock 은 해제하되 파티션(env) 은 유지한다(자동 rollback 위험 회피).
 var _ = Describe("ACPP deletion (Retain)", func() {
 	It("removes owner lock and finalizer but keeps partition on delete", func() {
 		wipeACPPs()
@@ -926,7 +926,7 @@ func (fakeNvidiaExec) Run(context.Context, string, string, string, []nvidia.Comm
 	return nil
 }
 
-// fakeNvidiaObserver 는 nvidia.Observer 를 구현해 실제 Job 없이 MIG 관측을 반환한다(envtest seam, spec §16.3).
+// fakeNvidiaObserver 는 nvidia.Observer 를 구현해 실제 Job 없이 MIG 관측을 반환한다(envtest seam, ).
 // 기본은 seeded NDR 의 MIG 필드에서 관측을 파생해 기존 스펙(NDR 로 상태 주입)이 그대로 동작하게 한다.
 // override 가 non-nil 이면 그 관측을, oerr 이 non-nil 이면 그 에러를 반환한다(특정 시나리오용).
 type fakeNvidiaObserver struct {
@@ -1360,7 +1360,7 @@ var _ = Describe("ACPP nvidia MIG journal", func() {
 		wipeACPPs()
 		DeferCleanup(wipeACPPs)
 		sel := map[string]string{"kcloud.ai/nv-happy": "true"}
-		// 모델 B: MIG mode 는 사전 enable(Enabled) + GI 없음(geometry "").
+		// MIG mode 는 사전 enable(Enabled) + GI 없음(geometry "").
 		seedNvidiaNode("nv-happy-node", sel, true, a30Device("", "Enabled", "Enabled", ""))
 		DeferCleanup(func() { cleanupNvidia("nv-happy-node") })
 
@@ -1391,7 +1391,7 @@ var _ = Describe("ACPP nvidia MIG journal", func() {
 		wipeACPPs()
 		DeferCleanup(wipeACPPs)
 		sel := map[string]string{"kcloud.ai/nv-reuse": "true"}
-		// 모델 B: MIG mode 사전 enable(Enabled) + GI 없음.
+		// MIG mode 사전 enable(Enabled) + GI 없음.
 		seedNvidiaNode("nv-reuse-node", sel, true, a30Device("", "Enabled", "Enabled", ""))
 		DeferCleanup(func() { cleanupNvidia("nv-reuse-node") })
 
@@ -1486,7 +1486,7 @@ var _ = Describe("ACPP nvidia MIG journal", func() {
 	})
 
 	// operator-driven 관측이 per-PCI Err 를 내면(NDR 은 깨끗해도) fail-closed 로 ObservationUnavailable.
-	// 이게 관측(NDR 아님)이 진실 소스임을 증명한다(spec §16.3).
+	// 이게 관측(NDR 아님)이 진실 소스임을 증명한다.
 	It("blocks with ObservationUnavailable when the observer returns an Err observation (fail-closed)", func() {
 		wipeACPPs()
 		DeferCleanup(wipeACPPs)
@@ -1564,7 +1564,7 @@ var _ = Describe("ACPP nvidia MIG deletion (snapshot rollback)", func() {
 		wipeACPPs()
 		DeferCleanup(wipeACPPs)
 		sel := map[string]string{"kcloud.ai/nv-del-ok": "true"}
-		// 모델 B: 복원 = MIG Enabled + GI 없음(geometry "") + allocatable=1(=baseline) → post-rollback assertions pass.
+		// 복원 = MIG Enabled + GI 없음(geometry "") + allocatable=1(=baseline) → post-rollback assertions pass.
 		// uncordoned 로 시드한다 — 성공한 apply 는 종점에서 노드를 되돌려 놓으므로 실제 운영의 삭제는
 		// 항상 이 상태에서 시작한다. 한 Reconcile 안에서 cordon 취득→rollback→uncordon 이 돈다.
 		seedNvidiaNode("nv-del-ok-node", sel, false, a30Device("", "Enabled", "Enabled", ""))
@@ -1599,7 +1599,7 @@ var _ = Describe("ACPP nvidia MIG deletion (snapshot rollback)", func() {
 		wipeACPPs()
 		DeferCleanup(wipeACPPs)
 		sel := map[string]string{"kcloud.ai/nv-del-fail": "true"}
-		// 모델 B: MIG Enabled + GI 없음(mode/geometry assert 통과) 이지만 allocatable 미복원으로 baseline assert 실패.
+		// MIG Enabled + GI 없음(mode/geometry assert 통과) 이지만 allocatable 미복원으로 baseline assert 실패.
 		seedNvidiaNode("nv-del-fail-node", sel, true, a30Device("", "Enabled", "Enabled", ""))
 		DeferCleanup(func() { cleanupNvidia("nv-del-fail-node") })
 
@@ -1629,7 +1629,7 @@ var _ = Describe("ACPP nvidia MIG deletion (snapshot rollback)", func() {
 		wipeACPPs()
 		DeferCleanup(wipeACPPs)
 		sel := map[string]string{"kcloud.ai/nv-del-blocked": "true"}
-		// 모델 B: 하드웨어에 GI 가 여전히 존재(geometry "1g.6gb", 미복원) 이어야 진짜 conflict → 차단.
+		// 하드웨어에 GI 가 여전히 존재(geometry "1g.6gb", 미복원) 이어야 진짜 conflict → 차단.
 		// 복원(Enabled+GI 없음) 이면 restore-before-block 규칙에 따라 skip 되므로 GI 존재로 시드한다.
 		seedNvidiaNode("nv-del-blocked-node", sel, true, a30Device("1g.6gb", "Enabled", "Enabled", ""))
 		DeferCleanup(func() { cleanupNvidia("nv-del-blocked-node") })
@@ -1735,7 +1735,7 @@ var _ = Describe("ACPP nvidia MIG deletion (snapshot rollback)", func() {
 		By("pass 2: nodeB now restorable — cleaned nodeA must be skipped (restore-before-block), not blocked")
 		var ndrB npuv1alpha1.NodeDeviceReport
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "nv-del-multi-b"}, &ndrB)).To(Succeed())
-		ndrB.Status.Devices[0] = a30Device("", "Enabled", "Enabled", "") // 모델 B: 복원 관측(Enabled+GI 없음)
+		ndrB.Status.Devices[0] = a30Device("", "Enabled", "Enabled", "") // 복원 관측(Enabled+GI 없음)
 		Expect(k8sClient.Status().Update(ctx, &ndrB)).To(Succeed())
 
 		_, err = r.Reconcile(ctx, reconcileReq("nv-del-multi-acpp"))
@@ -1997,7 +1997,7 @@ func (c *cordonFailClient) Get(ctx context.Context, key client.ObjectKey, obj cl
 }
 
 // layout 없는 순수 시분할(sharing-only) 정책은 하드웨어를 바꾸지 않으므로(DP 설정만) cordon·MIG
-// 경로 없이 Ready 에 도달해야 한다(spec §5.1).
+// 경로 없이 Ready 에 도달해야 한다.
 var _ = Describe("ACPP sharing-only (no layout)", func() {
 	It("accepts a pure time-slicing policy and reaches Ready without cordoning the node", func() {
 		wipeACPPs()
@@ -2217,7 +2217,7 @@ func deleteMpsDaemon() {
 // MPS 게이트가 "이 정책이 실제로 다루는 장치" 대신 "이 노드의 같은 벤더 전체 장치" 를 검사하면,
 // MIG 가 켜진 형제 장치(A30 — 같은 노드의 다른 ACPP 가 소유·Ready) 때문에 A2 만 겨냥한 MPS 정책이
 // discovery 직후 거부되어 ensureMpsControlDaemon 이 전혀 호출되지 못한다 — 다중 장치 노드에서
-// 노드 전체와 개별 장치를 혼동하는 결함이다(spec §6.3).
+// 노드 전체와 개별 장치를 혼동하는 결함이다.
 var _ = Describe("ACPP MPS with a MIG-owned sibling device", func() {
 	It("judges MPS capability only on devices no other policy owns", func() {
 		wipeACPPs()
@@ -2456,7 +2456,7 @@ func cleanupDevicePluginWiring() {
 // 은 클러스터 전역 단일 객체라, 노드 하나의 A2 를 겨냥한 MPS 정책이 전 nvidia 노드의 DP 를
 // CrashLoopBackOff 로 몰고 무관한 정책이 소유한 A30 의 MIG 광고까지(mig-1g.6gb 4→0) 떨어뜨릴 수
 // 있다 — apply→verify 실패→rollback→재적용 flap 으로 반복되므로, 판정은 apply 이전(mutation
-// 이전)이어야 한다(spec §6d.4).
+// 이전)이어야 한다.
 var _ = Describe("ACPP MPS against a device-plugin running --mig-strategy=mixed", func() {
 	It("rejects the MPS policy before touching the device-plugin", func() {
 		wipeACPPs()

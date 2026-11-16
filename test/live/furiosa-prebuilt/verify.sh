@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# verify.sh: rngd-1 사전 컴파일 왕복 증거 확인 절차 (읽기 전용, evidence.sh --command 용)
+# verify.sh: <rngd-node> 사전 컴파일 왕복 증거 확인 절차 (읽기 전용, evidence.sh --command 용)
 # 상세: 적재된 furiosa_rngd 모듈이 사전 컴파일 이미지에 동봉된 모듈과 같은지 srcversion
 #       대조로 증명한다(클러스터 무변경). 각 확인 항목은 아래 "== N. ... ==" 블록 참고
 #       (Job 은 완료 후 GC 되므로 하네스가 저장한 $OUT/job.yaml·job.log 로 대체한다).

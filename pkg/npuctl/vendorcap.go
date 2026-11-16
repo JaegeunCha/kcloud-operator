@@ -1,6 +1,6 @@
 // vendorcap.go: 벤더 능력 뷰(명세서 층 + 성적표 층) — CLI·REST 공유
 // 상세: 명세서(internal/vendorcap)에 evidence·ACPP 를 조인해 벤더×능력 Verification 을
-// 유도한다. 조인 규칙은 spec §5.3 이 정본이다. 순수 함수(Derive)는 클러스터 없이
+// 유도한다. 조인 규칙은 이 정본이다. 순수 함수(Derive)는 클러스터 없이
 // 시험하고, 수집 함수(CollectWith)는 client.Reader 로 CLI/REST 가 함께 쓴다.
 // 생성일: 2026-09-19 | 수정일: 2026-10-11
 package npuctl
@@ -62,7 +62,7 @@ func furiosaProduct(n corev1.Node) string {
 
 // nodeVendorProduct 는 노드 라벨"만"으로 (vendor, product) 를 정한다 — evidence 의
 // Spec.Vendor 가 비어 있을 때만 쓰는 폴백이다(evidenceVendorProduct). 한 노드에 여러 벤더
-// present 라벨이 같이 실리면(예 k8s-worker1 의 nvidia+furiosa) 먼저 매치되는 벤더로
+// present 라벨이 같이 실리면(예 <nvidia-node> 의 nvidia+furiosa) 먼저 매치되는 벤더로
 // 떨어지는 모호함이 있다 — 그래서 evidence 는 이 폴백보다 Spec.Vendor 를 우선한다.
 // kcloud.ai/accelerator.present(옛 gpu.present) 는 여러 벤더가 함께 쓰는 범용 라벨이라 판정에 쓰지 않는다.
 func nodeVendorProduct(n corev1.Node) (vendor, product string) {
@@ -173,7 +173,7 @@ func DeriveVendorCapabilities(
 	return buildCapabilityRows(verified, degraded)
 }
 
-// applyEvidence 는 evidence 로 devicePlugin/dra/discovery/driver 를 채운다(spec §5.3).
+// applyEvidence 는 evidence 로 devicePlugin/dra/discovery/driver 를 채운다.
 func applyEvidence(
 	evs []v1alpha1.AcceleratorEvidence, nodeByName map[string]corev1.Node,
 	fresh func(*v1alpha1.AcceleratorEvidence, corev1.Node) bool, verified map[vk]bool,
@@ -261,7 +261,7 @@ func acppSharingCapability(s *v1alpha1.SharingSpec) (vendorcap.Capability, bool)
 }
 
 // buildCapabilityRows 는 명세서 층(vendorcap.Keys/Capabilities/Lookup) 위에 verified/degraded
-// 집계를 얹어 정렬된 행을 만든다(spec §5.3: Unsupported/Unknown·그 외).
+// 집계를 얹어 정렬된 행을 만든다(Unsupported/Unknown·그 외).
 func buildCapabilityRows(verified, degraded map[vk]bool) []VendorCapabilityRow {
 	var rows []VendorCapabilityRow
 	for _, k := range vendorcap.Keys() {

@@ -18,9 +18,9 @@
 test/live/dp-dra-residue/snapshot.sh <출력디렉터리> <노드> <벤더>
 
 # 예
-test/live/dp-dra-residue/snapshot.sh /path/to/before k8s-worker1 nvidia
+test/live/dp-dra-residue/snapshot.sh /path/to/before <nvidia-node> nvidia
 # ... 전환 실행(별도 작업) ...
-test/live/dp-dra-residue/snapshot.sh /path/to/after k8s-worker1 nvidia
+test/live/dp-dra-residue/snapshot.sh /path/to/after <nvidia-node> nvidia
 diff -r /path/to/before /path/to/after
 ```
 
@@ -84,18 +84,18 @@ node·SSH 대상이 없을 때도(`absent(...)`, `skipped(no-ip)`) 도구는 종
 
 ```bash
 # 미리보기(클러스터 변경 없음, 안전 게이트와 스냅샷은 실제로 돈다)
-DRY_RUN=1 VENDOR=tenstorrent NODE=k8s-worker3 test/live/dp-dra-residue/run.sh
+DRY_RUN=1 VENDOR=tenstorrent NODE=<tenstorrent-node> test/live/dp-dra-residue/run.sh
 
 # 실행(왕복 앞부분: before → dra 전환 → after-dra → devicePlugin 로 복귀 → after-dp)
-VENDOR=tenstorrent NODE=k8s-worker3 test/live/dp-dra-residue/run.sh
+VENDOR=tenstorrent NODE=<tenstorrent-node> test/live/dp-dra-residue/run.sh
 
 # 단계별 실행(PHASE). all 은 dra.enabled 되돌리기·kubelet 재시작을 포함하지 않는다 —
 # ③ 스냅샷의 판정에 따라 갈리므로 별도 단계다.
-PHASE=safety-gate  VENDOR=tenstorrent NODE=k8s-worker3 test/live/dp-dra-residue/run.sh
-PHASE=disable-dra  VENDOR=tenstorrent NODE=k8s-worker3 test/live/dp-dra-residue/run.sh
-PHASE=kubelet-restart VENDOR=tenstorrent NODE=k8s-worker3 test/live/dp-dra-residue/run.sh
-PHASE=snapshot LABEL=after-kubelet VENDOR=tenstorrent NODE=k8s-worker3 test/live/dp-dra-residue/run.sh
-PHASE=diff LABEL_A=before LABEL_B=after-dp VENDOR=tenstorrent NODE=k8s-worker3 test/live/dp-dra-residue/run.sh
+PHASE=safety-gate  VENDOR=tenstorrent NODE=<tenstorrent-node> test/live/dp-dra-residue/run.sh
+PHASE=disable-dra  VENDOR=tenstorrent NODE=<tenstorrent-node> test/live/dp-dra-residue/run.sh
+PHASE=kubelet-restart VENDOR=tenstorrent NODE=<tenstorrent-node> test/live/dp-dra-residue/run.sh
+PHASE=snapshot LABEL=after-kubelet VENDOR=tenstorrent NODE=<tenstorrent-node> test/live/dp-dra-residue/run.sh
+PHASE=diff LABEL_A=before LABEL_B=after-dp VENDOR=tenstorrent NODE=<tenstorrent-node> test/live/dp-dra-residue/run.sh
 ```
 
 안전 게이트는 그 노드에서 그 벤더 확장 자원(`spec.<vendor>.resourceName`)을 `requests`에

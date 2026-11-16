@@ -18,7 +18,7 @@ device-plugin 이 `tenstorrent/blackhole-p150` 을 광고하며, 소비자 파�
   (`default/new-vendor-tt-consumer`) 하나씩을 만들고, 확인 뒤 지운다.
 - 다른 워크로드·리소스에는 손대지 않는다.
 - 전환 동안 tenstorrent device-plugin(`kcloud/kcloud-tt-device-plugin`)이 잠시 내려갔다가
-  복원된다. 그래서 tenstorrent 장치를 쓰는 워크로드가 없는 데모/실험 클러스터(k8s-worker3)에서
+  복원된다. 그래서 tenstorrent 장치를 쓰는 워크로드가 없는 데모/실험 클러스터(<tenstorrent-node>)에서
   실행한다.
 - `cleanup` 은 성공·실패와 무관하게 항상 소비자·descriptor 를 지우고 tenstorrent 를 다시 켠다
   (`trap ... EXIT`).
@@ -30,7 +30,7 @@ device-plugin 이 `tenstorrent/blackhole-p150` 을 광고하며, 소비자 파�
 - descriptor auto-apply 가 켜져 있어야 한다. tenstorrent 를 끄면 벤더가 비관리 상태가 되어
   descriptor 가 중재를 통과하고 생성 device-plugin 이 뜬다. tenstorrent 가 켜져 있거나 external
   이면 descriptor 는 이중 광고 방지로 거절되므로, 스크립트는 그 경우 `BLOCKED` 로 끝낸다.
-- k8s-worker3 에 tenstorrent 장치가 실재하고 device-plugin 이 떠 있는 상태에서 시작한다.
+- <tenstorrent-node> 에 tenstorrent 장치가 실재하고 device-plugin 이 떠 있는 상태에서 시작한다.
 
 ## 강제 종료 시 수동 복원
 
@@ -57,7 +57,7 @@ DRY_RUN=1 bash test/live/new-vendor-by-descriptor/run.sh
 |---|---|---|
 | `NAMESPACE` | `kcloud` | NPUClusterPolicy·생성물 네임스페이스 |
 | `NCP` | `npuclusterpolicy-sample` | NPUClusterPolicy 이름 |
-| `NODE` | `k8s-worker3` | 관측 노드 |
+| `NODE` | `<tenstorrent-node>` | 관측 노드 |
 | `NCP_DS` | `kcloud-tt-device-plugin` | NPUClusterPolicy 가 관리하는 벤더 device-plugin |
 | `DESC_FILE` | `descriptor.yaml` | 적용할 descriptor(이름은 파일에서 읽음) |
 | `CONSUMER_FILE` | `consumer.yaml` | 소비자 파드(이름은 파일에서 읽음) |
@@ -85,7 +85,7 @@ DRY_RUN=1 bash test/live/new-vendor-by-descriptor/run.sh
 스크립트는 마지막에 JSON 요약 한 줄을 낸다.
 
 ```json
-{"test":"new-vendor-by-descriptor","vendor":"tenstorrent","node":"k8s-worker3","descriptor":"new-vendor-tt-blackhole","resource":"tenstorrent/blackhole-p150","scenario_minutes":6,"scenario_destructive":"no","phase":"cleanup","checks":{"ncp_ds_deleted_on_disable":true,"generated_dp_created":true,"descriptor_resource_advertised":true,"consumer_scheduled":true,"consumer_saw_device":true,"generated_dp_gc":true,"restored_vendor_dp":true},"fails":0,"verdict":"PASS","dryRun":false,"date":"..."}
+{"test":"new-vendor-by-descriptor","vendor":"tenstorrent","node":"<tenstorrent-node>","descriptor":"new-vendor-tt-blackhole","resource":"tenstorrent/blackhole-p150","scenario_minutes":6,"scenario_destructive":"no","phase":"cleanup","checks":{"ncp_ds_deleted_on_disable":true,"generated_dp_created":true,"descriptor_resource_advertised":true,"consumer_scheduled":true,"consumer_saw_device":true,"generated_dp_gc":true,"restored_vendor_dp":true},"fails":0,"verdict":"PASS","dryRun":false,"date":"..."}
 ```
 
 검사 항목:

@@ -59,7 +59,7 @@ var devicePluginEnsure = map[vendorcap.Key]any{
 	{Vendor: "tenstorrent"}:                (*NPUClusterPolicyReconciler).ensureTenstorrentDevicePlugin,
 }
 
-// 선언 ⇔ 배선 양방향을 본다(spec §5.4): 지원이라 선언한 칸은 ensure 함수가 있어야 하고,
+// 선언 ⇔ 배선 양방향을 본다: 지원이라 선언한 칸은 ensure 함수가 있어야 하고,
 // ensure 함수가 있는 칸은 레지스트리에 지원으로 적혀 있어야 한다. 한쪽만 보면 레지스트리에
 // 칸을 추가하고 구현을 잊거나, 구현을 지우고 레지스트리를 안 고쳐도 초록으로 남는다.
 func TestVendorcapMatchesDevicePluginWiring(t *testing.T) {

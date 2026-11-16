@@ -13,8 +13,8 @@ furiosa(warboy·rngd)·rebellions 는 공개 인터페이스에 리셋 수단 �
 
 | 벤더 | 노드 | 대상 장치 | 리셋 명령 |
 |---|---|---|---|
-| nvidia | k8s-worker1 | A30(`0000:18:00.0`), 기본 TARGET | `nvidia-smi -i <UUID> -r` |
-| tenstorrent | k8s-worker3 | Blackhole p150(`0000:af:00.0`) | `tt-smi -r <UMD chip ID>` |
+| nvidia | <nvidia-node> | A30(`0000:18:00.0`), 기본 TARGET | `nvidia-smi -i <UUID> -r` |
+| tenstorrent | <tenstorrent-node> | Blackhole p150(`0000:af:00.0`) | `tt-smi -r <UMD chip ID>` |
 
 ## 안전 조건 (하네스가 모든 쓰기 앞에 스스로 확인한다)
 
@@ -36,13 +36,13 @@ furiosa(warboy·rngd)·rebellions 는 공개 인터페이스에 리셋 수단 �
    cordon 만으로는 재스케줄을 막지 못한다. `quiesce` 의 실제 효과는 파드 삭제가 만드는
    짧은 창뿐이다 — 이 창 안에 리셋이 끝나지 않으면 재시도가 필요할 수 있다.
 3. 리셋 뒤 장치가 정해진 시간 안에 돌아오지 않으면 `PHASE=reboot-recover` 로 그 노드를
-   재부팅해 복구한다. 관리 노드(k8s-worker1·k8s-worker3 포함)는 재부팅에 사용자
+   재부팅해 복구한다. 관리 노드(<nvidia-node>·<tenstorrent-node> 포함)는 재부팅에 사용자
    확인이 필요 없다 — 재부팅이 필요했다는 사실 자체를 결과로 기록한다(숨기지 않는다).
 4. 한 번에 한 벤더·한 노드. 클러스터 노드 목록(`kubectl get nodes` 의 InternalIP) 밖의
    어떤 호스트에도 접촉하지 않는다(시범서비스 배포 노드 포함) — 이 하네스가 접속하는
    노드는 `kubectl get node <NODE> -o jsonpath=...` 로 클러스터에 실재하는 노드에서만
    IP 를 구하므로 그 목록 밖의 주소로 향할 경로 자체가 없다.
-5. `PHASE=bmc-sel`(ipmitool 설치+BMC SEL 조회)은 **k8s-worker3 에서만** 허용한다 —
+5. `PHASE=bmc-sel`(ipmitool 설치+BMC SEL 조회)은 **<tenstorrent-node> 에서만** 허용한다 —
    `NODE` 가 그 밖이면(예: `VENDOR=nvidia` 로 호출) 아무것도
    하지 않고 거절한다. 실행하는 ipmitool 명령은 `sel elist`·`sel info`·`mc info`·
    `chassis status` 읽기 4종뿐이다 — `power`·`chassis power`·`sel clear` 같은 쓰기 명령은
@@ -84,7 +84,7 @@ PHASE=quiesce      VENDOR=nvidia bash test/live/device-reset/run.sh   # reset �
 PHASE=unquiesce    VENDOR=nvidia bash test/live/device-reset/run.sh
 PHASE=reboot-recover VENDOR=nvidia bash test/live/device-reset/run.sh # 장치가 안 돌아올 때만
 
-# BMC SEL(k8s-worker3 전용) — SEL_STAGE=before|after(기본 before).
+# BMC SEL(<tenstorrent-node> 전용) — SEL_STAGE=before|after(기본 before).
 # 같은 RUN_ID 로 before 뒤 after 를 부르면 sel-delta.txt(신규 SEL 항목)까지 만든다.
 SEL_STAGE=before RUN_ID=<고정> VENDOR=tenstorrent PHASE=bmc-sel bash test/live/device-reset/run.sh
 SEL_STAGE=after  RUN_ID=<위와 같은 값> VENDOR=tenstorrent PHASE=bmc-sel bash test/live/device-reset/run.sh
@@ -124,7 +124,7 @@ DRY_RUN=1 FORCE_FAIL_AT=quiesce VENDOR=nvidia PHASE=quiesce bash test/live/devic
 | `recover-elapsed.txt` / `advertise-elapsed.txt` | 각 대기 단계가 실제로 걸린 시간(초) |
 | `reset-start-utc.txt` | `do_reset` 이 리셋 명령을 실제로 보내기 직전 UTC 시각(`PHASE=verdict` 의 `last_kernel_line` 기준시) |
 | `dmesg-live.log` / `journal-live.log` | 리셋 직전부터 백그라운드 SSH 로 흘려 받은 원격 `dmesg -w -T`·`journalctl -kf` 실시간 스트림 — SSH 가 끊기면 마지막 줄이 크래시 직전 커널 기록 |
-| `sel-before.txt` / `sel-after.txt` | `PHASE=bmc-sel`(k8s-worker3 전용)이 `SEL_STAGE=before|after` 로 남기는 `sudo ipmitool sel elist` 원문 |
+| `sel-before.txt` / `sel-after.txt` | `PHASE=bmc-sel`(<tenstorrent-node> 전용)이 `SEL_STAGE=before|after` 로 남기는 `sudo ipmitool sel elist` 원문 |
 | `sel-delta.txt` | `SEL_STAGE=after` 실행 시 `sel-before.txt`가 있으면 만드는 `diff`(신규 SEL 항목은 `>` 로 시작하는 줄) |
 
 `post-devices.txt`·`post-boot-id.txt` 는 `postcheck` 가 남긴다 — `do_reset` 이 실패하면
@@ -144,14 +144,14 @@ DRY_RUN=1 FORCE_FAIL_AT=quiesce VENDOR=nvidia PHASE=quiesce bash test/live/devic
 
 ## 급정지 원인 조사 (investigate-pcie.sh)
 
-`tt-smi -r 0` 실행 직후 k8s-worker3 이 급정지·자동 재부팅한 사건(두 차례 재현됨)의
+`tt-smi -r 0` 실행 직후 <tenstorrent-node> 이 급정지·자동 재부팅한 사건(두 차례 재현됨)의
 근본 원인을 읽기 전용으로 좁히는 수집기다. `run.sh` 와 별개이고 리셋을 실행하지
 않는다 — SEL 상세·PCI 설정·`_OSC` 로그·이전 부팅 커널 로그·tt 버전을 읽기 명령으로만
 모아 `runs/<UTC>-investigate/` 에 남기고 `ROOTCAUSE:` 판정 줄을 찍는다. 원격 sudo 는
 `sudo -n`(비대화형)으로만 쓰고, `LC_ALL=C` 로 원격 로캘 경고가 출력에 섞이지 않게 한다.
 
 ```bash
-# 수집(읽기만) — k8s-worker3 에서 15개 파일 + verdict.txt 를 남긴다
+# 수집(읽기만) — <tenstorrent-node> 에서 15개 파일 + verdict.txt 를 남긴다
 bash test/live/device-reset/investigate-pcie.sh
 
 # 판정만 다시(오프라인, 클러스터 미접속) — 저장된 run 디렉터리 파일만 읽는다

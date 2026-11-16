@@ -73,7 +73,7 @@ DRY_RUN=1 bash test/live/health-degraded-observe/run.sh
 
 `DeviceObservation`(MIG 관측) 신호는 게이트 판정에서 뺀다. health 컨트롤러가 이 신호로는 상태를
 정하지 않기 때문이다 — `internal/health/device.go:60-66` 이 "MIG 관측 실패는 상태 무관"(예:
-k8s-master 의 GTX 970 은 MIG 미지원이라 관측이 영원히 실패하지만 GPU 는 정상)이라 명시한다.
+<control-plane> 의 GTX 970 은 MIG 미지원이라 관측이 영원히 실패하지만 GPU 는 정상)이라 명시한다.
 나머지 신호(NodeReady·NDRFreshness·DriverHeartbeat·DevicePlugin·Advertisement·RepeatedFailure·
 DeviceDriver)는 실패 시 `internal/health/evaluate.go:81-150`·`device.go` 에서 비-Healthy 로
 조기 반환된다 — 그래서 Healthy 노드면 이 신호들은 전부 정상이어야 한다. `DeviceObservation`

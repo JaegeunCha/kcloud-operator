@@ -48,7 +48,7 @@ const (
 	DeletionPolicyRestoreMode = "RestoreMode"
 )
 
-// 공유 모드(R&D v1.0 §11 사용자 추상 모드 중 MVP 2종. partitioned/partitioned-shared 는
+// 공유 모드(사용자 추상 모드 중 MVP 2종. partitioned/partitioned-shared 는
 // layout + sharing 조합으로 표현되므로 별도 값이 아니다).
 const (
 	SharingModeExclusive  = "exclusive"
@@ -65,7 +65,7 @@ const (
 	SharingModeOversubscribed = "oversubscribed"
 )
 
-// TimeSlicingSpec 는 시간공유 요청이다. replicas 는 성능 비율이 아니라 광고 배수다(§4.2).
+// TimeSlicingSpec 는 시간공유 요청이다. replicas 는 성능 비율이 아니라 광고 배수다.
 type TimeSlicingSpec struct {
 	// +kubebuilder:validation:Minimum=2
 	// +kubebuilder:validation:Maximum=16
@@ -121,7 +121,7 @@ type AcceleratorPartitionPolicyList struct {
 	Items           []AcceleratorPartitionPolicy `json:"items"`
 }
 
-// --- status 4축 (spec §2.2) ---
+// --- status 4축 ---
 
 type AcceleratorPartitionPolicyStatus struct {
 	ObservedGeneration int64          `json:"observedGeneration,omitempty"`
@@ -130,7 +130,7 @@ type AcceleratorPartitionPolicyStatus struct {
 	ApplyRecords       []ApplyRecord  `json:"applyRecords,omitempty"`
 }
 
-// ApplyRecord 는 nvidia MIG apply 의 durable journal + 삭제 복원 snapshot 이다(spec §15.2/§15.7).
+// ApplyRecord 는 nvidia MIG apply 의 durable journal + 삭제 복원 snapshot 이다.
 type ApplyRecord struct {
 	NodeName             string   `json:"nodeName"`
 	GPUPCIs              []string `json:"gpuPCIs,omitempty"`
@@ -177,7 +177,7 @@ type TargetStatus struct {
 	Conditions      []metav1.Condition    `json:"conditions,omitempty"`
 }
 
-// BackendRef 는 apply 대상 + rollback 기준(spec §7.2).
+// BackendRef 는 apply 대상 + rollback 기준.
 type BackendRef struct {
 	Kind               string       `json:"kind,omitempty"` // DaemonSet
 	Namespace          string       `json:"namespace,omitempty"`
@@ -188,7 +188,7 @@ type BackendRef struct {
 	Rollback           RollbackInfo `json:"rollback,omitempty"`
 }
 
-// RollbackInfo 는 apply 전 저장하는 복원 기준(spec §7.2).
+// RollbackInfo 는 apply 전 저장하는 복원 기준.
 type RollbackInfo struct {
 	PrevPolicy      string `json:"prevPolicy,omitempty"`
 	Generation      int64  `json:"generation,omitempty"`
@@ -201,7 +201,7 @@ type DeviceStatus struct {
 	PCIAddress          string              `json:"pciAddress,omitempty"`
 	Model               string              `json:"model,omitempty"`
 	PartitionCapability PartitionCapability `json:"partitionCapability,omitempty"`
-	// SharingCapability 는 공유 방식별 지원·검증 상태다(R&D v1.0 §10.1).
+	// SharingCapability 는 공유 방식별 지원·검증 상태다.
 	// +optional
 	SharingCapability SharingCapability `json:"sharingCapability,omitempty"`
 	// IsolationCapability 는 실측 근거가 있는 격리 등급이다(미실측은 빈 문자열).
@@ -260,7 +260,7 @@ type AdvertisementStatus struct {
 	AdvertisedResources   map[string]int32 `json:"advertisedResources,omitempty"`
 }
 
-// phase (spec §3 상태머신)
+// phase (상태머신)
 const (
 	ACPPPhasePending                 = "Pending"
 	ACPPPhaseDiscoveringCapabilities = "DiscoveringCapabilities"
@@ -326,14 +326,14 @@ const (
 	ReasonAdvertisementCheckSuppressed = "AdvertisementCheckSuppressed"
 )
 
-// supportLevel (spec §4.3)
+// supportLevel
 const (
 	SupportVerified         = "Verified"
 	SupportDocumented       = "Documented"
 	SupportLegacyDocumented = "LegacyDocumented"
 )
 
-// migPhase (nvidia MIG apply journal, spec §15.2)
+// migPhase (nvidia MIG apply journal, )
 const (
 	MigPhasePrepared     = "Prepared"
 	MigPhaseLockAcquired = "LockAcquired"
@@ -354,5 +354,5 @@ const (
 	MigPhaseCleanupBlocked = "CleanupBlocked"
 )
 
-// MigFinalizer 는 nvidia MIG apply 삭제 복원 보장 finalizer 다(spec §15.7).
+// MigFinalizer 는 nvidia MIG apply 삭제 복원 보장 finalizer 다.
 const MigFinalizer = "npu.ai/acpp-mig-cleanup"

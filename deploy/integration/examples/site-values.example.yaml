@@ -7,9 +7,9 @@
 # 생성일: 2026-09-10 | 수정일: 2026-10-11
 # ============================================================
 global:
-  registry: ghcr.io/openkcloud        # 사내 미러: <harbor>/<프로젝트>
-  vendorRegistry: ""                  # 사내 미러: <harbor>/<프로젝트>
-# 사내 미러를 쓸 때만 아래 완성 경로 필드도 함께 지정한다(global 값으로 조립되지 않음).
+  registry: ghcr.io/openkcloud        # 자체 미러: <harbor>/<프로젝트>
+  vendorRegistry: ""                  # 자체 미러: <harbor>/<프로젝트>
+# 자체 미러를 쓸 때만 아래 완성 경로 필드도 함께 지정한다(global 값으로 조립되지 않음).
 # nvidia: {devicePluginImage: <harbor>/<프로젝트>/nvidia/k8s-device-plugin:v0.17.1, dcgmExporter: {image: <harbor>/<프로젝트>/nvidia/dcgm-exporter:4.5.2-4.8.1-ubuntu22.04}}
 # furiosa: {devicePluginImage: <harbor>/<프로젝트>/furiosa-ai/k8s-device-plugin:0.10.1}
 # driverInstallPolicies: {nvidia: {toolkit: {image: <harbor>/<프로젝트>/nvidia/container-toolkit:v1.17.8-ubuntu20.04}}}

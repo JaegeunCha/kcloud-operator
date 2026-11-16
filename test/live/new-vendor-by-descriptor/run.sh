@@ -4,7 +4,7 @@
 # 상세: tenstorrent 를 끄면 소유 device-plugin 이 회수되고, descriptor 하나를 적용하면 벤더
 #       코드 없이 생성된 device-plugin 이 떠 장치를 광고한다. 소비자 파드로 주입을 확인한 뒤
 #       복원한다(cleanup() 참고). 자체 descriptor·파드·NCP.tenstorrent 필드만 건드리며, 전환
-#       중 그 벤더 device-plugin 이 잠시 내려가므로 데모/실험 클러스터(k8s-worker3)에서 실행.
+#       중 그 벤더 device-plugin 이 잠시 내려가므로 데모/실험 클러스터(<tenstorrent-node>)에서 실행.
 # 생성일: 2026-09-20 | 수정일: 2026-10-11
 # ============================================================
 set -euo pipefail

@@ -1,4 +1,4 @@
-# avp-allocation-probe-worker3.yaml: k8s-worker3 한정 AllocationProbe 검증 정책(descriptor evidence probe 라이브 점검용) | 생성일: 2026-09-20
+# avp-allocation-probe-worker3.yaml: <tenstorrent-node> 한정 AllocationProbe 검증 정책(descriptor evidence probe 라이브 점검용) | 생성일: 2026-09-20
 apiVersion: npu.ai/v1alpha1
 kind: AcceleratorVerificationPolicy
 metadata:

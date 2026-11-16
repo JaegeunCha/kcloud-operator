@@ -19,8 +19,8 @@ REPO_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 SNAPSHOT="${SCRIPT_DIR}/snapshot.sh"
 KUBECTL_NPU="${REPO_DIR}/cmd/kubectl-npu/kubectl-npu"
 
-# 기본 대상은 tenstorrent/k8s-worker3 다 — 다른 후보
-# (rngd/rngd-1.cluster.local)로 돌리려면 환경변수로 덮는다.
+# 기본 대상은 tenstorrent/<tenstorrent-node> 다 — 다른 후보
+# (rngd/<rngd-node>.cluster.local)로 돌리려면 환경변수로 덮는다.
 VENDOR="${VENDOR:-tenstorrent}"
 NODE="${NODE:-k8s-worker3}"
 DRY_RUN="${DRY_RUN:-0}"

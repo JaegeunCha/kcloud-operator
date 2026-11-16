@@ -153,7 +153,7 @@ func TranslateWithDRA(req Request, snap []NodeCapability, dra DRACapability) (*R
 
 // nodeIsCandidateFor 는 이 노드가 이 매핑의 후보일 수 있는지 본다. 벤더만 보고 거르면 같은 벤더
 // 아래 다른 제품의 노드까지 들어와, 그 노드의 사소한 거절이 firstReject 를 선점해 진짜 후보의
-// 거절을 가린다(예: furiosa 아래 rngd 요청에 warboy 노드가 섞이면 k8s-worker1 이 rngd-1 의 사유를 가림).
+// 거절을 가린다(예: furiosa 아래 rngd 요청에 warboy 노드가 섞이면 <nvidia-node> 이 <rngd-node> 의 사유를 가림).
 // 그래서 벤더가 아니라 리소스로 거른다: (a) 이미 이 리소스를 광고하거나, (b) 아직 광고하지 않지만
 // (governed-pending) 전체 장치 리소스는 광고한다 — 이 경우 CheckMode 의 ProfileNotApplied 같은 구체적
 // 축이 열리도록 남긴다. 전체 장치조차 광고하지 않는 노드의 거절은 이 매핑에서 볼 가치가 없다.
@@ -201,7 +201,7 @@ func orderMappings(mappings []v1alpha1.AcceleratorMapping, preference []string) 
 	return out
 }
 
-// explain 은 사람이 읽는 근거다. 공유 결과는 격리가 없다는 사실을 반드시 말한다(정직성 §19.3).
+// explain 은 사람이 읽는 근거다. 공유 결과는 격리가 없다는 사실을 반드시 말한다(정직성 원칙).
 // shared 분기가 "time-sliced" 라고 단정할 수 있는 것은 checkSharing 이 SharingMode 를
 // timeSliced 로 못박아 통과시키기 때문이다(mode.go:132). 그 게이트가 multiProcess/brokered 로
 // 넓어지는 날 이 문구도 access.Implementation 기준으로 좁혀야 한다.
@@ -275,7 +275,7 @@ func translateDRA(req Request, snap []NodeCapability, dra DRACapability) (*Resul
 		nodes, doubled := draCandidateNodes(snap, m.DRADriver, resourceName, want)
 		if len(nodes) == 0 {
 			// 이중 광고로 전멸한 경우까지 NoCandidateNodes 로 말하면 거짓말이다 — 그 노드는 장치를 내는 중이다
-			// (rngd-1 이 draDevices 1개를 내는 중에 이 메시지를 받은 사례가 있다). 사용자는 멀쩡한 DRA 드라이버를
+			// (<rngd-node> 이 draDevices 1개를 내는 중에 이 메시지를 받은 사례가 있다). 사용자는 멀쩡한 DRA 드라이버를
 			// 다시 깔러 가고, 진짜 고칠 곳(그 노드의 device-plugin 광고)은 그대로 남는다. 이 사유만은 이미 쌓인
 			// NoCandidateNodes 를 덮는다 — 첫 매치 유지가 원칙이지만, 노드 이름·충돌 리소스·할 일을 다 가진
 			// 쪽이 더 구체적이다. 다른 구체적 사유(DRADriverMissing 등)는 덮지 않는다 — 그쪽도 이미 고칠 곳을 지목한다.

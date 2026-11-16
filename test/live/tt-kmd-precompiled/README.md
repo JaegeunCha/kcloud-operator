@@ -1,6 +1,6 @@
-<!-- README.md: k8s-worker3 tt-kmd 사전 컴파일 이미지 왕복(2.11.0→2.8.0→2.11.0) 실행·복구 절차 | 생성일: 2026-09-22 | 수정일: 2026-10-11 -->
+<!-- README.md: <tenstorrent-node> tt-kmd 사전 컴파일 이미지 왕복(2.11.0→2.8.0→2.11.0) 실행·복구 절차 | 생성일: 2026-09-22 | 수정일: 2026-10-11 -->
 
-# Tenstorrent tt-kmd 사전 컴파일 이미지 왕복 (k8s-worker3)
+# Tenstorrent tt-kmd 사전 컴파일 이미지 왕복 (<tenstorrent-node>)
 
 ## 왜
 
@@ -12,7 +12,7 @@
 사전 빌드된 모듈을 적재하며, 로그에 `prebuilt module for <kernel> installed (dkms skipped)` 줄을
 남긴다.
 
-`run.sh` 는 k8s-worker3 에서 2.11.0 → 2.8.0 → 2.11.0 왕복을 실행한다. 두 전이 모두 사전 컴파일
+`run.sh` 는 <tenstorrent-node> 에서 2.11.0 → 2.8.0 → 2.11.0 왕복을 실행한다. 두 전이 모두 사전 컴파일
 이미지로 설치되는지(resolvedImage·Job 이미지·`dkms skipped` 로그), 버전이 실제로 바뀌는지(NDR
 driverVersion·`/sys/module/tenstorrent/version`·tt-smi probe)를 확인한 뒤, 사용자 값을 기준선으로
 되돌려 tenstorrent 오버레이와 지표 스위치를 제거한다. 왕복은 승인된 작업이다.
@@ -21,8 +21,8 @@ driverVersion·`/sys/module/tenstorrent/version`·tt-smi probe)를 확인한 뒤
 
 - 오퍼레이터 v0.7.53 이 라이브(helm 릴리스 `kcloud-operator`, 네임스페이스 `kcloud`).
   `kernelImages` 렌더링과 preflight resolvedImage 설정 코드가 이 이미지에 포함돼 있어야 한다.
-- k8s-worker3: 커널 `5.15.0-190-generic`(kernelAllowlist `5.15.*`·`6.8.*` 안), tt-kmd 2.11.0 로드,
-  DUS `k8s-worker3-tenstorrent` Idle/2.11.0, tenstorrent 자원을 요청하는 파드 0, Secure Boot 비활성.
+- <tenstorrent-node>: 커널 `5.15.0-190-generic`(kernelAllowlist `5.15.*`·`6.8.*` 안), tt-kmd 2.11.0 로드,
+  DUS `<tenstorrent-node>` Idle/2.11.0, tenstorrent 자원을 요청하는 파드 0, Secure Boot 비활성.
 - 레지스트리에 사전 컴파일 이미지 두 개 존재:
   `<레지스트리>:5100/kcloud/tenstorrent-driver-ds:2.8.0-k5.15.0-190-generic-v1`,
   `…:2.11.0-k5.15.0-190-generic-v1`.
@@ -31,7 +31,7 @@ driverVersion·`/sys/module/tenstorrent/version`·tt-smi probe)를 확인한 뒤
   캡처한다. 이 캡처값은 이전 버전의 DKMS 태그다(`resolvedImage` 에서 커널 토큰을 떼고 `-vN` 만 남긴
   재구성). 캡처값이 없으면 `driver.image` 에서 같은 방식으로 재구성하므로 롤백은 거부되지 않는다. 사전
   컴파일 설치라도 롤백 대상은 노드 DKMS 빌드라 헤더·컴파일러가 필요하다.
-- 실행 호스트에 `helm` v4, `kubectl`, `python3`(PyYAML), k8s-worker3 로의 SSH(`ssh <노드 IP>`),
+- 실행 호스트에 `helm` v4, `kubectl`, `python3`(PyYAML), <tenstorrent-node> 로의 SSH(`ssh <노드 IP>`),
   레지스트리 조회 수단(`skopeo` 또는 `sudo -n docker manifest inspect --insecure`)이 있어야 한다.
 
 ## 사용법
@@ -80,7 +80,7 @@ bash "$S" restore
 ## 각 페이즈가 기록하는 것
 
 - **preflight**: context 도달, Ready 노드 수(기대 5), DUS Idle/2.11.0, helm 리비전·배포 이미지 태그,
-  k8s-worker3 의 tenstorrent 자원 요청 파드 수(기대 0), 사전 컴파일 이미지 두 개 존재, 노드 커널·
+  <tenstorrent-node> 의 tenstorrent 자원 요청 파드 수(기대 0), 사전 컴파일 이미지 두 개 존재, 노드 커널·
   `/sys/module/tenstorrent/version`·Secure Boot 상태, 배포 전 helm values 를
   `$OUT/values-baseline.yaml` 로 저장(restore 기준). 하나라도 어긋나면 BLOCKED 로 종료한다.
   Secure Boot 가 enabled 면 왕복을 HARDWARE 사유로 BLOCKED 처리한다.
@@ -102,7 +102,7 @@ bash "$S" restore
 종료와 별개로 상태를 지켜봐야 한다.
 
 1. **DUS 상태를 읽는다.** `bash test/live/tt-kmd-precompiled/run.sh status` 또는
-   `kubectl --context kubernetes-admin@cluster.local get dus k8s-worker3-tenstorrent -o yaml` 로
+   `kubectl --context kubernetes-admin@cluster.local get dus <tenstorrent-node> -o yaml` 로
    `status.state`·`currentVersion`·`previousImage`·`resolvedImage`·`message` 를 확인한다.
    `Idle/2.8.0` 또는 `Idle/2.11.0` 이면 전이 자체는 끝난 것이므로 어느 버전에 앉았는지만 기록한다.
 2. **자동 롤백을 관측한다.** 검증이 실패하면 상태기계가 `previousImage`(캡처된 직전 이미지)로 롤백
@@ -117,19 +117,19 @@ bash "$S" restore
      --set driverInstallPolicies.tenstorrent.driver.tag=2.11.0-v1 \
      --set driverInstallPolicies.tenstorrent.driver.allowDowngrade=true \
      --set driverInstallPolicies.tenstorrent.upgradePolicy.autoUpgrade=true
-   kubectl --context kubernetes-admin@cluster.local delete dus k8s-worker3-tenstorrent
+   kubectl --context kubernetes-admin@cluster.local delete dus <tenstorrent-node>
    ```
    DUS 를 지우면 `ensureUpgradeStates` 가 NDR 기준으로 Idle 상태를 재생성한다. NDR 이
    `driverLoaded=false` 면 self-heal 분기가 install Job 을 자동 실행한다. 사전 컴파일 경로로
    되돌리려면 위 `--set` 대신 `run.sh transition` 이 쓰는 kernelImages 오버레이를 다시 적용한다.
 4. **`rmmod` 가 계속 실패(refcount)** 하면 tt device-plugin 파드를 삭제하고 재시도한다. 그래도 안
-   되면 노드를 재부팅한다. k8s-worker3 재부팅은 승인 범위다:
+   되면 노드를 재부팅한다. <tenstorrent-node> 재부팅은 승인 범위다:
    ```bash
-   kubectl --context kubernetes-admin@cluster.local cordon k8s-worker3
+   kubectl --context kubernetes-admin@cluster.local cordon <tenstorrent-node>
    ssh <노드 IP> sudo reboot
    ```
    재부팅 후 노드가 Ready 로 복귀하면 uncordon 하고 self-heal 을 기다린다. 재부팅은 복구 절차의
-   마지막 수단이며 k8s-worker3 에만 쓴다. **다른 노드는 재부팅하지 않는다.**
+   마지막 수단이며 <tenstorrent-node> 에만 쓴다. **다른 노드는 재부팅하지 않는다.**
 5. **helm 값 기준선 복구.** 왕복 오버레이(tenstorrent·metrics)를 사용자 값에서 완전히 제거하려면
    `restore` 를 실행한다:
    ```bash
@@ -142,7 +142,7 @@ bash "$S" restore
 
 ## 한계
 
-- 노드 하나(k8s-worker3), 커널 하나(`5.15.0-190-generic`)의 왕복이다. 다른 커널의 kernelImages
+- 노드 하나(<tenstorrent-node>), 커널 하나(`5.15.0-190-generic`)의 왕복이다. 다른 커널의 kernelImages
   매칭은 이 실행에서 검증되지 않는다.
 - 자동 롤백 경로는 검증이 실패했을 때만 실제로 관측된다. 성공 왕복에서는 관측되지 않는다.
 - preflight 의 파드 검사는 `containers` 만 센다. `initContainers` 로 tenstorrent 자원을 요청하는

@@ -11,7 +11,7 @@ import (
 	"kcloud-operator/internal/operation"
 )
 
-// TestPlanMapsReasonToOperation 는 계약 §9.7 표대로 원인이 작업 타입으로 옮겨지는지 본다.
+// TestPlanMapsReasonToOperation 는 대응표대로 원인이 작업 타입으로 옮겨지는지 본다.
 func TestPlanMapsReasonToOperation(t *testing.T) {
 	now := time.Now()
 	cases := map[string]operation.Type{
@@ -54,7 +54,7 @@ func TestPlanSeparatesNodesAndReasons(t *testing.T) {
 	}
 }
 
-// TestNoOperationForObservationStale 는 관측이 끊긴 것만으로 복구를 만들지 않는지 본다(계약 §10.3).
+// TestNoOperationForObservationStale 는 관측이 끊긴 것만으로 복구를 만들지 않는지 본다.
 func TestNoOperationForObservationStale(t *testing.T) {
 	got := PlanRecovery("worker1", ReasonObservationStale, nil, time.Now(), DefaultPolicy())
 	if got.Create {

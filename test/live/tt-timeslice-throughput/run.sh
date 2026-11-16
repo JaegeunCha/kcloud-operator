@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# run.sh: Tenstorrent Blackhole SW 시분할 실 워크로드 처리량 라이브 하네스(k8s-worker3)
+# run.sh: Tenstorrent Blackhole SW 시분할 실 워크로드 처리량 라이브 하네스(<tenstorrent-node>)
 # 상세: NPUClusterPolicy 를 끄고 descriptor 적용→측정(solo→co-run→solo)→판정→정리 순서로
 #       돈다(판정 기준·배리어는 README 참고). 자체 descriptor·ConfigMap·파드·tenstorrent.enabled 만 변경한다.
 # 생성일: 2026-09-22 | 수정일: 2026-10-11

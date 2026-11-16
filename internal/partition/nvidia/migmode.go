@@ -1,5 +1,5 @@
 // ============================================================
-// migmode.go: MIG mode enable 단계 렌더 + reboot 필요 판정 (R&D v1.0 §13.1, parity 격차 ②)
+// migmode.go: MIG mode enable 단계 렌더 + reboot 필요 판정 (, parity 격차 ②)
 // 상세: Ampere(A30)는 -mig 1 이 pending 으로만 반영되고 재부팅으로 확정된다. enable 은 "명령
 // 실행 + pending 확인 + reboot + 재관측"의 4박자이며, 판정은 전부 fail-closed 다.
 // 생성일: 2026-07-29 | 수정일: 2026-10-11

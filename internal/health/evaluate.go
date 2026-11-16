@@ -1,5 +1,5 @@
 // ============================================================
-// evaluate.go: health 신호 판정과 상태 분류 (R&D base v0.1 §9.2/§9.3)
+// evaluate.go: health 신호 판정과 상태 분류
 // 상세: 클러스터를 읽지 않는 순수 함수다. 수집은 collect.go, 기록은 컨트롤러가 한다.
 //
 //	판정 우선순위가 규칙의 전부다 — 여러 신호가 동시에 깨지면 가장 보수적인 결론을 낸다.
@@ -93,7 +93,7 @@ func Evaluate(in Inputs, p EffectivePolicy) Result {
 
 	if p.Enabled(SignalNDRFreshness) && !fresh(in.NDRObservedAt, in.Now, p.NDRFreshness) {
 		record(SignalNDRFreshness, "", false, staleMessage(in.NDRObservedAt, in.Now))
-		// 관측이 끊긴 상태에서 파괴적 복구를 만들지 않는다(계약 §10.3).
+		// 관측이 끊긴 상태에서 파괴적 복구를 만들지 않는다.
 		return finish(StateUnknown, ReasonObservationStale, sigs, false)
 	}
 	record(SignalNDRFreshness, "", true, "")
@@ -207,7 +207,7 @@ func shortfalls(expected, actual map[string]int32) []string {
 	return out
 }
 
-// AllowedTransition 은 상태 전이가 허용되는지다(R&D base v0.1 §9.2).
+// AllowedTransition 은 상태 전이가 허용되는지다.
 //
 // 격리만 특별하다: 격리에서 나가는 길은 복구 중(Recovering) 하나뿐이다. 신호가 좋아졌다는 이유로
 // 격리가 자동으로 풀리면, 복구가 반복 실패해 격리한 노드가 관측이 잠깐 좋아진 순간마다 다시

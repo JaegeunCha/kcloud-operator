@@ -1,9 +1,9 @@
-<!-- README.md: k8s-worker1 NVIDIA 잔재 패키지 제거 하네스 사용법 | 생성일: 2026-09-28 | 수정일: 2026-10-11 -->
-# k8s-worker1 NVIDIA 잔재 패키지 제거
+<!-- README.md: <nvidia-node> NVIDIA 잔재 패키지 제거 하네스 사용법 | 생성일: 2026-09-28 | 수정일: 2026-10-11 -->
+# <nvidia-node> NVIDIA 잔재 패키지 제거
 
 ## 왜
 
-k8s-worker1 에 남은 세 패키지는 실행 중 드라이버와 무관해 해롭지 않다고 판단됐고, 제거는
+<nvidia-node> 에 남은 세 패키지는 실행 중 드라이버와 무관해 해롭지 않다고 판단됐고, 제거는
 재부팅 예산이 있는 별도 정비로 미뤄 둔 상태였다. 이번은 그 별도 정비를 사용자가 직접
 지시한 실행이다 — 판단을 뒤집는 것이 아니라, 판단 뒤 미뤄둔 제거를 이제 한다.
 
@@ -23,15 +23,15 @@ k8s-worker1 에 남은 세 패키지는 실행 중 드라이버와 무관해 해
 2. 쓰기: `sudo apt-get remove -y nvidia-firmware-580-580.178.04
    nvidia-firmware-595-595.91.07 nvidia-kernel-source-580` **정확히 이 세 이름**.
    `autoremove`·`purge`·다른 패키지 제거·드라이버 재설치는 하지 않는다.
-3. 복구 수단(필요할 때만): 관리 노드(k8s-worker1 포함) 무승인 재부팅 1회. 그 밖의
+3. 복구 수단(필요할 때만): 관리 노드(<nvidia-node> 포함) 무승인 재부팅 1회. 그 밖의
    드라이버 재설치·`apt install`은 하지 않는다 — 사후 게이트가 실패하면 멈추고
    컨트롤러에 보고한다(이 하네스가 스스로 재부팅하거나 재설치하지 않는다).
-4. 노드 대상은 `kubectl get node k8s-worker1 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}'`
+4. 노드 대상은 `kubectl get node <nvidia-node> -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}'`
    로만 구한다. 시범서비스 배포 노드는 접촉 경로 자체가 없다.
 
 ## 안전 게이트
 
-1. **`nvidia.com/gpu` 를 requests 나 limits 에 담은 파드가 k8s-worker1 에 0 개**여야
+1. **`nvidia.com/gpu` 를 requests 나 limits 에 담은 파드가 <nvidia-node> 에 0 개**여야
    한다(uid 중복 제거). 0 이 아니면 `safety_gate` 가 그 목록을 stderr 에 찍고 중단한다.
    `do_remove`·`precheck`·`quiesce`·`main` 이 이 게이트를 통과 뒤에만 진행한다.
 2. **시뮬레이션 게이트**: `sudo apt-get -s remove <세 이름>` 출력의 `Remv ` 줄이 정확히
@@ -42,7 +42,7 @@ k8s-worker1 에 남은 세 패키지는 실행 중 드라이버와 무관해 해
 3. **사후 게이트**(`wait-postchecks`, 최대 `POSTCHECK_TIMEOUT`초 폴링, 기본 300 = 5분):
    여섯 조건이 전부 맞아야 통과다 — 로드된 모듈 버전이 여전히 `580.126.09`, `nvidia-smi -L`
    이 A30·A2 두 장치를 보임, `NodeDeviceReport` 의 nvidia 항목이 모두 `driverLoaded=true`,
-   `AcceleratorHealth` 가 `Healthy`, `DriverUpgradeState k8s-worker1-nvidia` 가 `Idle`,
+   `AcceleratorHealth` 가 `Healthy`, `DriverUpgradeState <nvidia-node>-nvidia` 가 `Idle`,
    `allocatable nvidia.com/gpu`=2. 하나라도 시간 안에 맞지 않으면 마지막 관측값을 기록하고
    멈춘다 — 이 하네스는 그 경우에도 재부팅이나 재설치를 스스로 하지 않는다.
 
@@ -72,7 +72,7 @@ RUN_DIR=test/live/nvidia-residue-packages/runs/<RUN_ID>-nvidia PHASE=verdict bas
 
 인자를 받지 않는다 — 전부 환경변수로 지정한다. `RUN_ID`(기본 UTC 타임스탬프)·
 `POSTCHECK_TIMEOUT`(기본 300)·`EXPECTED_VERSION`(기본 580.126.09)·`NODE`(기본
-k8s-worker1)는 환경변수로 덮을 수 있다. 제거 대상 세 패키지 이름은 환경변수로 덮지
+<nvidia-node>)는 환경변수로 덮을 수 있다. 제거 대상 세 패키지 이름은 환경변수로 덮지
 않는다 — 그 목록 자체가 게이트의 기준이다.
 
 **`PHASE=quiesce` 를 단독으로 돌렸으면 반드시 `PHASE=unquiesce` 로 되돌린다.** 정상

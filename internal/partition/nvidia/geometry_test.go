@@ -17,7 +17,7 @@ func eq(a, b []string) bool {
 	return true
 }
 
-// 모델 B: preflight current==Enabled(사전조건), -mig 전환 없음, GI 생성.
+// preflight current==Enabled(사전조건), -mig 전환 없음, GI 생성.
 func TestBuildApplySteps_PreEnabledNoModeSwitch(t *testing.T) {
 	steps := BuildApplySteps([]GeometrySpec{{GPUSelector: "00000000:18:00.0", ProfileName: "1g.6gb", Count: 4}})
 	var preEnabledOK, cgiOK, sawMigSwitch bool
@@ -37,7 +37,7 @@ func TestBuildApplySteps_PreEnabledNoModeSwitch(t *testing.T) {
 		t.Fatalf("preflight(current==Enabled)+cgi(name) 필요: pre=%v cgi=%v", preEnabledOK, cgiOK)
 	}
 	if sawMigSwitch {
-		t.Fatal("모델 B 는 mode 전환(-mig)을 하지 않아야 함")
+		t.Fatal("apply 는 mode 전환(-mig)을 하지 않아야 함")
 	}
 }
 
@@ -57,7 +57,7 @@ func TestBuildDisableSteps_KeepsModeEnabled(t *testing.T) {
 		t.Fatal("disable 은 GI 제거(-dgi)를 포함해야 함")
 	}
 	if sawMigSwitch {
-		t.Fatal("모델 B 는 mode 를 끄지 않아야 함(-mig 0 금지)")
+		t.Fatal("rollback 은 mode 를 끄지 않아야 함(-mig 0 금지)")
 	}
 	last := steps[len(steps)-1]
 	// 되돌리기가 mode 를 끄지는 않지만, RestoreMode 삭제 경로는 mode 를 먼저 끄고 이 시퀀스를

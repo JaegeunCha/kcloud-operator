@@ -1,6 +1,6 @@
 // ============================================================
 // acceleratorclass_types.go: AcceleratorClass CRD 타입 (추상 사용자 API)
-// 상세: R&D v1.0 §10.5. 사용자가 장치를 모르고 쓰는 등급 선언 — 요구사항(격리/메모리)과 벤더별
+// 상세: 사용자가 장치를 모르고 쓰는 등급 선언 — 요구사항(격리/메모리)과 벤더별
 // native profile 매핑만 담는다. 컨트롤러·status 없음(매칭 결과는 AcceleratorWorkload.status).
 // 생성일: 2026-07-29 | 수정일: 2026-10-11
 // ============================================================
@@ -14,7 +14,7 @@ import (
 // AcceleratorRequirements 는 장치가 만족해야 할 최소 조건이다.
 // 빈 값은 "요구 없음" 이고, 값이 있는데 장치 쪽 근거가 없으면 거절한다(fail closed).
 type AcceleratorRequirements struct {
-	// MinimumIsolation 은 최소 격리 등급이다(R&D v1.0 §19.1). 실측 근거가 없는 장치는
+	// MinimumIsolation 은 최소 격리 등급이다. 실측 근거가 없는 장치는
 	// IsolationCapability 가 빈 문자열이며, 그런 장치는 이 요구를 만족하지 않는 것으로 본다.
 	// +kubebuilder:validation:Enum=none;process;subdevice;device;hardware
 	// +optional

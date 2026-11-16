@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# run.sh: Rebellions ATOM descriptor SW 시분할 라이브 데모(node5) — 유휴 재실측 판정의 공유 경로 확인
+# run.sh: Rebellions ATOM descriptor SW 시분할 라이브 데모(<rebellions-node>) — 유휴 재실측 판정의 공유 경로 확인
 # 상세: NPUClusterPolicy 를 끄고 descriptor 적용→소비자 2개 적용→판정→복원 순서로 돈다(trap 으로
 #       실패·중단 시에도 복원). 자체 descriptor·소비자 파드·NCP 의 rebellions.enabled 필드만 변경한다.
 # 생성일: 2026-09-22 | 수정일: 2026-10-11

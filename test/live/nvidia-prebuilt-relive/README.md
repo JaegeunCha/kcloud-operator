@@ -1,12 +1,12 @@
-<!-- README.md: k8s-worker1 NVIDIA 사전 컴파일 라이브 재확인 하네스 사용법 | 생성일: 2026-09-28 |
+<!-- README.md: <nvidia-node> NVIDIA 사전 컴파일 라이브 재확인 하네스 사용법 | 생성일: 2026-09-28 |
      수정일: 2026-10-11 -->
-# k8s-worker1 NVIDIA 사전 컴파일 라이브 재확인
+# <nvidia-node> NVIDIA 사전 컴파일 라이브 재확인
 
 ## 왜
 
 images 저장소의 사전 컴파일 정합성 가드는 더 이상 `apt-cache madison` 아카이브 조회를 쓰지
 않는다 — 그 조회를 제거한 뒤 다시 빌드한 이미지로 빈 노드 전이를 돌려 확인해야 한다.
-k8s-worker1 에 떠 있던 `-v2` 이미지는 그 제거보다 먼저 빌드돼, 지금 라이브에 있는 것은
+<nvidia-node> 에 떠 있던 `-v2` 이미지는 그 제거보다 먼저 빌드돼, 지금 라이브에 있는 것은
 제거 이전 버전이다. 이 하네스는 제거를 담은 새 이미지(`-v3`, 이 하네스 밖에서
 `make build-precompiled`로 미리 빌드·push)를 DIP 에 등록하고, 9개 패키지 제거+재부팅으로
 노드를 빈 상태로 만든 뒤 operator 자기복구 설치 Job 을 관찰해 그 재확인을 한다.
@@ -16,19 +16,19 @@ k8s-worker1 에 떠 있던 `-v2` 이미지는 그 제거보다 먼저 빌드돼,
 1. 읽기: `kubectl get`(DIP·DUS·node·pods·acceleratorhealth), `dpkg -l`, GRUB 설정 조회,
    `cat /sys/module/nvidia/version`, `kubectl logs`.
 2. 쓰기: DIP `nvidia-gpu-ds` 의 `spec.driver.kernelImages["5.15.0-171-generic"]` patch,
-   `kubectl cordon`/`uncordon k8s-worker1`, `sudo apt-get remove -y` **정확히 이 9개
+   `kubectl cordon`/`uncordon <nvidia-node>`, `sudo apt-get remove -y` **정확히 이 9개
    패키지**(`PACKAGES` 배열, 순서·이름 고정), `sudo reboot`(관리 노드 무승인).
    `autoremove`·`purge`·다른 패키지 제거·수동 dpkg/apt 재설치는 하지 않는다.
 3. 복구 수단(실패했을 때만): `PHASE=rollback-dip` 으로 DIP 를 이전 값(`-v2`)으로 되돌리고
    operator 자기복구가 다시 돌 때까지 기다린다(30분). 그래도 안 되면 수동 정리 절차를
    컨트롤러 승인 하에 각 명령 전 보고하며 따른다 — 이 하네스가 스스로 하지 않는다.
-4. 노드 대상은 `kubectl get node k8s-worker1 -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}'`
+4. 노드 대상은 `kubectl get node <nvidia-node> -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}'`
    로만 구한다. 시범서비스 배포 노드는 접촉 경로 자체가 없다.
-   k8s-worker1 밖의 어떤 노드에도 접촉하지 않는다.
+   <nvidia-node> 밖의 어떤 노드에도 접촉하지 않는다.
 
 ## 안전 게이트
 
-- **`nvidia.com/gpu` 를 requests 나 limits 에 담은 파드가 k8s-worker1 에 0 개**여야
+- **`nvidia.com/gpu` 를 requests 나 limits 에 담은 파드가 <nvidia-node> 에 0 개**여야
   한다(uid 중복 제거). `precheck`·`quiesce`·`empty_node`·`reboot_recover`·`main`
   전부 이 게이트를 통과한 뒤에만 진행한다.
 - **GRUB 확인**(게이트는 아니고 기록): `precheck` 가 `GRUB_DEFAULT`·`saved_entry` 가
@@ -135,7 +135,7 @@ RUN_DIR=test/live/nvidia-prebuilt-relive/runs/<RUN_ID>-nvidia PHASE=verdict bash
 
 ## 이 하네스가 하지 않는 것
 
-- k8s-worker1 밖의 어떤 노드에도 접촉하지 않는다.
+- <nvidia-node> 밖의 어떤 노드에도 접촉하지 않는다.
 - 9개 패키지 밖의 어떤 패키지도 제거하지 않는다(`autoremove`·`purge` 포함).
 - 실패 시 스스로 수동 dpkg/apt 재설치를 하지 않는다 — 기록하고 멈춘다.
   `PHASE=rollback-dip` 으로 DIP 만 되돌리고, 그 이상은 컨트롤러 승인 뒤 사람이 판단한다.

@@ -12,7 +12,7 @@ Rebellions DRA 경로(kubelet plugin `rbln-k8s-dra-driver`)는 벤더 결함으�
 CrashLoopBackOff 에 빠진다. 결과적으로 `ResourceSlice` 가 발행되지 않는다.
 
 이 결함의 분석과 수정안(PR 초안 포함)은 이 체크아웃 밖의 미추적 디렉터리
-`rebellions-dra-fix-20260917/`(`PR-draft-ko.md`, 커밋 `fb7cdc0`, node5 라이브 검증 기록 포함)에
+`rebellions-dra-fix-20260917/`(`PR-draft-ko.md`, 커밋 `fb7cdc0`, <rebellions-node> 라이브 검증 기록 포함)에
 있다. 그 수정은 kcloud 내부에서 만든 것이라 upstream 에는 아직 없다 — 벤더가 릴리스해야
 `main`(kcloud-operator)이 그 이미지를 받아 쓸 수 있다. 이 디렉터리는 **벤더가 upstream 에
 그 수정을 반영했는지 주기적으로 재확인**하는 읽기 전용 스크립트를 담는다. 코드 수정이 아니라
@@ -40,7 +40,7 @@ CrashLoopBackOff 에 빠진다. 결과적으로 `ResourceSlice` 가 발행되지
 # 무엇을 조회할지만 보기(네트워크 호출 없음)
 DRY_RUN=1 test/live/rebellions-dra-recheck/run.sh
 
-# 실제 확인(읽기 전용 — GitHub API/raw 조회만, 클러스터·node5 접근 없음)
+# 실제 확인(읽기 전용 — GitHub API/raw 조회만, 클러스터·<rebellions-node> 접근 없음)
 test/live/rebellions-dra-recheck/run.sh
 
 # evidence 위치 바꾸기(기본 /tmp/rebellions-dra-recheck-evidence)
@@ -48,7 +48,7 @@ OUT=/path/to/dir test/live/rebellions-dra-recheck/run.sh
 ```
 
 한 실행에 GitHub 호출은 최대 3회(`releases/latest`, 최신 태그의 raw 파일, `main` 의 raw
-파일)뿐이다. `kubectl` 은 전혀 쓰지 않는다 — node5 는 `atomplus-vllm.service` 가 ATOM
+파일)뿐이다. `kubectl` 은 전혀 쓰지 않는다 — <rebellions-node> 는 `atomplus-vllm.service` 가 ATOM
 장치를 점유하므로 이 스크립트는 장치를 열거나 클러스터 상태를 건드리지 않는다.
 
 `$OUT` 아래에 매 실행마다 원본 API 응답(`release-latest.json`)과 두 브랜치의 `cdi.go`
@@ -63,13 +63,13 @@ OUT=/path/to/dir test/live/rebellions-dra-recheck/run.sh
    반영된 벤더 릴리스 태그로 갱신한다(현재 `v0.2.0` 고정, 미반영 상태 기준).
 2. images 저장소(`images/kcloud-operator-images/generic-dra-driver`)에서 그 벤더 이미지를
    감싸는 미러가 있다면 재빌드한다.
-3. node5 의 외부 서비스 `atomplus-vllm.service` 가 ATOM 2장을 **놓아준 구간**을 확인한
+3. <rebellions-node> 의 외부 서비스 `atomplus-vllm.service` 가 ATOM 2장을 **놓아준 구간**을 확인한
    뒤에만, 그리고 **사용자 승인 하에**, `rebellions.dra.enabled=true` 로 helm upgrade 해
    kubelet plugin 을 재배포한다.
-4. kubelet plugin 파드가 `1/1 Running` 이고 `ResourceSlice`(`node5-npu.rebellions.ai`)가
+4. kubelet plugin 파드가 `1/1 Running` 이고 `ResourceSlice`(`<rebellions-node>-npu.rebellions.ai`)가
    발행되는지로 DRA 광고 스위치를 라이브 검증한다(`PR-draft-ko.md` 의 커밋 `fb7cdc0` 라이브
    검증과 같은 관측 대상).
-5. 검증 후 node5 는 외부 서비스가 상시 점유하는 노드이므로 기본은 원복
+5. 검증 후 <rebellions-node> 는 외부 서비스가 상시 점유하는 노드이므로 기본은 원복
    (`rebellions.dra.enabled=false`)한다.
 
 **미반영(verdict=BLOCKED, reason=not_reflected)** — 지금 확인된 분기. 벤더 릴리스 일정에

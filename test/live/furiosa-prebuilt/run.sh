@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# run.sh: rngd-1 Furiosa RNGD 사전 컴파일 이미지 같은 버전 왕복(2026.3.1) 실행·관측
+# run.sh: <rngd-node> Furiosa RNGD 사전 컴파일 이미지 같은 버전 왕복(2026.3.1) 실행·관측
 # 상세: DIP 에 kernelImages·drainEnabled=false 를 주입하고(차트가 furiosa kernelImages 를
 #       렌더하지 않아 helm 오버레이 불가), 참조 카운트를 0 으로 만든 뒤 rmmod 로 self-heal
 #       install Job 을 유도해 전이·이미지·로그·종료 코드를 확인한다(단계별 근거는
@@ -141,7 +141,7 @@ dip_restore_baseline() {
 
 # 긴급 복구(transition 실패 시 EXIT 트랩이 호출). best-effort, 실패해도 계속.
 # 핵심 안전: 모듈이 내려가 있으면 drainEnabled=true 로 되돌리기 전에 반드시 먼저 재적재한다.
-# 그러지 않으면 self-heal 이 drainEnabled=true 로 rngd-1 을 drain 해 무관한 워크로드를 evict 한다.
+# 그러지 않으면 self-heal 이 drainEnabled=true 로 <rngd-node> 을 drain 해 무관한 워크로드를 evict 한다.
 emergency_restore() {
   log "긴급 복구: 모듈 재적재 → uncordon → DIP 원복 → 테스트 파드 재생성"
   if ! nssh 'test -e /sys/module/furiosa_rngd' 2>/dev/null; then

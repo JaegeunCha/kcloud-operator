@@ -1,5 +1,5 @@
 // ============================================================
-// participant.go: 작업 본체 계약 (R&D base v0.1 §12.1)
+// participant.go: 작업 본체 계약
 // 상세: Coordinator 는 허가·저널·펜싱만 책임지고, 실제 mutation 은 participant 가 한다. 구현은
 // internal/controller 에 산다 — 이 패키지는 controller/partition 을 import 하지 않기 때문이다(verification 은 예외).
 // 생성일: 2026-08-01 | 수정일: 2026-10-11

@@ -13,8 +13,8 @@ tenstorrent·rebellions 는 ACPP(AcceleratorPartitionPolicy)가 없는 벤더다
 (`internal/controller/acceleratordescriptor_controller.go` 의 `verifyResolvedDevices`). 이 디렉터리는
 그 연결을 라이브에서 켜는 절차와, 자동화한 `run.sh` 를 담는다.
 
-rebellions 도 같은 코드 경로를 그대로 타지만, 검증 노드(node5)가 외부 서비스에 점유돼 있어 이
-디렉터리의 라이브 점검은 tenstorrent(k8s-worker3)에 한정한다 — rebellions 는 코드 연결만 공유하고
+rebellions 도 같은 코드 경로를 그대로 타지만, 검증 노드(<rebellions-node>)가 외부 서비스에 점유돼 있어 이
+디렉터리의 라이브 점검은 tenstorrent(<tenstorrent-node>)에 한정한다 — rebellions 는 코드 연결만 공유하고
 별도 라이브 점검을 하지 않는다.
 
 ## 두 개의 스위치
@@ -49,7 +49,7 @@ helm upgrade kcloud-operator deploy/helm -n kcloud --reset-then-reuse-values \
   --set acpp.probeImages.tenstorrent=<레지스트리>:5100/kcloud/probe-tenstorrent:v1
 kubectl -n kcloud rollout status deploy/kcloud-operator   # env 반영 재시작 확인
 
-# 2) k8s-worker3 한정 AllocationProbe 검증 정책을 적용한다.
+# 2) <tenstorrent-node> 한정 AllocationProbe 검증 정책을 적용한다.
 kubectl apply -f test/live/descriptor-probe/avp-allocation-probe-worker3.yaml
 
 # 3) descriptor 재조정을 트리거한다 — AcceleratorVerificationPolicy 는 감시 대상이 아니므로
@@ -67,7 +67,7 @@ kubectl -n kcloud get pods -l npu.ai/acpp-verify-pod=true -w
 
 # 판정의 근거는 AcceleratorEvidence 의 checks[] 에 남는다 — AllocationProbe 항목의
 # passed/message(종료코드·마지막 로그 요약)를 본다.
-kubectl get aev k8s-worker3 -o yaml
+kubectl get aev <tenstorrent-node> -o yaml
 ```
 
 ## 원복
@@ -82,7 +82,7 @@ kubectl -n kcloud rollout status deploy/kcloud-operator
 ## run.sh
 
 위 절차(켜기 → 관찰 → 원복)를 한 번에 실행하는 스크립트다. 대상 tenstorrent descriptor 가
-클러스터에 이미 있고 `status.resolvedDevices` 가 k8s-worker3 를 포함한다고 전제한다 —
+클러스터에 이미 있고 `status.resolvedDevices` 가 <tenstorrent-node> 를 포함한다고 전제한다 —
 descriptor·소비자 파드를 새로 만들지 않는다(그 데모는 `test/live/new-vendor-by-descriptor` 쪽 몫).
 
 ```bash
@@ -90,7 +90,7 @@ DRY_RUN=1 bash test/live/descriptor-probe/run.sh   # 클러스터를 건드리�
 bash test/live/descriptor-probe/run.sh             # 실제 실행(비파괴, 끝나면 자동 원복)
 ```
 
-주요 환경변수(기본값): `NODE=k8s-worker3`, `VENDOR=tenstorrent`,
+주요 환경변수(기본값): `NODE=<tenstorrent-node>`, `VENDOR=tenstorrent`,
 `RESOURCE=tenstorrent/blackhole-p150`, `DESC_NAME=new-vendor-tt-blackhole`,
 `PROBE_IMAGE=<레지스트리>:5100/kcloud/probe-tenstorrent:v1`. 판정은 `AcceleratorEvidence` 의
 `AllocationProbe` 체크가 `exit=0` 으로 통과하는지로 낸다 — probe Pod 관찰(`-w` 대응 부분)은
@@ -102,6 +102,6 @@ Pod 가 자원 광고 0 으로 스케줄되지 못하거나 `tt-smi` 가 장치�
 
 ## noop-sample.sh
 
-`noop-sample.sh` 는 aev k8s-worker3 의 resourceVersion·observedAt 을 15초 간격 6회 표본 떠
+`noop-sample.sh` 는 aev <tenstorrent-node> 의 resourceVersion·observedAt 을 15초 간격 6회 표본 떠
 no-op 쓰기 게이트가 재조정에도 값을 그대로 두는지 확인하는 별도 스크립트다(3번째 표본 뒤 descriptor
 annotate 로 재조정 1회 강제).

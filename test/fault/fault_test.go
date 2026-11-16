@@ -1,8 +1,8 @@
 // ============================================================
-// fault_test.go: 공통 장애 지점 F01~F12 주입 (R&D base v0.1 §15.1)
+// fault_test.go: 공통 장애 지점 F01~F12 주입
 // 상세: 각 스펙은 장애 하나를 주입하고 기대 동작이 실제로 나오는지 본다. 결과는 report 에 쌓여
 //
-//	사내 판정표 트리가 있으면 거기에 기록된다. 통과하지 못한 항목은 그대로 남긴다.
+//	내부 판정표 트리가 있으면 거기에 기록된다. 통과하지 못한 항목은 그대로 남긴다.
 //
 // 생성일: 2026-08-04 | 수정일: 2026-10-11
 // ============================================================
@@ -406,7 +406,7 @@ var _ = Describe("F12 실제 조각 수와 광고 수 불일치", func() {
 
 		plan := health.PlanRecovery("f12-node", res.Reason, nil, now, health.DefaultPolicy())
 		Expect(plan.Create).To(BeTrue(), "복구가 요청되지 않았다")
-		Expect(plan.Type).To(Equal(operation.Revalidate), "먼저 재검증을 요청해야 한다(§9.7)")
+		Expect(plan.Type).To(Equal(operation.Revalidate), "먼저 재검증을 요청해야 한다")
 
 		// 배치 판정도 같은 결론이어야 한다 — 상태만 적고 배치가 그대로면 차단이 아니다.
 		snap := intent.ApplyHealth(

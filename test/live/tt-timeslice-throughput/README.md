@@ -2,7 +2,7 @@
 
 # Tenstorrent 시분할 실 워크로드 처리량 하네스
 
-k8s-worker3 의 Tenstorrent Blackhole p150 한 장을 operator 의 descriptor 공유 경로로
+<tenstorrent-node> 의 Tenstorrent Blackhole p150 한 장을 operator 의 descriptor 공유 경로로
 SW 시분할(replicas 2)했을 때, 실제 워크로드 처리량이 어떻게 나뉘는지 라이브로 측정한다.
 장치를 혼자 쓰는 solo 처리량과, 파드 두 개가 같은 장치를 동시에 쓰는 co-run 처리량을
 비교해 시분할이 처리량을 직렬화(각 파드 약 0.5배)하는지 확인한다.
@@ -20,7 +20,7 @@ SW 시분할(replicas 2)했을 때, 실제 워크로드 처리량이 어떻게 �
 `run.sh` 는 다음을 차례로 수행한다.
 
 1. preflight: NPUClusterPolicy 존재와 `tenstorrent.enabled=true`, hugepages-1Gi 광고를 확인한다.
-2. prepull: 파생 이미지를 타이밍 전에 k8s-worker3 에 미리 내려받는다.
+2. prepull: 파생 이미지를 타이밍 전에 <tenstorrent-node> 에 미리 내려받는다.
 3. setup: `tenstorrent.enabled=false` 로 벤더 device-plugin 을 회수하고, `workload.py` 를 담은
    ConfigMap 을 만들고, descriptor 를 적용해 `tenstorrent/blackhole-p150` 이 2개로 광고되기를
    기다린다.
@@ -49,7 +49,7 @@ SW 시분할(replicas 2)했을 때, 실제 워크로드 처리량이 어떻게 �
 ## 실행
 
 ```bash
-# 라이브 실행(기본값: k8s-worker3, 60초, kubernetes-admin@cluster.local 컨텍스트)
+# 라이브 실행(기본값: <tenstorrent-node>, 60초, kubernetes-admin@cluster.local 컨텍스트)
 bash test/live/tt-timeslice-throughput/run.sh
 
 # 명령만 확인(클러스터 미접근)
@@ -128,4 +128,4 @@ DURATION=60 IMAGE="$LOCAL:$TAG-torch" bash test/live/tt-timeslice-throughput/run
   `tenstorrent.enabled` 필드만 변경한다. DriverInstallPolicy·DriverUpgradeState·Helm 값·다른
   노드에는 손대지 않고 재부팅·펌웨어 변경도 하지 않는다.
 - 전환 동안 tenstorrent device-plugin 이 잠시 내려갔다 복원되므로, tenstorrent 장치를 쓰는
-  워크로드가 없는 검증 노드(k8s-worker3)에서만 실행한다.
+  워크로드가 없는 검증 노드(<tenstorrent-node>)에서만 실행한다.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# run.sh: NVIDIA ACPP 시분할 적용·해제로 kcloud_acpp_apply_total 라이브 표본을 남긴다(k8s-worker1)
+# run.sh: NVIDIA ACPP 시분할 적용·해제로 kcloud_acpp_apply_total 라이브 표본을 남긴다(<nvidia-node>)
 # 상세: acpp-timesliced.yaml 을 적용해 result="ready", 같은 객체를 exclusive 로 patch 해
 #       result="disabled" 를 kcloud_acpp_apply_total{vendor="nvidia",...} 로 찍는다.
 #       port-forward+curl 로 스크레이프하며, 지표 엔드포인트는 helm upgrade 로 켰다가 끝에

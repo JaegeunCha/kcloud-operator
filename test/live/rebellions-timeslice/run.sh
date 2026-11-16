@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ============================================================
-# run.sh: Rebellions ATOM SW 시분할 실 워크로드 동시 실행 라이브 하네스(node5)
+# run.sh: Rebellions ATOM SW 시분할 실 워크로드 동시 실행 라이브 하네스(<rebellions-node>)
 # 상세: descriptor 적용→실측(host 원격 프로세스 또는 pods)→판정→정리 순서로 돈다(모드·판정
-#       기준은 README 참고). 자체 descriptor 와 node5 의 atomplus-vllm.service 만 건드린다.
+#       기준은 README 참고). 자체 descriptor 와 <rebellions-node> 의 atomplus-vllm.service 만 건드린다.
 # 생성일: 2026-09-25 | 수정일: 2026-10-11
 # ============================================================
 set -euo pipefail
@@ -216,7 +216,7 @@ restore_vendor() {
   fi
 }
 
-# ── measure: node5 에서 두 프로세스를 같은 장치에 고정해 실측 ─────────────────
+# ── measure: <rebellions-node> 에서 두 프로세스를 같은 장치에 고정해 실측 ─────────────────
 measure() {
   if [ "$MEASURE_MODE" = "pods" ]; then measure_pods; return; fi
   PHASE="measure"
@@ -305,14 +305,14 @@ PY
 }
 
 # rbln_live_pid_count — stdin 의 rbln-smi 출력에서 DEVICE_ID 행 중 status 가 killed 인 죽은
-# 컨텍스트를 빼고 살아있는 서로 다른 PID 수를 센다(node5 사전 점검에서 killed 상태 컨텍스트
+# 컨텍스트를 빼고 살아있는 서로 다른 PID 수를 센다(<rebellions-node> 사전 점검에서 killed 상태 컨텍스트
 # 2개가 상시 남아 있음을 확인 — 게이트·co-run 스냅샷 둘 다 이 함수 하나로 판단해야 한다).
 rbln_live_pid_count() {
   sed 's/\x1b\[[0-9;]*m//g' | grep -E "^\| +${DEVICE_ID} +\|" | grep -iv killed \
     | grep -oE '\| +[0-9]{3,} +\|' | grep -oE '[0-9]{3,}' | sort -u | wc -l | tr -d ' '
 }
 
-# precompile_host — node5 에 사전 컴파일 모델(CACHE_PATH)을 만든다(이미 있으면 재사용). 파드 안
+# precompile_host — <rebellions-node> 에 사전 컴파일 모델(CACHE_PATH)을 만든다(이미 있으면 재사용). 파드 안
 # compile_from_torch 는 벤더가 실패 원인을 봉인해 둬 항상 실패하므로
 # 컴파일은 호스트에서 한 번 하고 파드는 RBLN_COMPILED_PATH 로 적재만 한다.
 # 이 함수는 measure_pods 의 DRY_RUN 조기 반환 뒤에서만 호출되므로 자체 DRY_RUN 분기가 없다.
@@ -332,7 +332,7 @@ precompile_host() {
 }
 
 # ── measure_pods: descriptor 가 광고한 rebellions/atom 으로 파드 3개(solo, corun-a, corun-b)를
-# node5 에 스케줄해 workload.py 를 돌린다. 장치 경합은 host 모드와 같이 /dev/rbln0+KMD 수준이다.
+# <rebellions-node> 에 스케줄해 workload.py 를 돌린다. 장치 경합은 host 모드와 같이 /dev/rbln0+KMD 수준이다.
 # 순서: 서비스 정지 → 게이트(외부 PID 0) → descriptor 재확인 → 호스트 사전 컴파일 → ConfigMap →
 # solo → co-run(같은 START_AT) → rbln-smi 스냅샷 → RESULT 수집. 서비스 복원은 cleanup 이 시작값
 # (ORIG_SERVICE_STATE) 기준으로 맡는다 — 다른 계정이 이 서비스를 운영하므로 우리가 멈춘 것만
@@ -356,7 +356,7 @@ measure_pods() {
   fi
 
   # 게이트: 장치 DEVICE_ID 에 우리 것이 아닌 살아있는 컨텍스트가 남아 있으면 측정하지 않는다
-  # (killed 상태 죽은 컨텍스트는 세지 않는다 — node5 사전 점검에서 상시 2개 확인됨).
+  # (killed 상태 죽은 컨텍스트는 세지 않는다 — <rebellions-node> 사전 점검에서 상시 2개 확인됨).
   local ext_pids
   ext_pids="$(node_ssh "rbln-smi 2>/dev/null" 2>/dev/null | rbln_live_pid_count)" || ext_pids=0
   if [ "${ext_pids:-0}" != "0" ]; then
@@ -516,7 +516,7 @@ cleanup() {
   # advertise_check 가 중단돼 벤더가 꺼진 채면 여기서 되돌린다(이중 안전).
   restore_vendor
   # node 트랩이 이미 서비스를 되살리지만, 여기서도 확인·복원한다(이중 안전). 시작값
-  # (ORIG_SERVICE_STATE)으로만 복원한다 — node5 의 이 서비스는 다른 계정이 운영하므로 우리가
+  # (ORIG_SERVICE_STATE)으로만 복원한다 — <rebellions-node> 의 이 서비스는 다른 계정이 운영하므로 우리가
   # 멈춘 것만 다시 켠다(host·pods 모드 공통). 시작값을 확보하지 못했으면(예: preflight
   # 실행 전 중단) 안전하게 active 로 간주해 기존 동작을 유지한다.
   if [ "$DRY_RUN" != "1" ]; then
